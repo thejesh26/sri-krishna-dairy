@@ -134,13 +134,6 @@ export default function PauseSubscription() {
   Back to Dashboard
 </a>
 </header>
-            <p className="text-xs text-gray-400">Manage Subscription</p>
-          </div>
-        </div>
-        <a href="/dashboard" className="border-2 border-green-600 text-green-700 font-semibold px-4 py-2 rounded-full text-sm hover:bg-green-50 transition">
-          Back to Dashboard
-        </a>
-      </header>
 
       <div className="max-w-lg mx-auto px-6 py-8">
         <h2 className="text-2xl font-extrabold text-green-800 mb-2 text-center">Manage Subscription 📅</h2>
