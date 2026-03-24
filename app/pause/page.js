@@ -138,7 +138,7 @@ export default function PauseSubscription() {
           </div>
         </div>
         <a href="/dashboard" className="border-2 border-green-600 text-green-700 font-semibold px-4 py-2 rounded-full text-sm hover:bg-green-50 transition">
-          ← Dashboard
+          Back to Dashboard
         </a>
       </header>
 

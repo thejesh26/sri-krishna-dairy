@@ -13,7 +13,7 @@ export default function Header({ title, showBack, backUrl }) {
       {showBack && (
         <Link href={backUrl || '/dashboard'}
           className="border border-[#1a5c38] text-[#1a5c38] font-semibold px-4 py-2 rounded text-sm hover:bg-[#1a5c38] hover:text-white transition">
-          ← Dashboard
+          Back to Dashboard
         </Link>
       )}
     </header>
