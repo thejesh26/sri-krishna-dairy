@@ -127,18 +127,18 @@ export default function Subscribe() {
     <div className="min-h-screen bg-green-50">
 
       {/* Header */}
-      <header className="bg-white px-6 py-4 flex items-center justify-between shadow-md">
-        <div className="flex items-center gap-3">
-          <img src="/Logo.jpg" alt="Sri Krishnaa Dairy" className="h-12 w-12 rounded-full object-cover border-2 border-yellow-400" />
-          <div>
-            <h1 className="text-lg font-extrabold text-green-800">Sri Krishnaa Dairy</h1>
-            <p className="text-xs text-gray-400">Subscribe for Daily Milk</p>
-          </div>
-        </div>
-        <a href="/dashboard" className="border-2 border-green-600 text-green-700 font-semibold px-4 py-2 rounded-full text-sm hover:bg-green-50 transition">
-          ← Dashboard
-        </a>
-      </header>
+<header className="bg-white px-6 py-4 flex items-center justify-between shadow-sm border-b border-[#e8e0d0] sticky top-0 z-50">
+  <a href="/" className="flex items-center gap-3">
+    <img src="/Logo.jpg" alt="Sri Krishnaa Dairy" className="h-12 w-12 rounded-full object-cover border-2 border-[#d4a017] shadow-sm" />
+    <div>
+      <h1 className="text-base font-bold text-[#1a5c38] font-[family-name:var(--font-playfair)]">Sri Krishnaa Dairy</h1>
+      <p className="text-xs text-[#d4a017] font-medium">Farm Fresh • Pure • Natural</p>
+    </div>
+  </a>
+  <a href="/dashboard" className="border border-[#1a5c38] text-[#1a5c38] font-semibold px-4 py-2 rounded text-sm hover:bg-[#1a5c38] hover:text-white transition">
+    Back to Dashboard
+  </a>
+</header>
 
       <div className="max-w-lg mx-auto px-6 py-8">
         <h2 className="text-2xl font-extrabold text-green-800 mb-2 text-center">Milk Subscription 📅</h2>
