@@ -130,10 +130,9 @@ export default function PauseSubscription() {
       <p className="text-xs text-[#d4a017] font-medium">Farm Fresh • Pure • Natural</p>
     </div>
   </a>
-  <a href="/dashboard"
-    className="border border-[#1a5c38] text-[#1a5c38] font-semibold px-4 py-2 rounded text-sm hover:bg-[#1a5c38] hover:text-white transition">
-    ← Dashboard
-  </a>
+  <a href="/dashboard" className="border border-[#1a5c38] text-[#1a5c38] font-semibold px-4 py-2 rounded text-sm hover:bg-[#1a5c38] hover:text-white transition">
+  Back to Dashboard
+</a>
 </header>
             <p className="text-xs text-gray-400">Manage Subscription</p>
           </div>
