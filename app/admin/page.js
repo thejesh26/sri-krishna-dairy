@@ -11,6 +11,12 @@ export default function AdminDashboard() {
   const [subscriptions, setSubscriptions] = useState([])
   const [customers, setCustomers] = useState([])
   const [todayOrders, setTodayOrders] = useState([])
+  const [wallets, setWallets] = useState([])
+  const [selectedCustomer, setSelectedCustomer] = useState(null)
+  const [walletAmount, setWalletAmount] = useState('')
+  const [walletNote, setWalletNote] = useState('')
+  const [walletLoading, setWalletLoading] = useState(false)
+  const [walletMessage, setWalletMessage] = useState('')
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalSubscriptions: 0,
@@ -120,6 +126,11 @@ export default function AdminDashboard() {
     )
     const monthlyRevenue = monthOrders.reduce((sum, o) => sum + (o.total_price || 0), 0)
 
+    // Load all wallets
+    const { data: allWallets } = await supabase
+      .from('wallet')
+      .select('*, profiles(*)')
+      setWallets(allWallets || [])
     setStats({
       totalOrders: allOrders?.length || 0,
       totalSubscriptions: allSubs?.length || 0,
@@ -158,7 +169,7 @@ export default function AdminDashboard() {
 
       {/* Header */}
       <header className="bg-white px-6 py-4 flex items-center justify-between shadow-sm border-b border-[#e8e0d0] sticky top-0 z-50">
-        <a href="/" className="flex items-center gap-3">
+        <a href="/admin" className="flex items-center gap-3">
           <img src="/Logo.jpg" alt="Sri Krishnaa Dairy" className="h-12 w-12 rounded-full object-cover border-2 border-[#d4a017]" />
           <div>
             <h1 className="text-base font-bold text-[#1a5c38] font-[family-name:var(--font-playfair)]">Sri Krishnaa Dairy</h1>
@@ -207,11 +218,12 @@ export default function AdminDashboard() {
         {/* Tabs */}
         <div className="flex gap-2 mb-6 bg-white border border-[#e8e0d0] rounded-xl p-1 shadow-sm overflow-x-auto">
           {[
-            { id: 'overview', label: "Today's Deliveries", icon: '🚴' },
-            { id: 'orders', label: 'All Orders', icon: '📦' },
-            { id: 'subscriptions', label: 'Subscriptions', icon: '📅' },
-            { id: 'customers', label: 'Customers', icon: '👥' },
-          ].map(({ id, label, icon }) => (
+    { id: 'overview', label: "Today's Deliveries", icon: '🚴' },
+    { id: 'orders', label: 'All Orders', icon: '📦' },
+    { id: 'subscriptions', label: 'Subscriptions', icon: '📅' },
+    { id: 'customers', label: 'Customers', icon: '👥' },
+    { id: 'wallet', label: 'Wallet', icon: '💰' },
+  ].map(({ id, label, icon }) => (
             <button key={id} onClick={() => setActiveTab(id)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition whitespace-nowrap ${
                 activeTab === id
@@ -453,10 +465,176 @@ export default function AdminDashboard() {
                 ))}
               </div>
             )}
+      </div>
+    )}
+
+{/* Wallet Tab */}
+{activeTab === 'wallet' && (
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+
+    {/* Customer Wallet List */}
+    <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+      <div className="px-6 py-5 border-b border-[#f5f0e8]">
+        <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Customer Wallets</h3>
+        <p className="text-xs text-gray-400 mt-0.5">Click customer to add balance</p>
+      </div>
+      {customers.length === 0 ? (
+        <div className="px-6 py-12 text-center">
+          <p className="text-gray-400">No customers yet</p>
+        </div>
+      ) : (
+        customers.map((customer, index) => {
+          const customerWallet = wallets.find(w => w.user_id === customer.id)
+          return (
+            <div key={customer.id}
+              onClick={() => { setSelectedCustomer(customer); setWalletMessage('') }}
+              className={`px-6 py-4 flex items-center justify-between cursor-pointer transition ${
+                selectedCustomer?.id === customer.id
+                  ? 'bg-[#f0faf4] border-l-4 border-[#1a5c38]'
+                  : 'hover:bg-[#fdfbf7]'
+              } ${index !== customers.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#1a5c38] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                  {customer.full_name?.[0] || '?'}
+                </div>
+                <div>
+                  <p className="font-semibold text-[#1c1c1c] text-sm">{customer.full_name}</p>
+                  <p className="text-xs text-gray-400">{customer.phone}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="font-bold text-[#1a5c38]">Rs.{customerWallet?.balance || 0}</p>
+                <p className="text-xs text-gray-400">balance</p>
+              </div>
+            </div>
+          )
+        })
+      )}
+    </div>
+
+    {/* Add Balance Form */}
+    <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+      <div className="px-6 py-5 border-b border-[#f5f0e8]">
+        <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Add / Deduct Balance</h3>
+      </div>
+      <div className="px-6 py-5">
+        {!selectedCustomer ? (
+          <div className="text-center py-8">
+            <div className="text-4xl mb-3">👆</div>
+            <p className="text-gray-400 text-sm">Select a customer from the left to manage their wallet</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <div className="bg-[#f5f0e8] rounded-xl p-4 flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-[#1a5c38] flex items-center justify-center text-white font-bold text-lg">
+                {selectedCustomer.full_name?.[0]}
+              </div>
+              <div>
+                <p className="font-semibold text-[#1c1c1c]">{selectedCustomer.full_name}</p>
+                <p className="text-sm text-gray-400">{selectedCustomer.phone}</p>
+                <p className="text-sm font-bold text-[#1a5c38]">
+                  Current Balance: Rs.{wallets.find(w => w.user_id === selectedCustomer.id)?.balance || 0}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Amount (Rs.)</label>
+              <input type="number" placeholder="Enter amount"
+                value={walletAmount}
+                onChange={(e) => setWalletAmount(e.target.value)}
+                className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Note</label>
+              <input type="text" placeholder="Eg: Monthly recharge, Bonus credit"
+                value={walletNote}
+                onChange={(e) => setWalletNote(e.target.value)}
+                className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+            </div>
+
+            {walletMessage && (
+              <div className={`rounded-lg px-4 py-3 text-sm text-center font-medium ${
+                walletMessage.includes('Error') || walletMessage.includes('Insufficient') || walletMessage.includes('Please')
+                  ? 'bg-red-50 text-red-600 border border-red-200'
+                  : 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]'
+              }`}>
+                {walletMessage}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={async () => {
+                  if (!walletAmount || walletAmount <= 0) { setWalletMessage('Please enter a valid amount!'); return }
+                  setWalletLoading(true)
+                  setWalletMessage('')
+                  const customerWallet = wallets.find(w => w.user_id === selectedCustomer.id)
+                  const newBalance = (customerWallet?.balance || 0) + parseFloat(walletAmount)
+                  if (customerWallet) {
+                    await supabase.from('wallet').update({ balance: newBalance }).eq('user_id', selectedCustomer.id)
+                  } else {
+                    await supabase.from('wallet').insert({ user_id: selectedCustomer.id, balance: newBalance })
+                  }
+                  await supabase.from('wallet_transactions').insert({
+                    user_id: selectedCustomer.id,
+                    amount: parseFloat(walletAmount),
+                    type: 'credit',
+                    description: walletNote || 'Added by admin'
+                  })
+                  setWallets(wallets.map(w =>
+                    w.user_id === selectedCustomer.id ? { ...w, balance: newBalance } : w
+                  ))
+                  setWalletAmount('')
+                  setWalletNote('')
+                  setWalletMessage('Rs.' + walletAmount + ' added successfully!')
+                  setWalletLoading(false)
+                }}
+                disabled={walletLoading}
+                className="text-white py-3 rounded-xl font-bold hover:opacity-90 transition shadow text-sm"
+                style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
+                + Add Balance
+              </button>
+              <button
+                onClick={async () => {
+                  if (!walletAmount || walletAmount <= 0) { setWalletMessage('Please enter a valid amount!'); return }
+                  const customerWallet = wallets.find(w => w.user_id === selectedCustomer.id)
+                  if ((customerWallet?.balance || 0) < parseFloat(walletAmount)) {
+                    setWalletMessage('Insufficient balance!')
+                    return
+                  }
+                  setWalletLoading(true)
+                  setWalletMessage('')
+                  const newBalance = (customerWallet?.balance || 0) - parseFloat(walletAmount)
+                  await supabase.from('wallet').update({ balance: newBalance }).eq('user_id', selectedCustomer.id)
+                  await supabase.from('wallet_transactions').insert({
+                    user_id: selectedCustomer.id,
+                    amount: parseFloat(walletAmount),
+                    type: 'debit',
+                    description: walletNote || 'Deducted by admin'
+                  })
+                  setWallets(wallets.map(w =>
+                    w.user_id === selectedCustomer.id ? { ...w, balance: newBalance } : w
+                  ))
+                  setWalletAmount('')
+                  setWalletNote('')
+                  setWalletMessage('Rs.' + walletAmount + ' deducted successfully!')
+                  setWalletLoading(false)
+                }}
+                disabled={walletLoading}
+                className="border-2 border-red-300 text-red-500 py-3 rounded-xl font-bold hover:bg-red-50 transition text-sm">
+                - Deduct
+              </button>
+            </div>
           </div>
         )}
-
       </div>
+    </div>
+  </div>
+)}
+
+    </div>
     </div>
   )
 }
