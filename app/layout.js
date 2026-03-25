@@ -64,12 +64,26 @@ export const metadata = {
   },
 }
 
+export const viewport = {
+  themeColor: '#1a5c38',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+}
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/Logo.jpg" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="SK Dairy" />
+        <meta name="mobile-web-app-capable" content="yes" />
+      </head>
       <body className={`${playfair.variable} ${inter.variable} antialiased`}>
         {children}
       </body>
     </html>
   )
-}

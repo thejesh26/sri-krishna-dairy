@@ -1,0 +1,30 @@
+{
+  "name": "Sri Krishnaa Dairy Farms",
+  "short_name": "SK Dairy",
+  "description": "Fresh cow milk delivered to your doorstep daily",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fdfbf7",
+  "theme_color": "#1a5c38",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/Logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/Logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/Logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "form_factor": "narrow"
+    }
+  ]
+}
