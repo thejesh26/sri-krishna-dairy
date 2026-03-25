@@ -8,6 +8,7 @@ export default function Dashboard() {
   const [orders, setOrders] = useState([])
   const [subscriptions, setSubscriptions] = useState([])
   const [loading, setLoading] = useState(true)
+const [walletBalance, setWalletBalance] = useState(0)
 
   useEffect(() => { getUser() }, [])
 
@@ -30,6 +31,15 @@ export default function Dashboard() {
     const { data: subscriptions } = await supabase.from('subscriptions').select('*, products(*)')
       .eq('user_id', user.id).eq('is_active', true)
     setSubscriptions(subscriptions || [])
+
+    // Load wallet balance
+    const { data: walletData } = await supabase
+      .from('wallet')
+      .select('*')
+      .eq('user_id', user.id)
+      .limit(1)
+    setWalletBalance(walletData?.[0]?.balance || 0)
+
     setLoading(false)
   }
 
@@ -109,9 +119,9 @@ export default function Dashboard() {
               <p className="text-green-300 text-xs mt-1 uppercase tracking-widest">Per Day</p>
             </div>
             <div className="text-center cursor-pointer" onClick={() => window.location.href='/wallet'}>
-              <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#d4a017]">₹0</p>
-              <p className="text-green-300 text-xs mt-1 uppercase tracking-widest">Wallet</p>
-            </div>
+  <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#d4a017]">₹{walletBalance}</p>
+  <p className="text-green-300 text-xs mt-1 uppercase tracking-widest">Wallet</p>
+</div>
           </div>
         </div>
 
