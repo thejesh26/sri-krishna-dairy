@@ -23,6 +23,8 @@ export default function Login() {
         .from('profiles')
         .select('id')
         .eq('phone', loginInput)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .single()
 
       if (error || !data) {

@@ -57,12 +57,12 @@ export default function Dashboard() {
     <div className="min-h-screen bg-[#fdfbf7]">
 
       {/* Header */}
-      <header className="bg-white px-8 py-4 flex items-center justify-between shadow-sm border-b border-[#e8e0d0] sticky top-0 z-50">
-        <a href="/dashboard" onClick={(e) => { e.preventDefault(); window.location.href = '/' }} className="flex items-center gap-3">
-          <img src="/Logo.jpg" alt="Sri Krishnaa Dairy" className="h-12 w-12 rounded-full object-cover border-2 border-[#d4a017]" />
+      <header className="bg-white px-4 sm:px-8 py-3 flex items-center justify-between shadow-sm border-b border-[#e8e0d0] sticky top-0 z-50">
+        <a href="/dashboard" className="flex items-center gap-2">
+          <img src="/Logo.jpg" alt="Sri Krishnaa Dairy" className="h-10 w-10 sm:h-12 sm:w-12 rounded-full object-cover border-2 border-[#d4a017] flex-shrink-0" />
           <div>
-            <h1 className="text-base font-bold text-[#1a5c38] font-[family-name:var(--font-playfair)]">Sri Krishnaa Dairy</h1>
-            <p className="text-xs text-[#d4a017] font-medium">Farm Fresh - Pure - Natural</p>
+            <h1 className="text-sm sm:text-base font-bold text-[#1a5c38] font-[family-name:var(--font-playfair)] leading-tight">Sri Krishnaa Dairy</h1>
+            <p className="text-xs text-[#d4a017] font-medium hidden sm:block">Farm Fresh - Pure - Natural</p>
           </div>
         </a>
         <div className="flex items-center gap-4">
