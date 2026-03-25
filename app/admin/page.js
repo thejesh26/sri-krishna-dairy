@@ -22,14 +22,31 @@ export default function AdminDashboard() {
   useEffect(() => { checkAdmin() }, [])
 
   const checkAdmin = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-if (!user) { window.location.href = '/login'; return }
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    console.log('User:', user, 'Error:', userError)
+    
+    if (!user) { 
+      window.location.href = '/login'
+      return 
+    }
     setUser(user)
 
-    const { data: profile } = await supabase
-      .from('profiles').select('*').eq('id', user.id).single()
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+    
+    console.log('Profile:', profile, 'Error:', profileError)
 
-if (!profile?.is_admin) {
+    if (!profile) {
+      console.log('No profile found!')
+      window.location.href = '/'
+      return
+    }
+
+    if (!profile.is_admin) {
+      console.log('Not admin!')
       window.location.href = '/'
       return
     }
@@ -40,45 +57,73 @@ if (!profile?.is_admin) {
   }
 
   const loadAllData = async () => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toLocaleDateString('en-CA') // Returns YYYY-MM-DD in local timezone
 
-    // Load all orders
-    const { data: allOrders } = await supabase
-      .from('orders').select('*, products(*), profiles(*)')
+    // Load all orders with profiles
+    const { data: allOrders, error: ordersError } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        products(*),
+        profiles(*)
+      `)
       .order('created_at', { ascending: false })
+    
+    console.log('Orders:', allOrders, 'Error:', ordersError)
     setOrders(allOrders || [])
 
     // Today's orders
     const todayO = (allOrders || []).filter(o => o.delivery_date === today)
     setTodayOrders(todayO)
 
-    // Load all subscriptions
-    const { data: allSubs } = await supabase
-      .from('subscriptions').select('*, products(*), profiles(*)')
+    // Load all subscriptions with profiles
+    const { data: allSubs, error: subsError } = await supabase
+      .from('subscriptions')
+      .select(`
+        *,
+        products(*)
+      `)
       .eq('is_active', true)
       .order('created_at', { ascending: false })
+
+    // Fetch profiles separately for subscriptions
+    if (allSubs && allSubs.length > 0) {
+      const userIds = allSubs.map(s => s.user_id)
+      const { data: subProfiles } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', userIds)
+      
+      allSubs.forEach(sub => {
+        sub.profiles = subProfiles?.find(p => p.id === sub.user_id) || null
+      })
+    }
+    
+    console.log('Subs:', allSubs, 'Error:', subsError)
     setSubscriptions(allSubs || [])
 
     // Load all customers
-    const { data: allCustomers } = await supabase
-      .from('profiles').select('*')
-      .eq('is_admin', false)
+    const { data: allCustomers, error: customersError } = await supabase
+      .from('profiles')
+      .select('*')
       .order('created_at', { ascending: false })
-    setCustomers(allCustomers || [])
+    
+    console.log('Customers:', allCustomers, 'Error:', customersError)
+    setCustomers((allCustomers || []).filter(c => !c.is_admin))
 
     // Calculate stats
-    const todayRevenue = todayO.reduce((sum, o) => sum + o.total_price, 0)
+    const todayRevenue = todayO.reduce((sum, o) => sum + (o.total_price || 0), 0)
     const monthStart = new Date()
     monthStart.setDate(1)
     const monthOrders = (allOrders || []).filter(o =>
       new Date(o.created_at) >= monthStart
     )
-    const monthlyRevenue = monthOrders.reduce((sum, o) => sum + o.total_price, 0)
+    const monthlyRevenue = monthOrders.reduce((sum, o) => sum + (o.total_price || 0), 0)
 
     setStats({
       totalOrders: allOrders?.length || 0,
       totalSubscriptions: allSubs?.length || 0,
-      totalCustomers: allCustomers?.length || 0,
+      totalCustomers: (allCustomers || []).filter(c => !c.is_admin).length,
       todayRevenue,
       monthlyRevenue,
     })

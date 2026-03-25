@@ -71,7 +71,21 @@ export default function Order() {
       return
     }
 
-    const { error } = await supabase.from('orders').insert({
+    // Check if order already exists for this date
+const { data: existingOrder } = await supabase
+  .from('orders')
+  .select('id')
+  .eq('user_id', user.id)
+  .eq('delivery_date', deliveryDate)
+  .single()
+
+if (existingOrder) {
+  setMessage('You already have an order for this date! Please choose a different date.')
+  setLoading(false)
+  return
+}
+
+const { error } = await supabase.from('orders').insert({
       user_id: user.id,
       product_id: selectedProduct.id,
       quantity,
@@ -87,7 +101,7 @@ export default function Order() {
     if (error) {
       setMessage('❌ ' + error.message)
     } else {
-      setMessage('✅ Order placed! We will deliver on ' + new Date(deliveryDate).toLocaleDateString('en-IN'))
+      window.location.href = '/confirmation?type=order'
       setQuantity(1)
       setDiscount(0)
       setDiscountCode('')
@@ -100,7 +114,7 @@ export default function Order() {
 
       {/* Header */}
       <header className="bg-white px-6 py-4 flex items-center justify-between shadow-sm border-b border-[#e8e0d0] sticky top-0 z-50">
-        <a href="/" className="flex items-center gap-3">
+        <a href="/dashboard" className="flex items-center gap-3">
           <img src="/Logo.jpg" alt="Sri Krishnaa Dairy" className="h-12 w-12 rounded-full object-cover border-2 border-[#d4a017] shadow-sm" />
           <div>
             <h1 className="text-base font-bold text-[#1a5c38] font-[family-name:var(--font-playfair)]">Sri Krishnaa Dairy</h1>

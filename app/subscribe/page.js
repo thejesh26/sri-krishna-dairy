@@ -95,7 +95,21 @@ export default function Subscribe() {
       return
     }
 
-    const { error } = await supabase.from('subscriptions').insert({
+// Check if active subscription already exists
+const { data: existingSub } = await supabase
+  .from('subscriptions')
+  .select('id')
+  .eq('user_id', user.id)
+  .eq('is_active', true)
+  .single()
+
+if (existingSub) {
+  setMessage('You already have an active subscription! Please manage your existing plan first.')
+  setLoading(false)
+  return
+}
+
+const { error } = await supabase.from('subscriptions').insert({
       user_id: user.id,
       product_id: selectedProduct.id,
       quantity,
@@ -112,14 +126,7 @@ export default function Subscribe() {
     if (error) {
       setMessage('Error: ' + error.message)
     } else {
-      setMessage(
-        subscriptionType === 'oneday'
-          ? 'One day delivery booked for ' + new Date(startDate).toLocaleDateString('en-IN')
-          : subscriptionType === 'fixed'
-            ? 'Subscription activated from ' + new Date(startDate).toLocaleDateString('en-IN') + ' to ' + new Date(endDate).toLocaleDateString('en-IN')
-            : 'Ongoing subscription activated from ' + new Date(startDate).toLocaleDateString('en-IN')
-      )
-      setTimeout(() => { window.location.href = '/dashboard' }, 2500)
+      window.location.href = '/confirmation?type=subscription'
     }
     setLoading(false)
   }
@@ -129,7 +136,7 @@ export default function Subscribe() {
 
       {/* Header */}
       <header className="bg-white px-6 py-4 flex items-center justify-between shadow-sm border-b border-[#e8e0d0] sticky top-0 z-50">
-        <a href="/" className="flex items-center gap-3">
+        <a href="/dashboard" className="flex items-center gap-3">
           <img src="/Logo.jpg" alt="Sri Krishnaa Dairy" className="h-12 w-12 rounded-full object-cover border-2 border-[#d4a017] shadow-sm" />
           <div>
             <h1 className="text-base font-bold text-[#1a5c38] font-[family-name:var(--font-playfair)]">Sri Krishnaa Dairy</h1>
