@@ -128,9 +128,9 @@ export default function AdminDashboard() {
 
     // Load all wallets
     const { data: allWallets } = await supabase
-      .from('wallet')
-      .select('*, profiles(*)')
-      setWallets(allWallets || [])
+  .from('wallet')
+  .select('*')
+setWallets(allWallets || [])
     setStats({
       totalOrders: allOrders?.length || 0,
       totalSubscriptions: allSubs?.length || 0,
@@ -572,20 +572,29 @@ export default function AdminDashboard() {
                   setWalletMessage('')
                   const customerWallet = wallets.find(w => w.user_id === selectedCustomer.id)
                   const newBalance = (customerWallet?.balance || 0) + parseFloat(walletAmount)
+
                   if (customerWallet) {
                     await supabase.from('wallet').update({ balance: newBalance }).eq('user_id', selectedCustomer.id)
                   } else {
                     await supabase.from('wallet').insert({ user_id: selectedCustomer.id, balance: newBalance })
                   }
+
                   await supabase.from('wallet_transactions').insert({
                     user_id: selectedCustomer.id,
                     amount: parseFloat(walletAmount),
                     type: 'credit',
                     description: walletNote || 'Added by admin'
                   })
-                  setWallets(wallets.map(w =>
-                    w.user_id === selectedCustomer.id ? { ...w, balance: newBalance } : w
-                  ))
+                  
+                  // Reload wallets fresh from database
+const { data: freshWallets } = await supabase
+  .from('wallet')
+  .select('*')
+setWallets(freshWallets || [])
+setWalletAmount('')
+setWalletNote('')
+setWalletMessage('Rs.' + walletAmount + ' added successfully!')
+setWalletLoading(false)
                   setWalletAmount('')
                   setWalletNote('')
                   setWalletMessage('Rs.' + walletAmount + ' added successfully!')
@@ -614,13 +623,15 @@ export default function AdminDashboard() {
                     type: 'debit',
                     description: walletNote || 'Deducted by admin'
                   })
-                  setWallets(wallets.map(w =>
-                    w.user_id === selectedCustomer.id ? { ...w, balance: newBalance } : w
-                  ))
-                  setWalletAmount('')
-                  setWalletNote('')
-                  setWalletMessage('Rs.' + walletAmount + ' deducted successfully!')
-                  setWalletLoading(false)
+                  // Reload wallets fresh from database
+const { data: freshWallets } = await supabase
+  .from('wallet')
+  .select('*')
+setWallets(freshWallets || [])
+setWalletAmount('')
+setWalletNote('')
+setWalletMessage('Rs.' + walletAmount + ' deducted successfully!')
+setWalletLoading(false)
                 }}
                 disabled={walletLoading}
                 className="border-2 border-red-300 text-red-500 py-3 rounded-xl font-bold hover:bg-red-50 transition text-sm">
