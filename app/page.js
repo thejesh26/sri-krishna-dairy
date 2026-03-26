@@ -254,53 +254,113 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FAQ */}
-      <section className="bg-[#f5f0e8] px-6 py-20">
-        <div className="max-w-3xl mx-auto">
-          <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">Got Questions?</p>
-          <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-12">Frequently Asked Questions</h3>
-          <div className="flex flex-col gap-4">
-            {[
-              {
-                q: 'Where do you deliver?',
-                a: 'We deliver to homes, apartments, gated communities, and housing societies in and around Kattigenahalli, Bangalore. We also accept bulk orders for schools, hotels, resorts, offices and other institutions — on separate bulk delivery timings. Contact us for bulk enquiries.'
-              },
-              {
-                q: 'What time is milk delivered?',
-                a: 'Morning slot: 5AM – 8AM. Evening slot: 5PM – 7PM. We always aim to deliver within your chosen slot. Bulk institutional orders may have different delivery timings.'
-              },
-              {
-                q: 'Can I pause my subscription?',
-                a: 'Yes! You can pause delivery for any specific date directly from your dashboard, at least 12 hours in advance. You can also resume anytime.'
-              },
-              {
-                q: 'What is the bottle deposit?',
-                a: 'We charge ₹100 per bottle as a refundable security deposit. Minimum deposit is ₹200 (for 2 bottles). The full deposit is refunded when bottles are returned in good condition. Alternatively, choose our Direct Delivery option where our delivery person collects the bottle immediately — no deposit needed.'
-              },
-              {
-                q: 'How do I pay?',
-                a: 'For one-time orders: Cash on Delivery (COD) — pay when you receive your milk. For subscriptions: Prepaid payment — pay in advance weekly or monthly and enjoy uninterrupted daily delivery without any hassle.'
-              },
-              {
-                q: 'Is the milk pasteurized?',
-                a: 'Our milk is farm-fresh and pure, delivered straight from our farm. We follow strict hygiene and quality standards at every step of the process to ensure you receive the safest, freshest milk possible.'
-              },
-              {
-                q: 'Do you take bulk orders?',
-                a: 'Yes! We supply bulk milk to schools, hotels, resorts, hostels, canteens and other institutions. Bulk orders have special pricing and dedicated delivery timings. Please contact us on WhatsApp or call us for bulk order enquiries.'
-              },
-            ].map(({ q, a }) => (
-              <div key={q} className="bg-white border border-[#e8e0d0] rounded-lg p-5">
-                <p className="font-semibold text-[#1c1c1c] mb-2 font-[family-name:var(--font-playfair)]">Q: {q}</p>
-                <p className="text-gray-500 text-sm leading-relaxed">A: {a}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Bulk Orders */}
+<section className="px-6 py-20 bg-[#f5f0e8]">
+  <div className="max-w-4xl mx-auto">
+    <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">Large Quantity?</p>
+    <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-5">
+      Bulk Milk Orders
+    </h3>
+    <p className="text-center text-gray-500 mb-10 max-w-2xl mx-auto">
+      We supply fresh pure cow milk in bulk to institutions across Kattigenahalli and nearby areas in Bangalore. Special pricing and dedicated delivery timings available.
+    </p>
 
+    {/* Who we serve */}
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10">
+      {[
+        { icon: '🏫', title: 'Schools', desc: 'Daily morning supply' },
+        { icon: '🏨', title: 'Hotels & Resorts', desc: 'Fresh daily delivery' },
+        { icon: '🏥', title: 'Hospitals & Clinics', desc: 'Reliable supply' },
+        { icon: '🏢', title: 'Offices & Corporates', desc: 'Bulk subscription' },
+        { icon: '🏠', title: 'Hostels & PGs', desc: 'Daily delivery' },
+        { icon: '🍽️', title: 'Restaurants & Cafes', desc: 'Fresh every morning' },
+      ].map(({ icon, title, desc }) => (
+        <div key={title} className="bg-white border border-[#e8e0d0] rounded-xl p-5 text-center hover:shadow-md transition">
+          <div className="text-4xl mb-3">{icon}</div>
+          <p className="font-semibold text-[#1c1c1c]">{title}</p>
+          <p className="text-xs text-gray-400 mt-1">{desc}</p>
+        </div>
+      ))}
+    </div>
+
+    {/* Benefits */}
+    <div className="bg-white border border-[#e8e0d0] rounded-2xl p-8 mb-8">
+      <h4 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c] mb-6 text-center">
+        Why Choose Us for Bulk Orders?
+      </h4>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
+        {[
+          { icon: '💰', title: 'Special Pricing', desc: 'Discounted rates for bulk orders — the more you order, the more you save' },
+          { icon: '🚴', title: 'Dedicated Delivery', desc: 'Separate delivery timings for bulk orders — no delay to your operations' },
+          { icon: '📞', title: 'Account Manager', desc: 'Dedicated point of contact for all your bulk order needs' },
+        ].map(({ icon, title, desc }) => (
+          <div key={title}>
+            <div className="text-4xl mb-3">{icon}</div>
+            <p className="font-semibold text-[#1c1c1c] mb-2">{title}</p>
+            <p className="text-sm text-gray-400">{desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* CTA */}
+    <div className="text-center">
+      <p className="text-gray-500 text-sm mb-6">
+        Interested in bulk orders? Contact us for a custom quote!
+      </p>
+      <div className="flex justify-center gap-4 flex-wrap">
+        <a href="https://wa.me/918553666002?text=Hi, I am interested in bulk milk orders for my institution"
+          target="_blank"
+          className="flex items-center gap-2 text-white px-8 py-3 rounded-lg font-bold hover:opacity-90 transition shadow"
+          style={{background:'#25D366'}}>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-5 h-5" fill="white">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+          </svg>
+          WhatsApp for Bulk Orders
+        </a>
+        <a href="tel:8553666002"
+          className="flex items-center gap-2 border-2 border-[#1a5c38] text-[#1a5c38] px-8 py-3 rounded-lg font-bold hover:bg-[#1a5c38] hover:text-white transition">
+          📞 Call Us
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{/* FAQ */}
+<section className="bg-white px-6 py-20">
+  <div className="max-w-3xl mx-auto">
+    <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">Got Questions?</p>
+    <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-12">Frequently Asked Questions</h3>
+    <div className="flex flex-col gap-3">
+      {[
+        { q: 'Where do you deliver?', a: 'We deliver to homes, apartments, gated communities, and housing societies in and around Kattigenahalli, Bangalore. We also accept bulk orders for schools, hotels, resorts, offices and other institutions — on separate bulk delivery timings. Contact us for bulk enquiries.' },
+        { q: 'What time is milk delivered?', a: 'Morning slot: 5AM – 8AM. Evening slot: 5PM – 7PM. We always aim to deliver within your chosen slot. Bulk institutional orders may have different delivery timings.' },
+        { q: 'Can I pause my subscription?', a: 'Yes! You can pause delivery for any specific date directly from your dashboard, at least 12 hours in advance. You can also resume anytime.' },
+        { q: 'What is the bottle deposit?', a: 'We charge ₹100 per bottle as a refundable security deposit. Minimum deposit is ₹200 (for 2 bottles). The full deposit is refunded when bottles are returned in good condition. Alternatively, choose our Direct Delivery option where our delivery person collects the bottle immediately — no deposit needed.' },
+        { q: 'How do I pay?', a: 'For one-time orders: Cash on Delivery (COD) — pay when you receive your milk. For subscriptions: Prepaid payment — pay in advance weekly or monthly and enjoy uninterrupted daily delivery without any hassle.' },
+        { q: 'Is the milk pasteurized?', a: 'Our milk is farm-fresh and pure, delivered straight from our farm. We follow strict hygiene and quality standards at every step of the process to ensure you receive the safest, freshest milk possible.' },
+        { q: 'Do you take bulk orders?', a: 'Yes! We supply bulk milk to schools, hotels, resorts, hostels, canteens and other institutions. Bulk orders have special pricing and dedicated delivery timings. Please contact us on WhatsApp or call us for bulk order enquiries.' },
+        { q: 'How do I install this as an app on my phone?', a: 'On iPhone: Open the website in Safari, tap the Share button (box with arrow) at the bottom, then tap "Add to Home Screen". On Android: Open in Chrome, tap the 3 dots menu, then tap "Add to Home Screen". The app icon will appear on your home screen!' },
+        { q: 'Do I need to download an app from Play Store?', a: 'No! Our website works like an app directly from your browser. Just add it to your home screen and it opens instantly like a native app — no Play Store download needed!' },
+      ].map(({ q, a }, index) => (
+        <details key={q} className="bg-[#fdfbf7] border border-[#e8e0d0] rounded-xl overflow-hidden group">
+          <summary className="px-5 py-4 cursor-pointer flex items-center justify-between font-semibold text-[#1c1c1c] font-[family-name:var(--font-playfair)] list-none hover:bg-[#f5f0e8] transition">
+            <span>{q}</span>
+            <span className="text-[#d4a017] text-xl font-bold group-open:rotate-45 transition-transform duration-200 flex-shrink-0 ml-4">+</span>
+          </summary>
+          <div className="px-5 pb-4 pt-1 border-t border-[#e8e0d0]">
+            <p className="text-gray-500 text-sm leading-relaxed">{a}</p>
+          </div>
+        </details>
+      ))}
+    </div>
+  </div>
+</section>
+      
       {/* Contact */}
-      <section id="contact" className="px-6 py-20 max-w-4xl mx-auto text-center">
+<section id="contact" className="bg-[#f5f0e8] px-6 py-20">
+<div className="max-w-4xl mx-auto text-center">
         <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase mb-3">Get In Touch</p>
         <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#1c1c1c] mb-5">Contact Us</h3>
         <p className="text-gray-500 mb-10">Have questions? We're always happy to help!</p>
@@ -328,7 +388,8 @@ export default function Home() {
             <p className="text-gray-400 text-xs mt-1">Delivery: 5AM–8AM & 5PM–7PM</p>
           </div>
         </div>
-      </section>
+      </div>
+</section>
 
       {/* CTA */}
       <section className="relative overflow-hidden px-6 py-20 text-center"
