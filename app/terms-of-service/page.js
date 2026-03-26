@@ -150,13 +150,30 @@ export default function TermsOfService() {
 
           <div className="bg-white rounded-2xl border border-[#e8e0d0] shadow-sm p-7 sm:p-10">
             <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">7. Product Quality & FSSAI Compliance</h2>
-            <p className="text-[#4a4a4a] text-sm leading-relaxed">
+            <p className="text-[#4a4a4a] text-sm leading-relaxed mb-4">
               Sri Krishnaa Dairy Farms operates in compliance with FSSAI (Food Safety and Standards Authority of
-              India) regulations. Our milk is sourced directly from our cows maintained under hygienic conditions.
-              Milk quality is checked regularly. However, as a fresh, natural product with no preservatives, it
-              must be consumed or refrigerated promptly after delivery. We are not responsible for spoilage due
-              to customer handling after delivery.
+              India) regulations. Our milk is sourced directly from our cows maintained under hygienic conditions
+              at our farm in Kammasandra, Bangalore Rural. Milk quality is checked regularly. However, as a fresh,
+              natural product with no preservatives, it must be consumed or refrigerated promptly after delivery.
+              We are not responsible for spoilage due to customer handling after delivery.
             </p>
+            <p className="text-[#4a4a4a] text-sm font-semibold mb-2">Our process from farm to your door:</p>
+            <ol className="flex flex-col gap-2 text-sm text-[#4a4a4a]">
+              {[
+                'Milking — Cows milked at 4–6 AM under hygienic conditions with sanitized equipment.',
+                'Quality Check — Each batch inspected and tested before bottling.',
+                'Bottle Cleaning — Returned bottles washed with food-grade agents and sterilized.',
+                'Filling & Sealing — Measured quantities poured and sealed hygienically.',
+                'Packing — Labelled and packed in insulated bags to maintain freshness.',
+                'Route Dispatch — Delivery agents dispatched by 5 AM.',
+                'Door Delivery — Delivered to your doorstep within your chosen time slot.',
+              ].map((item, i) => (
+                <li key={i} className="flex gap-3">
+                  <span className="text-[#1a5c38] font-bold flex-shrink-0">{i + 1}.</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ol>
           </div>
 
           <div className="bg-white rounded-2xl border border-[#e8e0d0] shadow-sm p-7 sm:p-10">

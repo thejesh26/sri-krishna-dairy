@@ -73,7 +73,38 @@ export default function HealthDisclaimer() {
           </div>
 
           <div className="bg-white rounded-2xl border border-[#e8e0d0] shadow-sm p-7 sm:p-10">
-            <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">2. Benefits of Fresh Milk</h2>
+            <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">2. Our Milk Journey: From Farm to Your Door</h2>
+            <p className="text-[#4a4a4a] text-sm leading-relaxed mb-5">
+              Every bottle goes through the following steps before reaching you, ensuring hygiene and freshness at each stage:
+            </p>
+            <div className="flex flex-col gap-0">
+              {[
+                { icon: '🐄', step: '01', title: 'Milking', desc: 'Cows are milked between 4–6 AM under hygienic conditions. Equipment is cleaned and sanitized before and after each milking session.' },
+                { icon: '🧪', step: '02', title: 'Quality Check', desc: 'Each batch is visually inspected and tested for freshness, fat content, and purity before being approved for bottling.' },
+                { icon: '🫧', step: '03', title: 'Bottle Cleaning', desc: 'All returned bottles are collected, thoroughly washed with food-grade cleaning agents, rinsed with clean water, and sterilized before reuse.' },
+                { icon: '🥛', step: '04', title: 'Filling & Sealing', desc: 'Milk is measured into correct quantities and poured into sterilized bottles, which are then hygienically sealed to prevent contamination.' },
+                { icon: '📦', step: '05', title: 'Packing', desc: 'Bottles are labelled with the date and customer details, then packed in insulated bags to maintain low temperature during transit.' },
+                { icon: '🛵', step: '06', title: 'Route Dispatch', desc: 'Delivery agents are dispatched by 5 AM with pre-planned routes. Each agent carries orders for their assigned delivery zone.' },
+                { icon: '🏠', step: '07', title: 'Door Delivery', desc: 'Milk arrives at your doorstep within your chosen slot — 5–8 AM for morning or 5–7 PM for evening. Same-day fresh, never stored overnight.' },
+              ].map(({ icon, step, title, desc }, i, arr) => (
+                <div key={step} className="flex items-start gap-4">
+                  <div className="flex flex-col items-center flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-[#f0faf4] border-2 border-[#1a5c38] flex items-center justify-center text-lg">
+                      {icon}
+                    </div>
+                    {i < arr.length - 1 && <div className="w-0.5 h-8 bg-[#c8e6d4] my-1" />}
+                  </div>
+                  <div className="pb-3 pt-1">
+                    <p className="font-semibold text-[#1c1c1c] text-sm">{step}. {title}</p>
+                    <p className="text-xs text-[#4a4a4a] mt-1 leading-relaxed">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-[#e8e0d0] shadow-sm p-7 sm:p-10">
+            <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">3. Benefits of Fresh Milk</h2>
             <p className="text-[#4a4a4a] text-sm leading-relaxed mb-4">
               Many customers choose fresh farm milk for the following reasons:
             </p>
@@ -98,7 +129,7 @@ export default function HealthDisclaimer() {
           </div>
 
           <div className="bg-white rounded-2xl border border-[#e8e0d0] shadow-sm p-7 sm:p-10">
-            <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">3. Risks of Fresh Milk Consumption</h2>
+            <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">4. Risks of Fresh Milk Consumption</h2>
             <p className="text-[#4a4a4a] text-sm leading-relaxed mb-4">
               Fresh milk that has not been pasteurized may carry a higher risk of containing harmful bacteria
               such as <em>Salmonella</em>, <em>E. coli</em>, <em>Listeria</em>, or <em>Campylobacter</em> compared to
@@ -122,7 +153,7 @@ export default function HealthDisclaimer() {
           </div>
 
           <div className="bg-white rounded-2xl border border-[#e8e0d0] shadow-sm p-7 sm:p-10">
-            <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">4. Who Should Be Cautious</h2>
+            <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">5. Who Should Be Cautious</h2>
             <p className="text-[#4a4a4a] text-sm leading-relaxed mb-4">
               We recommend extra caution for the following groups. Please consult a qualified healthcare
               professional before consuming our milk:
@@ -147,7 +178,7 @@ export default function HealthDisclaimer() {
           </div>
 
           <div className="bg-white rounded-2xl border border-[#e8e0d0] shadow-sm p-7 sm:p-10">
-            <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">5. Safe Handling Guidelines</h2>
+            <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">6. Safe Handling Guidelines</h2>
             <ul className="flex flex-col gap-3 text-sm text-[#4a4a4a]">
               {[
                 'Refrigerate milk immediately upon delivery. Do not leave it at room temperature for more than 2 hours.',
@@ -166,7 +197,7 @@ export default function HealthDisclaimer() {
           </div>
 
           <div className="bg-white rounded-2xl border border-[#e8e0d0] shadow-sm p-7 sm:p-10">
-            <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">6. FSSAI Compliance</h2>
+            <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">7. FSSAI Compliance</h2>
             <p className="text-[#4a4a4a] text-sm leading-relaxed">
               Sri Krishnaa Dairy Farms operates in accordance with the guidelines of the <span className="font-semibold text-[#1c1c1c]">Food Safety and
               Standards Authority of India (FSSAI)</span>. Our farm and milk handling processes adhere to applicable
@@ -177,7 +208,7 @@ export default function HealthDisclaimer() {
           </div>
 
           <div className="bg-white rounded-2xl border border-[#e8e0d0] shadow-sm p-7 sm:p-10">
-            <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">7. Limitation of Liability</h2>
+            <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">8. Limitation of Liability</h2>
             <p className="text-[#4a4a4a] text-sm leading-relaxed">
               Sri Krishnaa Dairy Farms shall not be held liable for any adverse health effects, illness, or
               injury arising from the consumption of our products when they have been delivered in proper
@@ -188,7 +219,7 @@ export default function HealthDisclaimer() {
           </div>
 
           <div className="bg-white rounded-2xl border border-[#e8e0d0] shadow-sm p-7 sm:p-10">
-            <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">8. Report a Quality Concern</h2>
+            <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">9. Report a Quality Concern</h2>
             <p className="text-[#4a4a4a] text-sm leading-relaxed mb-4">
               If you receive milk that appears spoiled or abnormal, or if you experience any adverse reaction
               after consumption, please contact us immediately:

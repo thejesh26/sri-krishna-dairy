@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { supabase } from '../lib/supabase'
 
 export default function Order() {
@@ -15,6 +16,7 @@ export default function Order() {
   const [discount, setDiscount] = useState(0)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
 
   const BOTTLE_DEPOSIT = 100
 
@@ -64,6 +66,12 @@ export default function Order() {
     e.preventDefault()
     setLoading(true)
     setMessage('')
+
+    if (!agreedToTerms) {
+      setMessage('❌ Please accept the terms and conditions to proceed.')
+      setLoading(false)
+      return
+    }
 
     if (!isValidBooking()) {
       setMessage('❌ Please book at least 12 hours in advance!')
@@ -269,6 +277,33 @@ const { error } = await supabase.from('orders').insert({
             </div>
           </div>
 
+          {/* Our Milk Journey */}
+          <div className="bg-white rounded-lg p-5 shadow-sm border border-[#e8e0d0]">
+            <p className="text-sm font-bold text-[#1c1c1c] mb-1">🐄 From Farm to Your Door</p>
+            <p className="text-xs text-gray-400 mb-4">How your milk travels before reaching you</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
+              {[
+                { icon: '🐄', title: 'Milking', desc: 'Cows milked hygienically at 4–6 AM' },
+                { icon: '🧪', title: 'Quality Check', desc: 'Tested for freshness, purity & fat content' },
+                { icon: '🫧', title: 'Bottle Cleaning', desc: 'Returned bottles washed, sanitized & sterilized' },
+                { icon: '🥛', title: 'Filling & Sealing', desc: 'Measured & hygienically sealed in bottles' },
+                { icon: '📦', title: 'Packing', desc: 'Labelled & packed in insulated delivery bags' },
+                { icon: '🛵', title: 'Route Dispatch', desc: 'Delivery agents dispatched by 5 AM' },
+                { icon: '🏠', title: 'Door Delivery', desc: 'Fresh at your doorstep by your chosen slot' },
+              ].map(({ icon, title, desc }) => (
+                <div key={title} className="flex items-start gap-3 mb-3">
+                  <div className="w-8 h-8 rounded-full bg-[#f0faf4] border-2 border-[#c8e6d4] flex items-center justify-center text-sm flex-shrink-0">
+                    {icon}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-[#1c1c1c] text-xs">{title}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Order Summary */}
           <div className="rounded-lg p-5 shadow-lg text-white"
             style={{background:'linear-gradient(135deg, #0d3320 0%, #1a5c38 100%)'}}>
@@ -311,8 +346,28 @@ const { error } = await supabase.from('orders').insert({
             </div>
           )}
 
-          <button type="submit" disabled={loading || !selectedProduct}
-            className="text-white py-4 rounded-lg font-bold text-lg transition shadow-lg"
+          {/* Disclaimer */}
+          <div className="bg-[#fdfbf7] border border-[#e8e0d0] rounded-lg p-5">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                className="mt-0.5 w-4 h-4 flex-shrink-0 accent-[#1a5c38] cursor-pointer"
+              />
+              <span className="text-xs text-[#4a4a4a] leading-relaxed">
+                I have read and agree to the{' '}
+                <Link href="/terms-of-service" target="_blank" className="text-[#1a5c38] font-semibold underline">Terms of Service</Link>,{' '}
+                <Link href="/privacy-policy" target="_blank" className="text-[#1a5c38] font-semibold underline">Privacy Policy</Link>,{' '}
+                <Link href="/refund-policy" target="_blank" className="text-[#1a5c38] font-semibold underline">Refund Policy</Link>, and{' '}
+                <Link href="/health-disclaimer" target="_blank" className="text-[#1a5c38] font-semibold underline">Health Disclaimer</Link>.
+                I understand this milk is fresh and minimally processed, and I accept the bottle deposit and order cancellation terms.
+              </span>
+            </label>
+          </div>
+
+          <button type="submit" disabled={loading || !selectedProduct || !agreedToTerms}
+            className="text-white py-4 rounded-lg font-bold text-lg transition shadow-lg disabled:opacity-50"
             style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
             {loading ? 'Placing Order...' : '🥛 Place Order (COD)'}
           </button>

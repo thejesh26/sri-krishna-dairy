@@ -275,6 +275,37 @@ const [walletBalance, setWalletBalance] = useState(0)
           )}
         </div>
 
+        {/* Our Milk Journey */}
+        <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm mb-6">
+          <div className="px-6 py-5 border-b border-[#f5f0e8]">
+            <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">🐄 From Farm to Your Door</h3>
+            <p className="text-xs text-gray-400 mt-0.5">How your milk travels before reaching you every day</p>
+          </div>
+          <div className="px-6 py-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10">
+              {[
+                { icon: '🐄', title: 'Milking', desc: 'Cows milked hygienically at 4–6 AM at our farm in Kammasandra, Bangalore Rural' },
+                { icon: '🧪', title: 'Quality Check', desc: 'Every batch tested for freshness, purity & fat content before dispatch' },
+                { icon: '🫧', title: 'Bottle Cleaning', desc: 'All returned bottles thoroughly washed, sanitized & sterilized' },
+                { icon: '🥛', title: 'Filling & Sealing', desc: 'Measured quantities hygienically filled & sealed' },
+                { icon: '📦', title: 'Packing', desc: 'Labelled & packed in insulated delivery bags to retain freshness' },
+                { icon: '🛵', title: 'Route Dispatch', desc: 'Delivery agents dispatched by 5 AM with optimized routes' },
+                { icon: '🏠', title: 'Door Delivery', desc: 'Fresh at your doorstep within your chosen morning or evening slot' },
+              ].map(({ icon, title, desc }) => (
+                <div key={title} className="flex items-start gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-[#f0faf4] border-2 border-[#c8e6d4] flex items-center justify-center text-lg flex-shrink-0">
+                    {icon}
+                  </div>
+                  <div className="pt-1">
+                    <p className="font-semibold text-[#1c1c1c] text-sm">{title}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Contact Support */}
         <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
           <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-5">Need Help?</h3>
