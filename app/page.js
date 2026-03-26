@@ -14,7 +14,6 @@ export default function Home() {
           .eq('id', user.id)
           .single()
         
-        console.log('Profile:', JSON.stringify(profile))
         if (profile?.is_admin) {
           window.location.href = '/admin'
         } else if (profile?.is_delivery) {

@@ -19,6 +19,8 @@ const [assigningOrder, setAssigningOrder] = useState(null)
   const [walletNote, setWalletNote] = useState('')
   const [walletLoading, setWalletLoading] = useState(false)
   const [walletMessage, setWalletMessage] = useState('')
+  const [deductionLoading, setDeductionLoading] = useState(false)
+  const [deductionResult, setDeductionResult] = useState(null)
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalSubscriptions: 0,
@@ -30,31 +32,25 @@ const [assigningOrder, setAssigningOrder] = useState(null)
   useEffect(() => { checkAdmin() }, [])
 
   const checkAdmin = async () => {
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    console.log('User:', user, 'Error:', userError)
-    
-    if (!user) { 
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
       window.location.href = '/login'
       return 
     }
     setUser(user)
 
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .single()
-    
-    console.log('Profile:', profile, 'Error:', profileError)
 
     if (!profile) {
-      console.log('No profile found!')
       window.location.href = '/'
       return
     }
 
     if (!profile.is_admin) {
-      console.log('Not admin!')
       window.location.href = '/'
       return
     }
@@ -68,7 +64,7 @@ const [assigningOrder, setAssigningOrder] = useState(null)
     const today = new Date().toLocaleDateString('en-CA') // Returns YYYY-MM-DD in local timezone
 
     // Load all orders with profiles
-    const { data: allOrders, error: ordersError } = await supabase
+    const { data: allOrders } = await supabase
       .from('orders')
       .select(`
         *,
@@ -76,8 +72,6 @@ const [assigningOrder, setAssigningOrder] = useState(null)
         profiles(*)
       `)
       .order('created_at', { ascending: false })
-    
-    console.log('Orders:', allOrders, 'Error:', ordersError)
     setOrders(allOrders || [])
 
     // Today's orders
@@ -85,7 +79,7 @@ const [assigningOrder, setAssigningOrder] = useState(null)
     setTodayOrders(todayO)
 
     // Load all subscriptions with profiles
-    const { data: allSubs, error: subsError } = await supabase
+    const { data: allSubs } = await supabase
       .from('subscriptions')
       .select(`
         *,
@@ -107,16 +101,13 @@ const [assigningOrder, setAssigningOrder] = useState(null)
       })
     }
     
-    console.log('Subs:', allSubs, 'Error:', subsError)
     setSubscriptions(allSubs || [])
 
     // Load all customers
-    const { data: allCustomers, error: customersError } = await supabase
+    const { data: allCustomers } = await supabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false })
-    
-    console.log('Customers:', allCustomers, 'Error:', customersError)
     setCustomers((allCustomers || []).filter(c => !c.is_admin))
 
     // Calculate stats
@@ -140,6 +131,85 @@ setWallets(allWallets || [])
       todayRevenue,
       monthlyRevenue,
     })
+  }
+
+  const runDailyDeductions = async () => {
+    setDeductionLoading(true)
+    setDeductionResult(null)
+
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+
+    const { data: activeSubs } = await supabase
+      .from('subscriptions')
+      .select('*, products(*)')
+      .eq('is_active', true)
+      .lte('start_date', today)
+      .or(`end_date.is.null,end_date.gte.${today}`)
+
+    const eligible = (activeSubs || []).filter(sub =>
+      sub.products && !(sub.paused_dates || []).includes(today)
+    )
+
+    let deducted = 0
+    let skipped = 0
+    const failedUsers = []
+
+    for (const sub of eligible) {
+      const dailyAmount = sub.products.price * sub.quantity
+      const description = `Daily subscription ${sub.id} [${today}]`
+
+      // Skip if already deducted today for this subscription
+      const { data: existing } = await supabase
+        .from('wallet_transactions')
+        .select('id')
+        .eq('user_id', sub.user_id)
+        .eq('description', description)
+        .limit(1)
+
+      if (existing?.length > 0) { skipped++; continue }
+
+      const { data: wallet } = await supabase
+        .from('wallet')
+        .select('id, balance')
+        .eq('user_id', sub.user_id)
+        .maybeSingle()
+
+      const balance = wallet?.balance || 0
+
+      if (balance < dailyAmount) {
+        failedUsers.push({ userId: sub.user_id, balance, required: dailyAmount })
+        continue
+      }
+
+      if (wallet) {
+        await supabase.from('wallet').update({ balance: balance - dailyAmount }).eq('user_id', sub.user_id)
+      } else {
+        await supabase.from('wallet').insert({ user_id: sub.user_id, balance: 0 - dailyAmount })
+      }
+
+      await supabase.from('wallet_transactions').insert({
+        user_id: sub.user_id,
+        amount: dailyAmount,
+        type: 'debit',
+        description,
+      })
+
+      deducted++
+    }
+
+    // Refresh wallet balances shown in the panel
+    const { data: freshWallets } = await supabase.from('wallet').select('*')
+    setWallets(freshWallets || [])
+
+    setDeductionResult({
+      date: today,
+      total: eligible.length,
+      deducted,
+      skipped,
+      failed: failedUsers.length,
+      failedUsers,
+    })
+    setDeductionLoading(false)
   }
 
   const updateOrderStatus = async (orderId, status) => {
@@ -473,6 +543,51 @@ setWallets(allWallets || [])
 
 {/* Wallet Tab */}
 {activeTab === 'wallet' && (
+  <div className="flex flex-col gap-6">
+
+  {/* Daily Auto-Deduction */}
+  <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+    <div className="px-6 py-5 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Daily Auto-Deduction</h3>
+        <p className="text-xs text-gray-400 mt-0.5">Deduct today&apos;s subscription charges from customer wallets</p>
+      </div>
+      <button
+        onClick={runDailyDeductions}
+        disabled={deductionLoading}
+        className="text-white px-5 py-2.5 rounded-xl font-bold hover:opacity-90 transition shadow text-sm disabled:opacity-60"
+        style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
+        {deductionLoading ? 'Running...' : 'Run Today\'s Deductions'}
+      </button>
+    </div>
+    {deductionResult && (
+      <div className="px-6 pb-5 border-t border-[#f5f0e8] pt-4">
+        <div className="grid grid-cols-3 gap-3 text-center mb-3">
+          <div className="bg-[#f0faf4] rounded-xl p-3">
+            <p className="text-2xl font-bold text-[#1a5c38]">{deductionResult.deducted}</p>
+            <p className="text-xs text-gray-500 mt-0.5">Deducted</p>
+          </div>
+          <div className="bg-[#fdfbf7] rounded-xl p-3">
+            <p className="text-2xl font-bold text-gray-400">{deductionResult.skipped}</p>
+            <p className="text-xs text-gray-500 mt-0.5">Already done</p>
+          </div>
+          <div className={`rounded-xl p-3 ${deductionResult.failed > 0 ? 'bg-red-50' : 'bg-[#fdfbf7]'}`}>
+            <p className={`text-2xl font-bold ${deductionResult.failed > 0 ? 'text-red-500' : 'text-gray-400'}`}>{deductionResult.failed}</p>
+            <p className="text-xs text-gray-500 mt-0.5">Low balance</p>
+          </div>
+        </div>
+        {deductionResult.failed > 0 && (
+          <p className="text-xs text-red-500 text-center mb-1">
+            {deductionResult.failed} customer{deductionResult.failed > 1 ? 's' : ''} have insufficient wallet balance — please top up their wallets.
+          </p>
+        )}
+        <p className="text-xs text-gray-400 text-center">
+          {deductionResult.date} &middot; {deductionResult.total} active subscription{deductionResult.total !== 1 ? 's' : ''}
+        </p>
+      </div>
+    )}
+  </div>
+
   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
 
     {/* Customer Wallet List */}
@@ -653,6 +768,7 @@ setWalletLoading(false)
         )}
       </div>
     </div>
+  </div>
   </div>
 )}
 
