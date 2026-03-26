@@ -1,6 +1,32 @@
+'use client'
 import Link from 'next/link'
+import { useEffect } from 'react'
+import { supabase } from './lib/supabase'
 
 export default function Home() {
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_admin, is_delivery')
+          .eq('id', user.id)
+          .single()
+        
+        console.log('Profile:', JSON.stringify(profile))
+        if (profile?.is_admin) {
+          window.location.href = '/admin'
+        } else if (profile?.is_delivery) {
+          window.location.href = '/delivery'
+        } else {
+          window.location.href = '/dashboard'
+        }
+      }
+    }
+    checkUser()
+  }, [])
+
   return (
     <div className="min-h-screen bg-[#fdfbf7] font-[family-name:var(--font-inter)]">
 
