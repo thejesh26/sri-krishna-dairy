@@ -554,9 +554,11 @@ export default function Home() {
           <div className="pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-gray-500">
             <p>© 2025 Sri Krishnaa Dairy Farms. All rights reserved.</p>
             <p className="text-gray-600">Made with ❤️ in Bangalore</p>
-            <div className="flex gap-4">
-              <a href="#" className="hover:text-gray-300 transition">Privacy Policy</a>
-              <a href="#" className="hover:text-gray-300 transition">Terms of Service</a>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link href="/privacy-policy" className="hover:text-gray-300 transition">Privacy Policy</Link>
+              <Link href="/terms-of-service" className="hover:text-gray-300 transition">Terms of Service</Link>
+              <Link href="/refund-policy" className="hover:text-gray-300 transition">Refund Policy</Link>
+              <Link href="/health-disclaimer" className="hover:text-gray-300 transition">Health Disclaimer</Link>
             </div>
           </div>
         </div>
