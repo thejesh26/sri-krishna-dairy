@@ -55,7 +55,7 @@ export default function HealthDisclaimer() {
             <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">1. Nature of Our Product</h2>
             <p className="text-[#4a4a4a] text-sm leading-relaxed mb-4">
               Sri Krishnaa Dairy Farms delivers <span className="font-semibold text-[#1c1c1c]">fresh cow milk</span> sourced
-              directly from our cows maintained in Kattigenahalli, Bangalore. Our milk is:
+              directly from our cows maintained in Kammasandra, Bangalore Rural, Bangalore. Our milk is:
             </p>
             <ul className="flex flex-col gap-3 text-sm text-[#4a4a4a]">
               {[
