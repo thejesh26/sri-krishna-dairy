@@ -11,6 +11,8 @@ export default function AdminDashboard() {
   const [subscriptions, setSubscriptions] = useState([])
   const [customers, setCustomers] = useState([])
   const [todayOrders, setTodayOrders] = useState([])
+  const [deliveryAgents, setDeliveryAgents] = useState([])
+const [assigningOrder, setAssigningOrder] = useState(null)
   const [wallets, setWallets] = useState([])
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [walletAmount, setWalletAmount] = useState('')
@@ -223,6 +225,7 @@ setWallets(allWallets || [])
     { id: 'subscriptions', label: 'Subscriptions', icon: '📅' },
     { id: 'customers', label: 'Customers', icon: '👥' },
     { id: 'wallet', label: 'Wallet', icon: '💰' },
+    { id: 'delivery', label: 'Delivery Agents', icon: '🚴' },
   ].map(({ id, label, icon }) => (
             <button key={id} onClick={() => setActiveTab(id)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition whitespace-nowrap ${
@@ -587,6 +590,14 @@ setWallets(allWallets || [])
                   })
                   
                   // Reload wallets fresh from database
+                  // Load delivery agents
+const { data: agents } = await supabase
+  .from('profiles')
+  .select('*')
+  .eq('is_delivery', true)
+setDeliveryAgents(agents || [])
+
+// First freshWallets occurrence
 const { data: freshWallets } = await supabase
   .from('wallet')
   .select('*')
@@ -642,6 +653,143 @@ setWalletLoading(false)
         )}
       </div>
     </div>
+  </div>
+)}
+
+{/* Delivery Agents Tab */}
+{activeTab === 'delivery' && (
+  <div className="flex flex-col gap-6">
+
+    {/* Delivery Agents List */}
+    <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
+      <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-4">
+        Delivery Agents
+      </h3>
+      {deliveryAgents.length === 0 ? (
+        <div className="text-center py-6">
+          <div className="text-4xl mb-3">🚴</div>
+          <p className="text-gray-400 text-sm mb-2">No delivery agents yet</p>
+          <p className="text-gray-400 text-xs">Promote a customer to delivery agent below</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {deliveryAgents.map((agent) => (
+            <div key={agent.id} className="flex items-center justify-between border border-[#e8e0d0] rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#1a5c38] flex items-center justify-center text-white font-bold">
+                  {agent.full_name?.[0]}
+                </div>
+                <div>
+                  <p className="font-semibold text-[#1c1c1c]">{agent.full_name}</p>
+                  <p className="text-sm text-gray-400">{agent.phone}</p>
+                  <p className="text-xs text-[#d4a017]">{agent.area}</p>
+                </div>
+              </div>
+              <button
+  onClick={async () => {
+    await supabase.from('profiles')
+      .update({ is_delivery: false })
+      .eq('id', agent.id)
+    setDeliveryAgents(deliveryAgents.filter(a => a.id !== agent.id))
+  }}
+  className="text-xs border border-red-300 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition font-semibold">
+  Remove
+</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+
+    {/* Assign Today's Orders */}
+    <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+      <div className="px-6 py-5 border-b border-[#f5f0e8]">
+        <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">
+          Assign Today's Orders
+        </h3>
+        <p className="text-xs text-gray-400 mt-0.5">Assign orders to delivery agents</p>
+      </div>
+      {orders.filter(o => o.delivery_date === new Date().toLocaleDateString('en-CA')).length === 0 ? (
+        <div className="px-6 py-12 text-center">
+          <div className="text-5xl mb-3">📭</div>
+          <p className="text-gray-400">No orders for today</p>
+        </div>
+      ) : (
+        <div>
+          {orders
+            .filter(o => o.delivery_date === new Date().toLocaleDateString('en-CA'))
+            .map((order, index) => (
+            <div key={order.id}
+              className={`px-6 py-4 flex items-center gap-4 ${index !== orders.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+              <div className="w-12 h-12 rounded-xl bg-[#f5f0e8] flex items-center justify-center text-2xl flex-shrink-0">🥛</div>
+              <div className="flex-1">
+                <p className="font-semibold text-[#1c1c1c]">{order.profiles?.full_name}</p>
+                <p className="text-sm text-gray-400">{order.profiles?.apartment_name}, {order.profiles?.area}</p>
+                <p className="text-xs text-gray-400">{order.products?.size} x {order.quantity} • {order.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}</p>
+              </div>
+              <div className="flex-shrink-0">
+                {deliveryAgents.length === 0 ? (
+                  <span className="text-xs text-gray-400 border border-[#e8e0d0] px-3 py-1.5 rounded-lg">No agents</span>
+                ) : (
+                  <select
+                    value={order.assigned_to || ''}
+                    onChange={async (e) => {
+                      const agentId = e.target.value
+                      await supabase.from('orders')
+                        .update({ assigned_to: agentId || null })
+                        .eq('id', order.id)
+                      setOrders(orders.map(o =>
+                        o.id === order.id ? { ...o, assigned_to: agentId } : o
+                      ))
+                    }}
+                    className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]">
+                    <option value="">Unassigned</option>
+                    {deliveryAgents.map(agent => (
+                      <option key={agent.id} value={agent.id}>{agent.full_name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+
+    {/* Promote to Delivery Agent */}
+    <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
+      <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-2">
+        Promote to Delivery Agent
+      </h3>
+      <p className="text-sm text-gray-400 mb-4">Select a customer to make them a delivery agent</p>
+      <div className="flex flex-col gap-2">
+        {customers.filter(c => !c.is_delivery && !c.is_admin).map((customer) => (
+          <div key={customer.id} className="flex items-center justify-between border border-[#e8e0d0] rounded-xl p-3">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-[#1a5c38] flex items-center justify-center text-white text-xs font-bold">
+                {customer.full_name?.[0]}
+              </div>
+              <div>
+                <p className="font-semibold text-[#1c1c1c] text-sm">{customer.full_name}</p>
+                <p className="text-xs text-gray-400">{customer.phone}</p>
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                await supabase.from('profiles')
+                  .update({ is_delivery: true })
+                  .eq('id', customer.id)
+                setDeliveryAgents([...deliveryAgents, { ...customer, is_delivery: true }])
+                alert(customer.full_name + ' is now a delivery agent!')
+              }}
+              className="text-xs bg-[#1a5c38] text-white px-3 py-1.5 rounded-lg hover:bg-[#14472c] transition font-semibold">
+              Make Agent
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+
   </div>
 )}
 
