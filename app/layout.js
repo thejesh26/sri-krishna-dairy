@@ -51,7 +51,7 @@ export const metadata = {
     description: 'Pure fresh cow milk delivered daily to your doorstep in Kattigenahalli & nearby areas.',
     images: ['/Logo.jpg'],
   },
-  robots: {
+ robots: {
     index: true,
     follow: true,
     googleBot: {
@@ -62,7 +62,11 @@ export const metadata = {
       'max-snippet': -1,
     },
   },
+  verification: {
+    google: '2iaV5vu4pZ7_qIxTzWZ4FHrOZ84ggtTkUvv9Mc97zRo',
+  },
 }
+```
 
 export const viewport = {
   themeColor: '#1a5c38',
