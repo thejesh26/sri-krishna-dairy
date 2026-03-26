@@ -51,7 +51,7 @@ export const metadata = {
     description: 'Pure fresh cow milk delivered daily to your doorstep in Kattigenahalli & nearby areas.',
     images: ['/Logo.jpg'],
   },
- robots: {
+  robots: {
     index: true,
     follow: true,
     googleBot: {
@@ -66,7 +66,6 @@ export const metadata = {
     google: '2iaV5vu4pZ7_qIxTzWZ4FHrOZ84ggtTkUvv9Mc97zRo',
   },
 }
-```
 
 export const viewport = {
   themeColor: '#1a5c38',
@@ -79,14 +78,14 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
-  <link rel="manifest" href="/manifest.json" />
-  <link rel="icon" href="/favicon.ico" />
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="SK Dairy" />
-  <meta name="mobile-web-app-capable" content="yes" />
-</head>
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="icon" href="/favicon.ico" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="SK Dairy" />
+        <meta name="mobile-web-app-capable" content="yes" />
+      </head>
       <body className={`${playfair.variable} ${inter.variable} antialiased`}>
         {children}
       </body>
