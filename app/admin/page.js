@@ -12,6 +12,7 @@ export default function AdminDashboard() {
   const [customers, setCustomers] = useState([])
   const [todayOrders, setTodayOrders] = useState([])
   const [todaySubscriptions, setTodaySubscriptions] = useState([])
+  const [subDeliveryStatuses, setSubDeliveryStatuses] = useState({})
   const [deliveryAgents, setDeliveryAgents] = useState([])
 const [assigningOrder, setAssigningOrder] = useState(null)
   const [wallets, setWallets] = useState([])
@@ -376,9 +377,23 @@ setWallets(allWallets || [])
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="font-bold text-[#1a5c38] mb-2">Rs.{(sub.products?.price || 0) * sub.quantity}</p>
-                      <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]">
-                        📅 Subscription
-                      </span>
+                      <select
+                        value={subDeliveryStatuses[sub.id] || 'pending'}
+                        onChange={(e) => setSubDeliveryStatuses(prev => ({ ...prev, [sub.id]: e.target.value }))}
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-full border cursor-pointer ${
+                          subDeliveryStatuses[sub.id] === 'delivered'
+                            ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
+                            : subDeliveryStatuses[sub.id] === 'out_for_delivery'
+                            ? 'bg-blue-50 text-blue-600 border-blue-200'
+                            : subDeliveryStatuses[sub.id] === 'missed'
+                            ? 'bg-red-50 text-red-500 border-red-200'
+                            : 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'
+                        }`}>
+                        <option value="pending">Pending</option>
+                        <option value="out_for_delivery">Out for Delivery</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="missed">Missed</option>
+                      </select>
                     </div>
                   </div>
                 ))}
@@ -479,6 +494,41 @@ setWallets(allWallets || [])
                             <option value="out_for_delivery">Out for Delivery</option>
                             <option value="delivered">Delivered</option>
                             <option value="cancelled">Cancelled</option>
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                    {todaySubscriptions.map((sub, index) => (
+                      <tr key={'sub-' + sub.id} className={orders.length % 2 === 0 && index % 2 === 0 ? 'bg-white' : 'bg-[#fdfbf7]'}>
+                        <td className="px-6 py-4">
+                          <p className="font-semibold text-[#1c1c1c]">{sub.profiles?.full_name}</p>
+                          <p className="text-xs text-gray-400">{sub.profiles?.phone}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-[#1c1c1c]">{sub.products?.size}</p>
+                          <p className="text-xs text-gray-400">x{sub.quantity}</p>
+                        </td>
+                        <td className="px-6 py-4 text-gray-500">
+                          Today <span className="text-xs bg-[#f0faf4] text-[#1a5c38] px-1.5 py-0.5 rounded-full border border-[#c8e6d4] ml-1">📅 Sub</span>
+                        </td>
+                        <td className="px-6 py-4 text-gray-500">
+                          {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
+                        </td>
+                        <td className="px-6 py-4 font-bold text-[#1a5c38]">Rs.{(sub.products?.price || 0) * sub.quantity}</td>
+                        <td className="px-6 py-4">
+                          <select
+                            value={subDeliveryStatuses[sub.id] || 'pending'}
+                            onChange={(e) => setSubDeliveryStatuses(prev => ({ ...prev, [sub.id]: e.target.value }))}
+                            className={`text-xs font-semibold px-3 py-1.5 rounded-full border cursor-pointer ${
+                              subDeliveryStatuses[sub.id] === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
+                              : subDeliveryStatuses[sub.id] === 'out_for_delivery' ? 'bg-blue-50 text-blue-600 border-blue-200'
+                              : subDeliveryStatuses[sub.id] === 'missed' ? 'bg-red-50 text-red-500 border-red-200'
+                              : 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'
+                            }`}>
+                            <option value="pending">Pending</option>
+                            <option value="out_for_delivery">Out for Delivery</option>
+                            <option value="delivered">Delivered</option>
+                            <option value="missed">Missed</option>
                           </select>
                         </td>
                       </tr>
@@ -756,23 +806,8 @@ setWallets(allWallets || [])
                     description: walletNote || 'Added by admin'
                   })
                   
-                  // Reload wallets fresh from database
-                  // Load delivery agents
-const { data: agents } = await supabase
-  .from('profiles')
-  .select('*')
-  .eq('is_delivery', true)
-setDeliveryAgents(agents || [])
-
-// First freshWallets occurrence
-const { data: freshWallets } = await supabase
-  .from('wallet')
-  .select('*')
-setWallets(freshWallets || [])
-setWalletAmount('')
-setWalletNote('')
-setWalletMessage('Rs.' + walletAmount + ' added successfully!')
-setWalletLoading(false)
+                  const { data: freshWallets } = await supabase.from('wallet').select('*')
+                  setWallets(freshWallets || [])
                   setWalletAmount('')
                   setWalletNote('')
                   setWalletMessage('Rs.' + walletAmount + ' added successfully!')
@@ -801,15 +836,12 @@ setWalletLoading(false)
                     type: 'debit',
                     description: walletNote || 'Deducted by admin'
                   })
-                  // Reload wallets fresh from database
-const { data: freshWallets } = await supabase
-  .from('wallet')
-  .select('*')
-setWallets(freshWallets || [])
-setWalletAmount('')
-setWalletNote('')
-setWalletMessage('Rs.' + walletAmount + ' deducted successfully!')
-setWalletLoading(false)
+                  const { data: freshWallets } = await supabase.from('wallet').select('*')
+                  setWallets(freshWallets || [])
+                  setWalletAmount('')
+                  setWalletNote('')
+                  setWalletMessage('Rs.' + walletAmount + ' deducted successfully!')
+                  setWalletLoading(false)
                 }}
                 disabled={walletLoading}
                 className="border-2 border-red-300 text-red-500 py-3 rounded-xl font-bold hover:bg-red-50 transition text-sm">
