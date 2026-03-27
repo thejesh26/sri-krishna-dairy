@@ -18,9 +18,8 @@ export default function Home() {
           window.location.href = '/admin'
         } else if (profile?.is_delivery) {
           window.location.href = '/delivery'
-        } else {
-          window.location.href = '/dashboard'
         }
+        // Regular customers can view the homepage while logged in
       }
     }
     checkUser()
