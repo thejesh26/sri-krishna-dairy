@@ -11,6 +11,7 @@ export default function AdminDashboard() {
   const [subscriptions, setSubscriptions] = useState([])
   const [customers, setCustomers] = useState([])
   const [todayOrders, setTodayOrders] = useState([])
+  const [todaySubscriptions, setTodaySubscriptions] = useState([])
   const [deliveryAgents, setDeliveryAgents] = useState([])
 const [assigningOrder, setAssigningOrder] = useState(null)
   const [wallets, setWallets] = useState([])
@@ -21,6 +22,9 @@ const [assigningOrder, setAssigningOrder] = useState(null)
   const [walletMessage, setWalletMessage] = useState('')
   const [deductionLoading, setDeductionLoading] = useState(false)
   const [deductionResult, setDeductionResult] = useState(null)
+  const [products, setProducts] = useState([])
+  const [editingProduct, setEditingProduct] = useState(null)
+  const [productSaving, setProductSaving] = useState(false)
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalSubscriptions: 0,
@@ -103,6 +107,18 @@ const [assigningOrder, setAssigningOrder] = useState(null)
     
     setSubscriptions(allSubs || [])
 
+    // Today's active subscription deliveries
+    const todaySubs = (allSubs || []).filter(sub =>
+      sub.start_date <= today &&
+      (!sub.end_date || sub.end_date >= today) &&
+      !(sub.paused_dates || []).includes(today)
+    )
+    setTodaySubscriptions(todaySubs)
+
+    // Load products
+    const { data: allProducts } = await supabase.from('products').select('*').order('size')
+    setProducts(allProducts || [])
+
     // Load all customers
     const { data: allCustomers } = await supabase
       .from('profiles')
@@ -131,6 +147,19 @@ setWallets(allWallets || [])
       todayRevenue,
       monthlyRevenue,
     })
+  }
+
+  const saveProductPrice = async (productId, newPrice, newAvailable) => {
+    setProductSaving(true)
+    const { error } = await supabase
+      .from('products')
+      .update({ price: parseFloat(newPrice), is_available: newAvailable })
+      .eq('id', productId)
+    if (!error) {
+      setProducts(products.map(p => p.id === productId ? { ...p, price: parseFloat(newPrice), is_available: newAvailable } : p))
+      setEditingProduct(null)
+    }
+    setProductSaving(false)
   }
 
   const runDailyDeductions = async () => {
@@ -296,6 +325,7 @@ setWallets(allWallets || [])
     { id: 'customers', label: 'Customers', icon: '👥' },
     { id: 'wallet', label: 'Wallet', icon: '💰' },
     { id: 'delivery', label: 'Delivery Agents', icon: '🚴' },
+    { id: 'products', label: 'Products & Pricing', icon: '🥛' },
   ].map(({ id, label, icon }) => (
             <button key={id} onClick={() => setActiveTab(id)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition whitespace-nowrap ${
@@ -317,24 +347,46 @@ setWallets(allWallets || [])
                 <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">
                   Today's Deliveries
                 </h3>
-                <p className="text-xs text-gray-400 mt-0.5">{todayOrders.length} orders today</p>
+                <p className="text-xs text-gray-400 mt-0.5">{todayOrders.length + todaySubscriptions.length} deliveries today ({todaySubscriptions.length} subscriptions, {todayOrders.length} one-time)</p>
               </div>
               <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-bold px-3 py-1.5 rounded-full border border-[#f0dfa0]">
                 {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
               </span>
             </div>
 
-            {todayOrders.length === 0 ? (
+            {todayOrders.length === 0 && todaySubscriptions.length === 0 ? (
               <div className="px-6 py-12 text-center">
                 <div className="text-5xl mb-3">📭</div>
                 <p className="text-gray-400">No deliveries scheduled for today</p>
               </div>
             ) : (
               <div>
+                {/* Subscription deliveries */}
+                {todaySubscriptions.map((sub) => (
+                  <div key={sub.id}
+                    className={`px-6 py-5 flex items-center gap-4 border-b border-[#f5f0e8]`}>
+                    <div className="w-12 h-12 rounded-xl bg-[#f0faf4] flex items-center justify-center text-2xl flex-shrink-0">🥛</div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-[#1c1c1c]">{sub.profiles?.full_name}</p>
+                      <p className="text-sm text-gray-400">{sub.profiles?.apartment_name}, Flat {sub.profiles?.flat_number}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{sub.profiles?.area} • 📞 {sub.profiles?.phone}</p>
+                      <p className="text-xs text-[#1a5c38] font-medium mt-1">
+                        {sub.products?.size} x {sub.quantity} • {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-bold text-[#1a5c38] mb-2">Rs.{(sub.products?.price || 0) * sub.quantity}</p>
+                      <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]">
+                        📅 Subscription
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {/* One-time orders */}
                 {todayOrders.map((order, index) => (
                   <div key={order.id}
                     className={`px-6 py-5 flex items-center gap-4 ${index !== todayOrders.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
-                    <div className="w-12 h-12 rounded-xl bg-[#f5f0e8] flex items-center justify-center text-2xl flex-shrink-0">🥛</div>
+                    <div className="w-12 h-12 rounded-xl bg-[#f5f0e8] flex items-center justify-center text-2xl flex-shrink-0">🛒</div>
                     <div className="flex-1">
                       <p className="font-semibold text-[#1c1c1c]">{order.profiles?.full_name}</p>
                       <p className="text-sm text-gray-400">{order.profiles?.apartment_name}, Flat {order.profiles?.flat_number}</p>
@@ -906,6 +958,83 @@ setWalletLoading(false)
       </div>
     </div>
 
+  </div>
+)}
+
+{activeTab === 'products' && (
+  <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+    <div className="px-6 py-5 border-b border-[#f5f0e8]">
+      <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Products & Pricing</h3>
+      <p className="text-xs text-gray-400 mt-0.5">Update prices here — deductions use these values directly</p>
+    </div>
+    {products.length === 0 ? (
+      <div className="px-6 py-12 text-center text-gray-400">No products found</div>
+    ) : (
+      <div>
+        {products.map((product, index) => (
+          <div key={product.id}
+            className={`px-6 py-5 flex items-center gap-4 ${index !== products.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+            <div className="w-12 h-12 rounded-xl bg-[#f0faf4] flex items-center justify-center text-2xl flex-shrink-0">🥛</div>
+            <div className="flex-1">
+              <p className="font-semibold text-[#1c1c1c]">{product.name || `Fresh Cow Milk ${product.size}`}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Size: {product.size}</p>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full mt-1 inline-block ${product.is_available ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-red-50 text-red-500 border border-red-200'}`}>
+                {product.is_available ? 'Available' : 'Unavailable'}
+              </span>
+            </div>
+            {editingProduct?.id === product.id ? (
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Price (Rs.)</p>
+                  <input
+                    type="number"
+                    value={editingProduct.price}
+                    onChange={e => setEditingProduct({ ...editingProduct, price: e.target.value })}
+                    className="border border-[#1a5c38] rounded-lg px-3 py-2 text-sm w-24 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Status</p>
+                  <select
+                    value={editingProduct.is_available ? 'true' : 'false'}
+                    onChange={e => setEditingProduct({ ...editingProduct, is_available: e.target.value === 'true' })}
+                    className="border border-[#e8e0d0] rounded-lg px-3 py-2 text-sm focus:outline-none">
+                    <option value="true">Available</option>
+                    <option value="false">Unavailable</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1 mt-4">
+                  <button
+                    onClick={() => saveProductPrice(product.id, editingProduct.price, editingProduct.is_available)}
+                    disabled={productSaving}
+                    className="text-xs bg-[#1a5c38] text-white px-3 py-1.5 rounded-lg hover:bg-[#14472c] transition font-semibold disabled:opacity-50">
+                    {productSaving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => setEditingProduct(null)}
+                    className="text-xs border border-[#e8e0d0] text-gray-500 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-right flex-shrink-0">
+                <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">Rs.{product.price}</p>
+                <p className="text-xs text-gray-400 mb-2">per bottle/day</p>
+                <button
+                  onClick={() => setEditingProduct({ ...product })}
+                  className="text-xs bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0] px-3 py-1.5 rounded-lg hover:bg-[#f5e9a0] transition font-semibold">
+                  Edit Price
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    )}
+    <div className="px-6 py-4 bg-[#fdf6e3] border-t border-[#f0dfa0]">
+      <p className="text-xs text-[#8a6e0a]">⚠️ Changing a price here immediately affects all future wallet deductions for active subscriptions.</p>
+    </div>
   </div>
 )}
 
