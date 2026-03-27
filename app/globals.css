@@ -15,6 +15,26 @@ body {
   font-family: var(--font-inter), sans-serif;
 }
 
+/* Prevent copying and downloading */
+img {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  user-drag: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+::selection {
+  background: transparent;
+  color: inherit;
+}
+
+::-moz-selection {
+  background: transparent;
+  color: inherit;
+}
+
 h1, h2, h3, h4 {
   font-family: var(--font-playfair), serif;
 }

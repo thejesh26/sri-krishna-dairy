@@ -146,7 +146,7 @@ export default function Home() {
             <h4 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c] text-center mb-1">Fresh Cow Milk</h4>
             <p className="text-center text-[#d4a017] font-semibold text-sm mb-3">500ml Bottle</p>
             <p className="text-gray-400 text-center text-sm mb-5">Pure, fresh & delivered every morning</p>
-            <p className="text-3xl font-bold text-center text-[#1a5c38] mb-6">₹30 <span className="text-sm font-normal text-gray-400">/ bottle</span></p>
+            <p className="text-3xl font-bold text-center text-[#1a5c38] mb-6">₹35 <span className="text-sm font-normal text-gray-400">/ bottle</span></p>
             <Link href="/order?product=500ml" className="block bg-[#1a5c38] text-white text-center py-3 rounded font-semibold hover:bg-[#14472c] transition">Order Now (COD)</Link>
             <Link href="/subscribe?product=500ml" className="block mt-2 border border-[#d4a017] text-[#d4a017] text-center py-2 rounded font-semibold hover:bg-[#d4a017] hover:text-white transition text-sm">Subscribe (Prepaid)</Link>
           </div>
@@ -155,7 +155,7 @@ export default function Home() {
             <h4 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c] text-center mb-1">Fresh Cow Milk</h4>
             <p className="text-center text-[#d4a017] font-semibold text-sm mb-3">1000ml Bottle</p>
             <p className="text-gray-400 text-center text-sm mb-5">Best value for families</p>
-            <p className="text-3xl font-bold text-center text-[#1a5c38] mb-6">₹55 <span className="text-sm font-normal text-gray-400">/ bottle</span></p>
+            <p className="text-3xl font-bold text-center text-[#1a5c38] mb-6">₹60 <span className="text-sm font-normal text-gray-400">/ bottle</span></p>
             <Link href="/order?product=1000ml" className="block bg-[#1a5c38] text-white text-center py-3 rounded font-semibold hover:bg-[#14472c] transition">Order Now (COD)</Link>
             <Link href="/subscribe?product=1000ml" className="block mt-2 border border-[#d4a017] text-[#d4a017] text-center py-2 rounded font-semibold hover:bg-[#d4a017] hover:text-white transition text-sm">Subscribe (Prepaid)</Link>
           </div>
@@ -222,7 +222,7 @@ export default function Home() {
       </section>
 
       {/* Why Us */}
-      <section className="px-6 py-20 max-w-4xl mx-auto">
+      <section id="why-us" className="px-6 py-20 max-w-4xl mx-auto">
         <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">Why Choose Us</p>
         <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-12">The Sri Krishnaa Promise</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
@@ -387,7 +387,7 @@ export default function Home() {
 </section>
 
 {/* FAQ */}
-<section className="bg-white px-6 py-20">
+<section id="faq" className="bg-white px-6 py-20">
   <div className="max-w-3xl mx-auto">
     <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">Got Questions?</p>
     <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-12">Frequently Asked Questions</h3>
@@ -524,11 +524,11 @@ export default function Home() {
               <ul className="flex flex-col gap-3 text-sm text-gray-400">
                 <li className="flex justify-between">
                   <span>Fresh Cow Milk 500ml</span>
-                  <span className="text-[#d4a017] font-semibold">₹30</span>
+                  <span className="text-[#d4a017] font-semibold">₹35</span>
                 </li>
                 <li className="flex justify-between">
                   <span>Fresh Cow Milk 1000ml</span>
-                  <span className="text-[#d4a017] font-semibold">₹55</span>
+                  <span className="text-[#d4a017] font-semibold">₹60</span>
                 </li>
                 <li className="border-t border-gray-800 pt-3 mt-1">
                   <p className="text-gray-500 text-xs uppercase tracking-widest mb-2">Coming Soon</p>

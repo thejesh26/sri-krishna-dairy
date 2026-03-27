@@ -85,6 +85,21 @@ export default function RootLayout({ children }) {
     gtag('js', new Date());
     gtag('config', 'G-MB9J216FPB');
   `}} />
+  <script dangerouslySetInnerHTML={{__html: `
+    document.addEventListener('DOMContentLoaded', function() {
+      document.addEventListener('contextmenu', function(e) {
+        if (e.target.tagName === 'IMG') e.preventDefault();
+      });
+      document.addEventListener('dragstart', function(e) {
+        if (e.target.tagName === 'IMG') e.preventDefault();
+      });
+      document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S' || e.key === 'u' || e.key === 'U')) {
+          e.preventDefault();
+        }
+      });
+    });
+  `}} />
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />

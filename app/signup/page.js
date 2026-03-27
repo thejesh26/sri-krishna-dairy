@@ -252,14 +252,15 @@ const [showPassword, setShowPassword] = useState(false)
               </ul>
             </div>
 
-            {/* Legal */}
+            {/* Explore */}
             <div>
-              <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Legal</p>
+              <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Explore</p>
               <ul className="flex flex-col gap-3 text-sm text-gray-400">
-                <li><a href="/privacy-policy" className="hover:text-[#d4a017] transition">Privacy Policy</a></li>
-                <li><a href="/terms-of-service" className="hover:text-[#d4a017] transition">Terms of Service</a></li>
-                <li><a href="/refund-policy" className="hover:text-[#d4a017] transition">Refund Policy</a></li>
-                <li><a href="/health-disclaimer" className="hover:text-[#d4a017] transition">Health Disclaimer</a></li>
+                <li><a href="/#how-it-works" className="hover:text-[#d4a017] transition">How It Works</a></li>
+                <li><a href="/#why-us" className="hover:text-[#d4a017] transition">Why Choose Us</a></li>
+                <li><a href="/#faq" className="hover:text-[#d4a017] transition">FAQ</a></li>
+                <li><a href="/#products" className="hover:text-[#d4a017] transition">Our Products</a></li>
+                <li><a href="/#contact" className="hover:text-[#d4a017] transition">Contact Us</a></li>
               </ul>
             </div>
 

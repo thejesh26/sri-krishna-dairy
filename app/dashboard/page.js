@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import DisclaimerPopup from '../components/DisclaimerPopup'
 
 export default function Dashboard() {
   const [user, setUser] = useState(null)
@@ -9,6 +10,7 @@ export default function Dashboard() {
   const [subscriptions, setSubscriptions] = useState([])
   const [loading, setLoading] = useState(true)
 const [walletBalance, setWalletBalance] = useState(0)
+const [openFaq, setOpenFaq] = useState(null)
 
   useEffect(() => { getUser() }, [])
 
@@ -159,12 +161,13 @@ const [walletBalance, setWalletBalance] = useState(0)
         )}
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
           {[
             { href: '/order', icon: '🛒', label: 'Order Now', desc: 'One time delivery', color: '#f0faf4', border: '#c8e6d4' },
             { href: '/subscribe', icon: '📅', label: 'Subscribe', desc: 'Daily milk plan', color: '#fdf6e3', border: '#f0dfa0' },
             { href: '/pause', icon: '⏸️', label: 'Manage Plan', desc: 'Pause or cancel', color: '#f5f0e8', border: '#e8e0d0' },
             { href: '/wallet', icon: '💰', label: 'Wallet', desc: 'Add balance', color: '#f0faf4', border: '#c8e6d4' },
+            { href: '/', icon: '🏠', label: 'Our Website', desc: 'View homepage', color: '#fdf6e3', border: '#f0dfa0' },
           ].map(({ href, icon, label, desc, color, border }) => (
             <a key={label} href={href}
               className="rounded-2xl p-5 border hover:shadow-md transition group"
@@ -306,6 +309,38 @@ const [walletBalance, setWalletBalance] = useState(0)
           </div>
         </div>
 
+        {/* FAQ */}
+        <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm mb-6">
+          <div className="px-6 py-5 border-b border-[#f5f0e8]">
+            <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">❓ Frequently Asked Questions</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Quick answers to common questions</p>
+          </div>
+          <div className="px-6 py-4 flex flex-col gap-2">
+            {[
+              { q: 'What time is milk delivered?', a: 'Morning slot: 5AM – 8AM. Evening slot: 5PM – 7PM. We always aim to deliver within your chosen slot.' },
+              { q: 'Can I pause my subscription?', a: 'Yes! Go to Manage Plan and select the dates you want to pause. Must be done at least 12 hours in advance.' },
+              { q: 'What is the bottle deposit?', a: 'We charge ₹100 per bottle as a refundable security deposit. Minimum deposit is ₹200. Refunded when bottles are returned in good condition.' },
+              { q: 'How do I add wallet balance?', a: 'Contact us on WhatsApp or call us. We will add the balance manually after receiving payment.' },
+              { q: 'How do I pay for subscriptions?', a: 'Subscriptions use prepaid wallet balance. Daily amounts are auto-deducted. Top up your wallet to keep deliveries running.' },
+              { q: 'Is the milk pasteurized?', a: 'Our milk is farm-fresh and pure, delivered straight from our farm. We follow strict hygiene and quality standards at every step.' },
+            ].map(({ q, a }, i) => (
+              <div key={q} className="border border-[#e8e0d0] rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  className="w-full px-5 py-4 text-left flex items-center justify-between font-semibold text-[#1c1c1c] text-sm hover:bg-[#fdfbf7] transition">
+                  <span>{q}</span>
+                  <span className={`text-[#d4a017] text-xl font-bold flex-shrink-0 ml-4 transition-transform duration-200 ${openFaq === i ? 'rotate-45' : ''}`}>+</span>
+                </button>
+                {openFaq === i && (
+                  <div className="px-5 pb-4 pt-1 border-t border-[#e8e0d0]">
+                    <p className="text-gray-500 text-sm leading-relaxed">{a}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Contact Support */}
         <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
           <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-5">Need Help?</h3>
@@ -380,14 +415,15 @@ const [walletBalance, setWalletBalance] = useState(0)
               </ul>
             </div>
 
-            {/* Legal */}
+            {/* Explore */}
             <div>
-              <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Legal</p>
+              <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Explore</p>
               <ul className="flex flex-col gap-3 text-sm text-gray-400">
-                <li><a href="/privacy-policy" className="hover:text-[#d4a017] transition">Privacy Policy</a></li>
-                <li><a href="/terms-of-service" className="hover:text-[#d4a017] transition">Terms of Service</a></li>
-                <li><a href="/refund-policy" className="hover:text-[#d4a017] transition">Refund Policy</a></li>
-                <li><a href="/health-disclaimer" className="hover:text-[#d4a017] transition">Health Disclaimer</a></li>
+                <li><a href="/#how-it-works" className="hover:text-[#d4a017] transition">How It Works</a></li>
+                <li><a href="/#why-us" className="hover:text-[#d4a017] transition">Why Choose Us</a></li>
+                <li><a href="/#faq" className="hover:text-[#d4a017] transition">FAQ</a></li>
+                <li><a href="/#products" className="hover:text-[#d4a017] transition">Our Products</a></li>
+                <li><a href="/#contact" className="hover:text-[#d4a017] transition">Contact Us</a></li>
               </ul>
             </div>
 
@@ -450,6 +486,7 @@ const [walletBalance, setWalletBalance] = useState(0)
           </div>
         </div>
       </footer>
+      <DisclaimerPopup />
     </div>
   )
 }
