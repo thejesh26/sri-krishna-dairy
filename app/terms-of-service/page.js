@@ -150,6 +150,13 @@ export default function TermsOfService() {
 
           <div className="bg-white rounded-2xl border border-[#e8e0d0] shadow-sm p-7 sm:p-10">
             <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">7. Product Quality & FSSAI Compliance</h2>
+            <div className="inline-flex items-center gap-3 bg-[#f0faf4] border border-[#c8e6d4] rounded-xl px-5 py-3 mb-4">
+              <span className="text-xl">✅</span>
+              <div>
+                <p className="font-semibold text-[#1a5c38] text-sm">FSSAI Licensed</p>
+                <p className="text-xs text-gray-500">Lic. No: 21225008004544</p>
+              </div>
+            </div>
             <p className="text-[#4a4a4a] text-sm leading-relaxed mb-4">
               Sri Krishnaa Dairy Farms operates in compliance with FSSAI (Food Safety and Standards Authority of
               India) regulations. Our milk is sourced directly from our cows maintained under hygienic conditions

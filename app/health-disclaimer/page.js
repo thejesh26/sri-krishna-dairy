@@ -198,13 +198,20 @@ export default function HealthDisclaimer() {
 
           <div className="bg-white rounded-2xl border border-[#e8e0d0] shadow-sm p-7 sm:p-10">
             <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">7. FSSAI Compliance</h2>
-            <p className="text-[#4a4a4a] text-sm leading-relaxed">
+            <p className="text-[#4a4a4a] text-sm leading-relaxed mb-4">
               Sri Krishnaa Dairy Farms operates in accordance with the guidelines of the <span className="font-semibold text-[#1c1c1c]">Food Safety and
               Standards Authority of India (FSSAI)</span>. Our farm and milk handling processes adhere to applicable
               food safety standards for fresh milk supply. Our cows are regularly health-checked, and our milking
               and storage equipment is cleaned and sanitised daily. We do not administer artificial growth
               hormones to our cows.
             </p>
+            <div className="inline-flex items-center gap-3 bg-[#f0faf4] border border-[#c8e6d4] rounded-xl px-5 py-3">
+              <span className="text-xl">✅</span>
+              <div>
+                <p className="font-semibold text-[#1a5c38] text-sm">FSSAI Licensed</p>
+                <p className="text-xs text-gray-500">Lic. No: 21225008004544</p>
+              </div>
+            </div>
           </div>
 
           <div className="bg-white rounded-2xl border border-[#e8e0d0] shadow-sm p-7 sm:p-10">

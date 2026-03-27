@@ -187,6 +187,40 @@ export default function Home() {
         </div>
       </section>
 
+      {/* From Farm to Your Door */}
+      <section className="bg-white px-6 py-20">
+        <div className="max-w-4xl mx-auto">
+          <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">Hygiene & Transparency</p>
+          <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-3">From Farm to Your Door</h3>
+          <p className="text-center text-gray-500 text-sm mb-12 max-w-lg mx-auto">
+            Every bottle follows a strict 7-step journey — fresh, hygienic, and traceable from our cows to your doorstep.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-6">
+            {[
+              { icon: '🐄', step: '01', title: 'Milking', desc: 'Cows milked hygienically at 4–6 AM with sanitized equipment at our farm in Kammasandra, Bangalore Rural.' },
+              { icon: '🧪', step: '02', title: 'Quality Check', desc: 'Each batch inspected and tested for freshness, purity, and fat content before bottling.' },
+              { icon: '🫧', step: '03', title: 'Bottle Cleaning', desc: 'All returned bottles thoroughly washed with food-grade agents, rinsed, and sterilized.' },
+              { icon: '🥛', step: '04', title: 'Filling & Sealing', desc: 'Measured quantities poured into sterilized bottles and hygienically sealed.' },
+              { icon: '📦', step: '05', title: 'Packing', desc: 'Labelled with customer details and packed in insulated bags to retain freshness during transit.' },
+              { icon: '🛵', step: '06', title: 'Route Dispatch', desc: 'Delivery agents dispatched by 5 AM with pre-planned routes for your area.' },
+              { icon: '🏠', step: '07', title: 'Door Delivery', desc: 'Fresh milk at your doorstep by your chosen slot — 5–8 AM morning or 5–7 PM evening.' },
+            ].map(({ icon, step, title, desc }) => (
+              <div key={step} className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-[#f0faf4] border-2 border-[#c8e6d4] flex items-center justify-center text-2xl flex-shrink-0">
+                  {icon}
+                </div>
+                <div>
+                  <p className="text-xs text-[#d4a017] font-bold tracking-widest mb-0.5">STEP {step}</p>
+                  <p className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c] text-base">{title}</p>
+                  <p className="text-gray-500 text-sm mt-1 leading-relaxed">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+        </div>
+      </section>
+
       {/* Why Us */}
       <section className="px-6 py-20 max-w-4xl mx-auto">
         <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">Why Choose Us</p>
@@ -552,7 +586,10 @@ export default function Home() {
 
           {/* Bottom Footer */}
           <div className="pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-gray-500">
-            <p>© 2025 Sri Krishnaa Dairy Farms. All rights reserved.</p>
+            <div className="text-center sm:text-left">
+              <p>© 2025 Sri Krishnaa Dairy Farms. All rights reserved.</p>
+              <p className="text-gray-600 mt-0.5">FSSAI Lic. No: <span className="text-gray-400">21225008004544</span></p>
+            </div>
             <p className="text-gray-600">Made with ❤️ in Bangalore</p>
             <div className="flex flex-wrap justify-center gap-4">
               <Link href="/privacy-policy" className="hover:text-gray-300 transition">Privacy Policy</Link>
