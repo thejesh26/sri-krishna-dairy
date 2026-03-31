@@ -1,14 +1,16 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 
 export default function SignUp() {
+  const router = useRouter()
   const [form, setForm] = useState({
     full_name: '', phone: '', email: '', password: '',
     area: '', building_name: '', flat_number: '', landmark: ''
   })
   const [loading, setLoading] = useState(false)
-const [showPassword, setShowPassword] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [message, setMessage] = useState('')
 
   const serviceAreas = [
@@ -25,6 +27,16 @@ const [showPassword, setShowPassword] = useState(false)
     'Srinivasapura',
   ]
 
+  // Password strength checks — computed on every render, no extra state needed
+  const pwdChecks = {
+    length:  form.password.length >= 8,
+    upper:   /[A-Z]/.test(form.password),
+    lower:   /[a-z]/.test(form.password),
+    number:  /[0-9]/.test(form.password),
+    special: /[!@#$%^&*(),.?":{}|<>_\-+=[\]\\\/;'`~]/.test(form.password),
+  }
+  const isPasswordStrong = Object.values(pwdChecks).every(Boolean)
+
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
@@ -33,6 +45,20 @@ const [showPassword, setShowPassword] = useState(false)
     e.preventDefault()
     setLoading(true)
     setMessage('')
+
+    // Validate phone number before hitting the API
+    if (!/^[0-9]{10}$/.test(form.phone)) {
+      setMessage('Phone number must be exactly 10 digits.')
+      setLoading(false)
+      return
+    }
+
+    // Enforce strong password policy
+    if (!isPasswordStrong) {
+      setMessage('Please make sure your password meets all the requirements shown below.')
+      setLoading(false)
+      return
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email: form.email,
@@ -59,10 +85,13 @@ const [showPassword, setShowPassword] = useState(false)
     })
 
     if (profileError) {
-      setMessage('Error: ' + profileError.message)
+      // Auth user was created but profile insert failed.
+      // Sign out the partial session so the user can retry cleanly.
+      await supabase.auth.signOut()
+      setMessage('Account setup failed. Please try signing up again. (' + profileError.message + ')')
     } else {
       setMessage('Account created successfully! Redirecting to login...')
-      setTimeout(() => { window.location.href = '/login' }, 2000)
+      setTimeout(() => { router.push('/login') }, 2000)
     }
     setLoading(false)
   }
@@ -129,23 +158,39 @@ const [showPassword, setShowPassword] = useState(false)
               <div>
                 <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Password</label>
                 <div className="relative">
-  <input name="password" type={showPassword ? 'text' : 'password'} placeholder="Min. 6 characters" required
-    className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] pr-12"
-    onChange={handleChange} />
-  <button type="button" onClick={() => setShowPassword(!showPassword)}
-    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#1a5c38] transition">
-    {showPassword ? (
-      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-      </svg>
-    ) : (
-      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-      </svg>
-    )}
-  </button>
-</div>
+                  <input name="password" type={showPassword ? 'text' : 'password'} placeholder="Min. 8 characters" required
+                    className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] pr-12"
+                    onChange={handleChange} />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#1a5c38] transition">
+                    {showPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                {/* Real-time password strength indicator */}
+                {form.password.length > 0 && (
+                  <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-0.5">
+                    {[
+                      { key: 'length',  label: '8+ characters' },
+                      { key: 'upper',   label: 'Uppercase letter' },
+                      { key: 'lower',   label: 'Lowercase letter' },
+                      { key: 'number',  label: 'Number' },
+                      { key: 'special', label: 'Special character' },
+                    ].map(({ key, label }) => (
+                      <span key={key} className={`text-xs flex items-center gap-1 ${pwdChecks[key] ? 'text-[#1a5c38]' : 'text-gray-400'}`}>
+                        {pwdChecks[key] ? '✓' : '○'} {label}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

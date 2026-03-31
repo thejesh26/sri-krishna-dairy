@@ -1,8 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 
 export default function PauseSubscription() {
+  const router = useRouter()
   const [user, setUser] = useState(null)
   const [subscriptions, setSubscriptions] = useState([])
   const [selectedSub, setSelectedSub] = useState(null)
@@ -18,8 +20,9 @@ export default function PauseSubscription() {
   }, [])
 
   const getUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { window.location.href = '/login'; return }
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { router.push('/login'); return }
+    const user = session.user
     setUser(user)
     getSubscriptions(user.id)
   }
@@ -52,8 +55,13 @@ export default function PauseSubscription() {
     setLoading(true)
     setMessage('')
     const updatedPaused = [...currentPaused, pauseDate].sort()
+    // SECURITY: Both .eq('id') AND .eq('user_id') required — prevents IDOR where
+    // an attacker supplies a different subscription UUID to modify another user's sub.
     const { error } = await supabase
-      .from('subscriptions').update({ paused_dates: updatedPaused }).eq('id', selectedSub.id)
+      .from('subscriptions')
+      .update({ paused_dates: updatedPaused })
+      .eq('id', selectedSub.id)
+      .eq('user_id', user.id)
     if (error) {
       setMessage('Error: ' + error.message)
     } else {
@@ -68,8 +76,12 @@ export default function PauseSubscription() {
     setLoading(true)
     setMessage('')
     const updatedPaused = selectedSub.paused_dates.filter(d => d !== dateToRemove)
+    // SECURITY: ownership filter applied here too
     const { error } = await supabase
-      .from('subscriptions').update({ paused_dates: updatedPaused }).eq('id', selectedSub.id)
+      .from('subscriptions')
+      .update({ paused_dates: updatedPaused })
+      .eq('id', selectedSub.id)
+      .eq('user_id', user.id)
     if (error) {
       setMessage('Error: ' + error.message)
     } else {
@@ -83,13 +95,17 @@ export default function PauseSubscription() {
   const handleCancelSubscription = async () => {
     if (!confirm('Are you sure you want to cancel this subscription?')) return
     setLoading(true)
+    // SECURITY: ownership filter prevents cancelling another user's subscription
     const { error } = await supabase
-      .from('subscriptions').update({ is_active: false }).eq('id', selectedSub.id)
+      .from('subscriptions')
+      .update({ is_active: false })
+      .eq('id', selectedSub.id)
+      .eq('user_id', user.id)
     if (error) {
       setMessage('Error: ' + error.message)
     } else {
       setMessage('Subscription cancelled successfully!')
-      setTimeout(() => { window.location.href = '/dashboard' }, 2000)
+      setTimeout(() => { router.push('/dashboard') }, 2000)
     }
     setLoading(false)
   }

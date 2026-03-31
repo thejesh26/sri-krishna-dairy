@@ -1,9 +1,10 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Suspense } from 'react'
 
 function ConfirmationContent() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const type = searchParams.get('type')
   const [countdown, setCountdown] = useState(5)
@@ -13,7 +14,7 @@ function ConfirmationContent() {
       setCountdown(c => {
         if (c <= 1) {
           clearInterval(timer)
-          window.location.href = '/dashboard'
+          router.push('/dashboard')
         }
         return c - 1
       })

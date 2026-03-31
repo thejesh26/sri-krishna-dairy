@@ -1,8 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 
 export default function Wallet() {
+  const router = useRouter()
   const [user, setUser] = useState(null)
   const [wallet, setWallet] = useState(null)
   const [transactions, setTransactions] = useState([])
@@ -12,8 +14,9 @@ export default function Wallet() {
   useEffect(() => { getUser() }, [])
 
   const getUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { window.location.href = '/login'; return }
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { router.push('/login'); return }
+    const user = session.user
     setUser(user)
     await loadWallet(user.id)
     setLoading(false)

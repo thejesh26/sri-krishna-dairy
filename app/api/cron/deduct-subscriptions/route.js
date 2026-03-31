@@ -31,7 +31,7 @@ async function runDeductions() {
   // Fetch all active subscriptions that have started and not yet ended
   const { data: subscriptions, error } = await supabase
     .from('subscriptions')
-    .select('*, products(*)')
+    .select('*, products(*), discount_percent')
     .eq('is_active', true)
     .lte('start_date', today)
     .or(`end_date.is.null,end_date.gte.${today}`)
@@ -50,7 +50,9 @@ async function runDeductions() {
   let skipped = 0
 
   for (const sub of eligible) {
-    const dailyAmount = sub.products.price * sub.quantity
+    const dailyAmount = Math.round(
+      sub.products.price * sub.quantity * (1 - (sub.discount_percent || 0) / 100)
+    )
     // Embed sub.id + date in description — acts as a natural idempotency key
     const description = `Daily subscription ${sub.id} [${today}]`
 

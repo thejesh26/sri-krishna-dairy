@@ -1,8 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 
 export default function AdminDashboard() {
+  const router = useRouter()
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -37,11 +39,12 @@ const [assigningOrder, setAssigningOrder] = useState(null)
   useEffect(() => { checkAdmin() }, [])
 
   const checkAdmin = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      window.location.href = '/login'
-      return 
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      router.push('/login')
+      return
     }
+    const user = session.user
     setUser(user)
 
     const { data: profile } = await supabase
@@ -51,12 +54,12 @@ const [assigningOrder, setAssigningOrder] = useState(null)
       .single()
 
     if (!profile) {
-      window.location.href = '/'
+      router.push('/')
       return
     }
 
     if (!profile.is_admin) {
-      window.location.href = '/'
+      router.push('/')
       return
     }
 
@@ -167,85 +170,47 @@ setWallets(allWallets || [])
     setDeductionLoading(true)
     setDeductionResult(null)
 
-    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-
-    const { data: activeSubs } = await supabase
-      .from('subscriptions')
-      .select('*, products(*)')
-      .eq('is_active', true)
-      .lte('start_date', today)
-      .or(`end_date.is.null,end_date.gte.${today}`)
-
-    const eligible = (activeSubs || []).filter(sub =>
-      sub.products && !(sub.paused_dates || []).includes(today)
-    )
-
-    let deducted = 0
-    let skipped = 0
-    const failedUsers = []
-
-    for (const sub of eligible) {
-      const dailyAmount = sub.products.price * sub.quantity
-      const description = `Daily subscription ${sub.id} [${today}]`
-
-      // Skip if already deducted today for this subscription
-      const { data: existing } = await supabase
-        .from('wallet_transactions')
-        .select('id')
-        .eq('user_id', sub.user_id)
-        .eq('description', description)
-        .limit(1)
-
-      if (existing?.length > 0) { skipped++; continue }
-
-      const { data: wallet } = await supabase
-        .from('wallet')
-        .select('id, balance')
-        .eq('user_id', sub.user_id)
-        .maybeSingle()
-
-      const balance = wallet?.balance || 0
-
-      if (balance < dailyAmount) {
-        failedUsers.push({ userId: sub.user_id, balance, required: dailyAmount })
-        continue
-      }
-
-      if (wallet) {
-        await supabase.from('wallet').update({ balance: balance - dailyAmount }).eq('user_id', sub.user_id)
-      } else {
-        await supabase.from('wallet').insert({ user_id: sub.user_id, balance: 0 - dailyAmount })
-      }
-
-      await supabase.from('wallet_transactions').insert({
-        user_id: sub.user_id,
-        amount: dailyAmount,
-        type: 'debit',
-        description,
-      })
-
-      deducted++
-    }
-
-    // Refresh wallet balances shown in the panel
-    const { data: freshWallets } = await supabase.from('wallet').select('*')
-    setWallets(freshWallets || [])
-
-    setDeductionResult({
-      date: today,
-      total: eligible.length,
-      deducted,
-      skipped,
-      failed: failedUsers.length,
-      failedUsers,
+    // SECURITY: Deduction logic now runs server-side via an admin-verified endpoint.
+    // Previously this entire loop ran in the browser using the anon key, allowing
+    // any authenticated user to trigger wallet mutations from the console.
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/run-deductions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session?.access_token}` },
     })
+    const result = await res.json()
+
+    if (res.ok) {
+      // Refresh wallet balances shown in the panel
+      const { data: freshWallets } = await supabase.from('wallet').select('*')
+      setWallets(freshWallets || [])
+      setDeductionResult({
+        date: result.date,
+        total: result.summary?.eligible || 0,
+        deducted: result.summary?.deducted || 0,
+        skipped: result.summary?.skipped || 0,
+        failed: result.summary?.failed || 0,
+        failedUsers: result.failed || [],
+      })
+    } else {
+      setDeductionResult({ error: result.error || 'Deduction failed.' })
+    }
     setDeductionLoading(false)
   }
 
   const updateOrderStatus = async (orderId, status) => {
-    const { error } = await supabase
-      .from('orders').update({ status }).eq('id', orderId)
-    if (!error) {
+    // SECURITY: Status update goes through a server-side route that re-verifies
+    // is_admin from the DB on every request — not relying on a cached UI flag.
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/update-order-status', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({ order_id: orderId, status }),
+    })
+    if (res.ok) {
       setOrders(orders.map(o => o.id === orderId ? { ...o, status } : o))
       setTodayOrders(todayOrders.map(o => o.id === orderId ? { ...o, status } : o))
     }
@@ -253,7 +218,7 @@ setWallets(allWallets || [])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    window.location.href = '/'
+    router.push('/')
   }
 
   if (loading) return (

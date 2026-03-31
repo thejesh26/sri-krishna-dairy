@@ -1,8 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 
 export default function DeliveryDashboard() {
+  const router = useRouter()
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [orders, setOrders] = useState([])
@@ -19,15 +21,16 @@ export default function DeliveryDashboard() {
   useEffect(() => { checkDelivery() }, [])
 
   const checkDelivery = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { window.location.href = '/login'; return }
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { router.push('/login'); return }
+    const user = session.user
     setUser(user)
 
     const { data: profile } = await supabase
       .from('profiles').select('*').eq('id', user.id).single()
 
     if (!profile?.is_delivery && !profile?.is_admin) {
-      window.location.href = '/'
+      router.push('/')
       return
     }
 
@@ -79,10 +82,14 @@ export default function DeliveryDashboard() {
   }
 
   const updateStatus = async (orderId, status) => {
-    const { error } = await supabase
-      .from('orders')
-      .update({ status })
-      .eq('id', orderId)
+    // SECURITY: VULN-04 — delivery agents must only update orders assigned to them.
+    // Without the assigned_to filter a delivery agent could mark any order as
+    // "delivered" (including orders belonging to other agents) from the console.
+    const ownershipFilter = profile?.is_admin
+      ? supabase.from('orders').update({ status }).eq('id', orderId)
+      : supabase.from('orders').update({ status }).eq('id', orderId).eq('assigned_to', user.id)
+
+    const { error } = await ownershipFilter
 
     if (!error) {
       setOrders(orders.map(o => o.id === orderId ? { ...o, status } : o))
@@ -99,7 +106,7 @@ export default function DeliveryDashboard() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    window.location.href = '/'
+    router.push('/')
   }
 
   if (loading) return (

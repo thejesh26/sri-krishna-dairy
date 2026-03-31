@@ -1,16 +1,18 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import DisclaimerPopup from '../components/DisclaimerPopup'
 
 export default function Dashboard() {
+  const router = useRouter()
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [orders, setOrders] = useState([])
   const [subscriptions, setSubscriptions] = useState([])
   const [loading, setLoading] = useState(true)
-const [walletBalance, setWalletBalance] = useState(0)
-const [openFaq, setOpenFaq] = useState(null)
+  const [walletBalance, setWalletBalance] = useState(0)
+  const [openFaq, setOpenFaq] = useState(null)
 
   useEffect(() => { getUser() }, [])
 
@@ -22,8 +24,9 @@ const [openFaq, setOpenFaq] = useState(null)
   }
 
   const getUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { window.location.href = '/login'; return }
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { router.push('/login'); return }
+    const user = session.user
     setUser(user)
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
     setProfile(profile)
@@ -47,7 +50,7 @@ const [openFaq, setOpenFaq] = useState(null)
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    window.location.href = '/'
+    router.push('/')
   }
 
   if (loading) return (
@@ -120,10 +123,10 @@ const [openFaq, setOpenFaq] = useState(null)
               <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#d4a017]">₹{totalDailyValue}</p>
               <p className="text-green-300 text-xs mt-1 uppercase tracking-widest">Per Day</p>
             </div>
-            <div className="text-center cursor-pointer" onClick={() => window.location.href='/wallet'}>
-  <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#d4a017]">₹{walletBalance}</p>
-  <p className="text-green-300 text-xs mt-1 uppercase tracking-widest">Wallet</p>
-</div>
+            <div className="text-center cursor-pointer" onClick={() => router.push('/wallet')}>
+              <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#d4a017]">₹{walletBalance}</p>
+              <p className="text-green-300 text-xs mt-1 uppercase tracking-widest">Wallet</p>
+            </div>
           </div>
         </div>
 

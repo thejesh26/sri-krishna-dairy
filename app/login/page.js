@@ -1,8 +1,10 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 
 export default function Login() {
+  const router = useRouter()
   const [loginInput, setLoginInput] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -16,44 +18,50 @@ export default function Login() {
     setLoading(true)
     setMessage('')
 
-    let emailToUse = loginInput
+    try {
+      if (isPhone(loginInput)) {
+        // Secure phone login: email lookup stays server-side, preventing enumeration
+        const res = await fetch('/api/auth/phone-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: loginInput, password }),
+        })
+        const result = await res.json()
 
-    if (isPhone(loginInput)) {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('phone', loginInput)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
+        if (!res.ok || !result.session) {
+          setMessage(result.error || 'Invalid credentials. Please check and try again.')
+          setLoading(false)
+          return
+        }
 
-      if (error || !data) {
-        setMessage('No account found with this phone number.')
-        setLoading(false)
+        // Set the session returned from server into the local Supabase client
+        await supabase.auth.setSession({
+          access_token: result.session.access_token,
+          refresh_token: result.session.refresh_token,
+        })
+      } else {
+        // Email login: standard Supabase client-side flow
+        const { error } = await supabase.auth.signInWithPassword({
+          email: loginInput,
+          password,
+        })
+        if (error) {
+          setMessage('Invalid credentials. Please check and try again.')
+          setLoading(false)
+          return
+        }
+      }
+
+      // Check if this user needs to update their password
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user?.user_metadata?.requires_password_update) {
+        router.push('/reset-password?reason=weak_password')
         return
       }
 
-      const { data: userData, error: userError } = await supabase
-        .rpc('get_user_email_by_id', { user_id: data.id })
-
-      if (userError || !userData) {
-        setMessage('Could not find account. Please try with email.')
-        setLoading(false)
-        return
-      }
-
-      emailToUse = userData
-    }
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email: emailToUse,
-      password,
-    })
-
-    if (error) {
-      setMessage('Invalid credentials. Please check and try again.')
-    } else {
-      window.location.href = '/dashboard'
+      router.push('/dashboard')
+    } catch {
+      setMessage('Something went wrong. Please try again.')
     }
     setLoading(false)
   }

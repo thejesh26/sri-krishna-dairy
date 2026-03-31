@@ -1,26 +1,35 @@
 'use client'
 import Link from 'next/link'
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from './lib/supabase'
 
 export default function Home() {
+  const router = useRouter()
+  const [authChecked, setAuthChecked] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        setIsLoggedIn(true)
         const { data: profile } = await supabase
           .from('profiles')
           .select('is_admin, is_delivery')
-          .eq('id', user.id)
+          .eq('id', session.user.id)
           .single()
-        
+
         if (profile?.is_admin) {
-          window.location.href = '/admin'
+          router.push('/admin')
+          return
         } else if (profile?.is_delivery) {
-          window.location.href = '/delivery'
+          router.push('/delivery')
+          return
         }
         // Regular customers can view the homepage while logged in
       }
+      setAuthChecked(true)
     }
     checkUser()
   }, [])
@@ -44,8 +53,14 @@ export default function Home() {
     <a href="#contact" className="hover:text-[#1a5c38] transition">Contact</a>
   </nav>
   <div className="flex gap-2">
-    <Link href="/login" className="border border-[#1a5c38] text-[#1a5c38] font-semibold px-3 py-1.5 rounded text-xs sm:text-sm sm:px-4 sm:py-2 hover:bg-[#1a5c38] hover:text-white transition whitespace-nowrap">Login</Link>
-    <Link href="/signup" className="bg-[#1a5c38] text-white font-semibold px-3 py-1.5 rounded text-xs sm:text-sm sm:px-4 sm:py-2 hover:bg-[#14472c] transition whitespace-nowrap">Sign Up</Link>
+    {isLoggedIn ? (
+      <Link href="/dashboard" className="bg-[#1a5c38] text-white font-semibold px-3 py-1.5 rounded text-xs sm:text-sm sm:px-4 sm:py-2 hover:bg-[#14472c] transition whitespace-nowrap">Dashboard</Link>
+    ) : (
+      <>
+        <Link href="/login" className="border border-[#1a5c38] text-[#1a5c38] font-semibold px-3 py-1.5 rounded text-xs sm:text-sm sm:px-4 sm:py-2 hover:bg-[#1a5c38] hover:text-white transition whitespace-nowrap">Login</Link>
+        <Link href="/signup" className="bg-[#1a5c38] text-white font-semibold px-3 py-1.5 rounded text-xs sm:text-sm sm:px-4 sm:py-2 hover:bg-[#14472c] transition whitespace-nowrap">Sign Up</Link>
+      </>
+    )}
   </div>
 </header>
 

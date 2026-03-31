@@ -1,9 +1,11 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 
 export default function Order() {
+  const router = useRouter()
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [products, setProducts] = useState([])
@@ -29,8 +31,9 @@ export default function Order() {
   }, [])
 
   const getUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { window.location.href = '/login'; return }
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { router.push('/login'); return }
+    const user = session.user
     setUser(user)
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
     setProfile(profile)
@@ -42,13 +45,24 @@ export default function Order() {
     if (data && data.length > 0) setSelectedProduct(data[0])
   }
 
-  const applyDiscount = () => {
-    if (discountCode === 'NEWMILK10') {
-      setDiscount(10); setMessage('✅ Discount applied! 10% off')
-    } else if (discountCode === 'KRISHNA20') {
-      setDiscount(20); setMessage('✅ Discount applied! 20% off')
-    } else {
-      setDiscount(0); setMessage('❌ Invalid discount code')
+  const applyDiscount = async () => {
+    if (!discountCode.trim()) return
+    setMessage('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/validate-discount', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ code: discountCode }),
+      })
+      const result = await res.json()
+      setDiscount(result.valid ? result.percent : 0)
+      setMessage(result.valid ? '✅ ' + result.message : '❌ ' + result.message)
+    } catch {
+      setMessage('❌ Could not validate discount code. Please try again.')
     }
   }
 
@@ -93,23 +107,29 @@ if (existingOrder) {
   return
 }
 
-const { error } = await supabase.from('orders').insert({
-      user_id: user.id,
-      product_id: selectedProduct.id,
-      quantity,
-      total_price: totalPrice,
-      delivery_date: deliveryDate,
-      delivery_slot: deliverySlot,
-      delivery_mode: deliveryMode,
-      bottle_deposit: bottleDeposit,
-      status: 'pending',
-      payment_method: 'COD'
+    // SECURITY: Order is created server-side so price/deposit cannot be injected
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/orders/create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({
+        product_id: selectedProduct.id,
+        quantity,
+        delivery_date: deliveryDate,
+        delivery_slot: deliverySlot,
+        delivery_mode: deliveryMode,
+        discount_code: discountCode || null,
+      }),
     })
+    const result = await res.json()
 
-    if (error) {
-      setMessage('❌ ' + error.message)
+    if (!res.ok) {
+      setMessage('❌ ' + (result.error || 'Could not place order.'))
     } else {
-      window.location.href = '/confirmation?type=order'
+      router.push('/confirmation?type=order')
       setQuantity(1)
       setDiscount(0)
       setDiscountCode('')
