@@ -102,7 +102,7 @@ const { data: existingOrder } = await supabase
   .single()
 
 if (existingOrder) {
-  setMessage('You already have an order for this date! Please choose a different date.')
+  setMessage('🥛 You\'ve already placed an order for this date! You can place only one order per day. Please choose a different delivery date.')
   setLoading(false)
   return
 }
@@ -160,9 +160,17 @@ if (existingOrder) {
         <p className="text-center text-gray-400 text-sm mb-6">Fresh milk delivered to your doorstep</p>
 
         {/* 12 hour notice */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 text-center">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4 text-center">
           <p className="text-yellow-700 text-sm font-semibold">⏰ Book at least 12 hours in advance</p>
           <p className="text-yellow-600 text-xs mt-1">Orders placed after 8PM will be delivered day after tomorrow</p>
+        </div>
+
+        {/* Health Disclaimer Banner */}
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+          <p className="text-orange-800 text-sm font-bold mb-1">⚠️ Raw Milk Health Advisory</p>
+          <p className="text-orange-700 text-xs leading-relaxed">
+            Our milk is farm-fresh and <strong>not pasteurized</strong>. <strong>Please boil before consumption</strong>, especially for children, elderly, and pregnant women. FSSAI Lic. No: 21225008004544.
+          </p>
         </div>
 
         {/* Delivery Address */}

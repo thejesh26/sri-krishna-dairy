@@ -7,7 +7,7 @@ export default function SignUp() {
   const router = useRouter()
   const [form, setForm] = useState({
     full_name: '', phone: '', email: '', password: '',
-    area: '', building_name: '', flat_number: '', landmark: ''
+    area: '', building_name: '', flat_number: '', landmark: '', referral_code: ''
   })
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -72,6 +72,8 @@ export default function SignUp() {
     }
 
     const fullAddress = form.building_name + ', ' + form.flat_number + ', ' + form.area + ', Bangalore'
+    // Generate a unique referral code for this new user
+    const newReferralCode = data.user.id.replace(/-/g, '').substring(0, 8).toUpperCase()
 
     const { error: profileError } = await supabase.from('profiles').insert({
       id: data.user.id,
@@ -82,14 +84,30 @@ export default function SignUp() {
       flat_number: form.flat_number,
       area: form.area,
       landmark: form.landmark,
+      referral_code: newReferralCode,
     })
 
     if (profileError) {
-      // Auth user was created but profile insert failed.
-      // Sign out the partial session so the user can retry cleanly.
       await supabase.auth.signOut()
       setMessage('Account setup failed. Please try signing up again. (' + profileError.message + ')')
     } else {
+      // If referred by someone, record the referral
+      if (form.referral_code.trim()) {
+        const code = form.referral_code.trim().toUpperCase()
+        const { data: referrer } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('referral_code', code)
+          .single()
+        if (referrer) {
+          await supabase.from('referrals').insert({
+            referrer_id: referrer.id,
+            referee_id: data.user.id,
+            referral_code: code,
+            status: 'pending',
+          })
+        }
+      }
       setMessage('Account created successfully! Redirecting to login...')
       setTimeout(() => { router.push('/login') }, 2000)
     }
@@ -230,6 +248,15 @@ export default function SignUp() {
                   className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
                   onChange={handleChange} />
               </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Referral Code (Optional)</label>
+              <input name="referral_code" placeholder="Enter referral code if you have one"
+                value={form.referral_code}
+                onChange={(e) => setForm({ ...form, referral_code: e.target.value.toUpperCase() })}
+                className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#d4a017] bg-[#fdfbf7]" />
+              <p className="text-xs text-gray-400 mt-1">🎁 You and your referrer both get 500ml free milk for 4 days!</p>
             </div>
 
             <button type="submit" disabled={loading}

@@ -8,6 +8,7 @@ export default function Home() {
   const router = useRouter()
   const [authChecked, setAuthChecked] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [products, setProducts] = useState([])
 
   useEffect(() => {
     const checkUser = async () => {
@@ -27,11 +28,15 @@ export default function Home() {
           router.push('/delivery')
           return
         }
-        // Regular customers can view the homepage while logged in
       }
       setAuthChecked(true)
     }
+    const loadProducts = async () => {
+      const { data } = await supabase.from('products').select('*').eq('is_available', true).order('price')
+      setProducts(data || [])
+    }
     checkUser()
+    loadProducts()
   }, [])
 
   return (
@@ -155,24 +160,29 @@ export default function Home() {
         <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">What We Offer</p>
         <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-12">Our Products</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-          <div className="border border-[#e8e0d0] rounded-lg p-8 hover:shadow-lg transition bg-white">
-            <div className="text-5xl mb-5 text-center">🥛</div>
-            <h4 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c] text-center mb-1">Fresh Cow Milk</h4>
-            <p className="text-center text-[#d4a017] font-semibold text-sm mb-3">500ml Bottle</p>
-            <p className="text-gray-400 text-center text-sm mb-5">Pure, fresh & delivered every morning</p>
-            <p className="text-3xl font-bold text-center text-[#1a5c38] mb-6">₹35 <span className="text-sm font-normal text-gray-400">/ bottle</span></p>
-            <Link href="/order?product=500ml" className="block bg-[#1a5c38] text-white text-center py-3 rounded font-semibold hover:bg-[#14472c] transition">Order Now (COD)</Link>
-            <Link href="/subscribe?product=500ml" className="block mt-2 border border-[#d4a017] text-[#d4a017] text-center py-2 rounded font-semibold hover:bg-[#d4a017] hover:text-white transition text-sm">Subscribe (Prepaid)</Link>
-          </div>
-          <div className="border border-[#e8e0d0] rounded-lg p-8 hover:shadow-lg transition bg-white">
-            <div className="text-5xl mb-5 text-center">🥛</div>
-            <h4 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c] text-center mb-1">Fresh Cow Milk</h4>
-            <p className="text-center text-[#d4a017] font-semibold text-sm mb-3">1000ml Bottle</p>
-            <p className="text-gray-400 text-center text-sm mb-5">Best value for families</p>
-            <p className="text-3xl font-bold text-center text-[#1a5c38] mb-6">₹60 <span className="text-sm font-normal text-gray-400">/ bottle</span></p>
-            <Link href="/order?product=1000ml" className="block bg-[#1a5c38] text-white text-center py-3 rounded font-semibold hover:bg-[#14472c] transition">Order Now (COD)</Link>
-            <Link href="/subscribe?product=1000ml" className="block mt-2 border border-[#d4a017] text-[#d4a017] text-center py-2 rounded font-semibold hover:bg-[#d4a017] hover:text-white transition text-sm">Subscribe (Prepaid)</Link>
-          </div>
+          {products.length > 0 ? products.map((product) => (
+            <div key={product.id} className="border border-[#e8e0d0] rounded-lg p-8 hover:shadow-lg transition bg-white">
+              <div className="text-5xl mb-5 text-center">🥛</div>
+              <h4 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c] text-center mb-1">Fresh Cow Milk</h4>
+              <p className="text-center text-[#d4a017] font-semibold text-sm mb-3">{product.size} Bottle</p>
+              <p className="text-gray-400 text-center text-sm mb-5">{product.size === '500ml' ? 'Pure, fresh & delivered every morning' : 'Best value for families'}</p>
+              <p className="text-3xl font-bold text-center text-[#1a5c38] mb-6">₹{product.price} <span className="text-sm font-normal text-gray-400">/ bottle</span></p>
+              <Link href={`/order`} className="block bg-[#1a5c38] text-white text-center py-3 rounded font-semibold hover:bg-[#14472c] transition">Order Now (COD)</Link>
+              <Link href={`/subscribe`} className="block mt-2 border border-[#d4a017] text-[#d4a017] text-center py-2 rounded font-semibold hover:bg-[#d4a017] hover:text-white transition text-sm">Subscribe (Prepaid)</Link>
+            </div>
+          )) : (
+            // Fallback skeleton while products load
+            [1, 2].map((i) => (
+              <div key={i} className="border border-[#e8e0d0] rounded-lg p-8 bg-white animate-pulse">
+                <div className="h-12 w-12 rounded-full bg-gray-100 mx-auto mb-5"></div>
+                <div className="h-5 bg-gray-100 rounded mb-3 mx-8"></div>
+                <div className="h-4 bg-gray-100 rounded mb-5 mx-12"></div>
+                <div className="h-8 bg-gray-100 rounded mb-6 mx-16"></div>
+                <div className="h-10 bg-gray-100 rounded mb-2"></div>
+                <div className="h-8 bg-gray-100 rounded"></div>
+              </div>
+            ))
+          )}
         </div>
       </section>
 
@@ -410,9 +420,11 @@ export default function Home() {
         { q: 'Where do you deliver?', a: 'We deliver to homes, apartments, gated communities, and housing societies in and around Kattigenahalli, Bangalore. We also accept bulk orders for schools, hotels, resorts, offices and other institutions — on separate bulk delivery timings. Contact us for bulk enquiries.' },
         { q: 'What time is milk delivered?', a: 'Morning slot: 5AM – 8AM. Evening slot: 5PM – 7PM. We always aim to deliver within your chosen slot. Bulk institutional orders may have different delivery timings.' },
         { q: 'Can I pause my subscription?', a: 'Yes! You can pause delivery for any specific date directly from your dashboard, at least 12 hours in advance. You can also resume anytime.' },
-        { q: 'What is the bottle deposit?', a: 'We charge ₹100 per bottle as a refundable security deposit. Minimum deposit is ₹200 (for 2 bottles). The full deposit is refunded when bottles are returned in good condition. Alternatively, choose our Direct Delivery option where our delivery person collects the bottle immediately — no deposit needed.' },
-        { q: 'How do I pay?', a: 'For one-time orders: Cash on Delivery (COD) — pay when you receive your milk. For subscriptions: Prepaid payment — pay in advance weekly or monthly and enjoy uninterrupted daily delivery without any hassle.' },
-        { q: 'Is the milk pasteurized?', a: 'Our milk is farm-fresh and pure, delivered straight from our farm. We follow strict hygiene and quality standards at every step of the process to ensure you receive the safest, freshest milk possible.' },
+        { q: 'What is the bottle deposit?', a: 'We charge a one-time refundable bottle deposit of ₹100 total (not per bottle per order). A minimum deposit of ₹200 is collected (covers 2 bottles). The full deposit is returned when bottles are given back in good condition. Choose Direct Delivery mode if you prefer no deposit — our person collects the bottle right after delivery.' },
+        { q: 'How do I pay?', a: 'For one-time orders: Cash on Delivery (COD) — pay when you receive your milk. For subscriptions: Prepaid wallet — add balance to your wallet and daily amounts are auto-deducted. Minimum wallet balance required is ₹300. Deliveries are automatically paused if your balance falls below ₹300.' },
+        { q: 'What is the minimum wallet balance?', a: 'Your wallet must maintain a minimum balance of ₹300 for subscriptions to remain active. If the balance drops below ₹300, deliveries will be automatically paused. Please top up your wallet in advance to avoid interruptions.' },
+        { q: 'Is the milk safe to drink directly?', a: '⚠️ Health Advisory: Our milk is farm-fresh and raw — it is NOT pasteurized or homogenized. We strongly recommend boiling the milk before consumption, especially for children, elderly, pregnant women, and immunocompromised individuals. We comply with FSSAI guidelines (Lic. No: 21225008004544) and follow strict hygiene at every step of the process.' },
+        { q: 'Is the milk pasteurized?', a: 'Our milk is farm-fresh and pure — it is NOT pasteurized. It comes straight from our farm. We follow strict hygiene and quality standards, but please boil before drinking as a precaution. Compliant with FSSAI Lic. No: 21225008004544.' },
         { q: 'Do you take bulk orders?', a: 'Yes! We supply bulk milk to schools, hotels, resorts, hostels, canteens and other institutions. Bulk orders have special pricing and dedicated delivery timings. Please contact us on WhatsApp or call us for bulk order enquiries.' },
         { q: 'How do I install this as an app on my phone?', a: 'On iPhone: Open the website in Safari, tap the Share button (box with arrow) at the bottom, then tap "Add to Home Screen". On Android: Open in Chrome, tap the 3 dots menu, then tap "Add to Home Screen". The app icon will appear on your home screen!' },
         { q: 'Do I need to download an app from Play Store?', a: 'No! Our website works like an app directly from your browser. Just add it to your home screen and it opens instantly like a native app — no Play Store download needed!' },

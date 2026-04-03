@@ -16,6 +16,7 @@ export default function Subscribe() {
   const [deliveryMode, setDeliveryMode] = useState('keep_bottle')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [fixedPreset, setFixedPreset] = useState(null)
   const [discountCode, setDiscountCode] = useState('')
   const [discount, setDiscount] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -106,7 +107,7 @@ export default function Subscribe() {
     }
 
     if (subscriptionType === 'fixed' && !endDate) {
-      setMessage('Please select an end date!')
+      setMessage('Please select a duration (1 Week, 2 Weeks, 1 Month, or 3 Months)!')
       setLoading(false)
       return
     }
@@ -187,12 +188,20 @@ if (existingSub) {
         </div>
 
         {/* 12 hour notice */}
-        <div className="bg-[#fdf6e3] border border-[#f0dfa0] rounded-xl p-4 mb-6 flex items-center gap-3">
+        <div className="bg-[#fdf6e3] border border-[#f0dfa0] rounded-xl p-4 mb-4 flex items-center gap-3">
           <span className="text-2xl">⏰</span>
           <div>
             <p className="text-[#d4a017] text-sm font-semibold">Book at least 12 hours in advance</p>
             <p className="text-yellow-600 text-xs mt-0.5">Orders placed after 8PM will be delivered day after tomorrow</p>
           </div>
+        </div>
+
+        {/* Health Disclaimer Banner */}
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6">
+          <p className="text-orange-800 text-sm font-bold mb-1">⚠️ Raw Milk Health Advisory</p>
+          <p className="text-orange-700 text-xs leading-relaxed">
+            Our milk is farm-fresh and <strong>not pasteurized</strong>. <strong>Please boil before consumption</strong>, especially for children, elderly, and pregnant women. FSSAI Lic. No: 21225008004544.
+          </p>
         </div>
 
         {/* Delivery Address */}
@@ -334,16 +343,45 @@ if (existingSub) {
               {subscriptionType === 'oneday' ? 'Delivery Date' : 'Start Date'}
             </p>
             <input type="date" value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={(e) => { setStartDate(e.target.value); setFixedPreset(null); setEndDate('') }}
               min={new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString().split('T')[0]}
               className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
             {subscriptionType === 'fixed' && (
               <>
-                <p className="text-sm font-bold text-[#1c1c1c] mb-3 mt-4 font-[family-name:var(--font-playfair)]">End Date</p>
-                <input type="date" value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  min={startDate}
-                  className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+                <p className="text-sm font-bold text-[#1c1c1c] mb-3 mt-4 font-[family-name:var(--font-playfair)]">Duration</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { label: '1 Week', days: 7 },
+                    { label: '2 Weeks', days: 14 },
+                    { label: '1 Month', days: 30 },
+                    { label: '3 Months', days: 90 },
+                  ].map(({ label, days }) => {
+                    const calcEnd = () => {
+                      if (!startDate) return ''
+                      const d = new Date(startDate)
+                      d.setDate(d.getDate() + days - 1)
+                      return d.toISOString().split('T')[0]
+                    }
+                    return (
+                      <button type="button" key={days}
+                        onClick={() => { setFixedPreset(days); setEndDate(calcEnd()) }}
+                        className={`border-2 rounded-lg p-3 text-center transition ${
+                          fixedPreset === days ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#1a5c38]'
+                        }`}>
+                        <p className="font-bold text-[#1c1c1c] text-xs">{label}</p>
+                        <p className="text-xs text-gray-400">{days}d</p>
+                      </button>
+                    )
+                  })}
+                </div>
+                {fixedPreset && endDate && (
+                  <p className="text-xs text-[#1a5c38] font-semibold mt-3 bg-[#f0faf4] rounded-lg p-2 text-center">
+                    📅 Ends on {new Date(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                )}
+                {!fixedPreset && (
+                  <p className="text-xs text-gray-400 mt-2">Select a duration preset above</p>
+                )}
               </>
             )}
           </div>

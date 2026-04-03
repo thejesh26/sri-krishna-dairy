@@ -4,15 +4,29 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import DisclaimerPopup from '../components/DisclaimerPopup'
 
+const BADGE_INFO = {
+  fresh_start:    { emoji: '🥛', label: 'Fresh Start',      days: 7,   color: '#d4a017' },
+  milk_lover:     { emoji: '🌟', label: 'Milk Lover',       days: 30,  color: '#1a5c38' },
+  health_champion:{ emoji: '💪', label: 'Health Champion',  days: 90,  color: '#0d3320' },
+  dairy_legend:   { emoji: '🏆', label: 'Dairy Legend',     days: 365, color: '#d4a017' },
+}
+
 export default function Dashboard() {
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [orders, setOrders] = useState([])
+  const [allOrders, setAllOrders] = useState([])
   const [subscriptions, setSubscriptions] = useState([])
   const [loading, setLoading] = useState(true)
   const [walletBalance, setWalletBalance] = useState(0)
+  const [transactions, setTransactions] = useState([])
+  const [referrals, setReferrals] = useState([])
   const [openFaq, setOpenFaq] = useState(null)
+  const [activeTab, setActiveTab] = useState('overview')
+  const [copyMsg, setCopyMsg] = useState('')
+  const [redeemMsg, setRedeemMsg] = useState('')
+  const [redeemLoading, setRedeemLoading] = useState(false)
 
   useEffect(() => { getUser() }, [])
 
@@ -26,24 +40,34 @@ export default function Dashboard() {
   const getUser = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
-    const user = session.user
-    setUser(user)
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-    setProfile(profile)
-    const { data: orders } = await supabase.from('orders').select('*, products(*)')
-      .eq('user_id', user.id).order('created_at', { ascending: false }).limit(3)
-    setOrders(orders || [])
-    const { data: subscriptions } = await supabase.from('subscriptions').select('*, products(*)')
-      .eq('user_id', user.id).eq('is_active', true)
-    setSubscriptions(subscriptions || [])
+    const u = session.user
+    setUser(u)
 
-    // Load wallet balance
-    const { data: walletData } = await supabase
-      .from('wallet')
-      .select('*')
-      .eq('user_id', user.id)
-      .limit(1)
+    const { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
+    setProfile(prof)
+
+    const { data: recentOrders } = await supabase.from('orders').select('*, products(*)')
+      .eq('user_id', u.id).order('created_at', { ascending: false }).limit(3)
+    setOrders(recentOrders || [])
+
+    const { data: allOrd } = await supabase.from('orders').select('*, products(*)')
+      .eq('user_id', u.id).order('created_at', { ascending: false })
+    setAllOrders(allOrd || [])
+
+    const { data: subs } = await supabase.from('subscriptions').select('*, products(*)')
+      .eq('user_id', u.id).eq('is_active', true)
+    setSubscriptions(subs || [])
+
+    const { data: walletData } = await supabase.from('wallet').select('*').eq('user_id', u.id).limit(1)
     setWalletBalance(walletData?.[0]?.balance || 0)
+
+    const { data: txns } = await supabase.from('wallet_transactions').select('*')
+      .eq('user_id', u.id).order('created_at', { ascending: false }).limit(50)
+    setTransactions(txns || [])
+
+    const { data: refs } = await supabase.from('referrals').select('*, profiles!referrals_referee_id_fkey(full_name)')
+      .eq('referrer_id', u.id).order('created_at', { ascending: false })
+    setReferrals(refs || [])
 
     setLoading(false)
   }
@@ -51,6 +75,50 @@ export default function Dashboard() {
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/')
+  }
+
+  const copyReferralCode = () => {
+    if (!profile?.referral_code) return
+    navigator.clipboard.writeText(profile.referral_code).then(() => {
+      setCopyMsg('Copied!')
+      setTimeout(() => setCopyMsg(''), 2000)
+    })
+  }
+
+  const handleRedeemPoints = async () => {
+    if (!profile || profile.loyalty_points < 100) {
+      setRedeemMsg('❌ You need at least 100 points to redeem.')
+      return
+    }
+    setRedeemLoading(true)
+    setRedeemMsg('')
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/loyalty/redeem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+    })
+    const result = await res.json()
+    if (res.ok) {
+      setRedeemMsg('🥛 Success! A free 1L milk order has been placed for tomorrow.')
+      setProfile(p => ({ ...p, loyalty_points: p.loyalty_points - 100 }))
+    } else {
+      setRedeemMsg('❌ ' + (result.error || 'Could not redeem points.'))
+    }
+    setRedeemLoading(false)
+  }
+
+  // Monthly report calculations
+  const getMonthlyReport = () => {
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+    const monthOrders = allOrders.filter(o => o.created_at >= monthStart)
+    const monthTxns = transactions.filter(t => t.type === 'debit' && t.created_at >= monthStart)
+    const totalBottles = monthOrders.reduce((s, o) => s + o.quantity, 0)
+    const totalSpent = monthTxns.reduce((s, t) => s + (t.amount || 0), 0)
+    // Market price approx 2x our price
+    const marketValue = monthOrders.reduce((s, o) => s + ((o.products?.price || 0) * 2 * o.quantity), 0)
+    const moneySaved = Math.max(0, marketValue - totalSpent)
+    return { totalBottles, totalSpent, moneySaved, orderCount: monthOrders.length }
   }
 
   if (loading) return (
@@ -67,6 +135,7 @@ export default function Dashboard() {
   const firstName = profile?.full_name?.split(' ')[0] || 'Customer'
   const totalDailyValue = subscriptions.reduce((sum, sub) => sum + (sub.products?.price * sub.quantity), 0)
   const nextDelivery = subscriptions[0]
+  const report = getMonthlyReport()
 
   return (
     <div className="min-h-screen bg-[#fdfbf7]">
@@ -95,10 +164,10 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <div className="max-w-4xl mx-auto px-6 py-10">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
 
         {/* Welcome Banner */}
-        <div className="rounded-2xl p-8 mb-8 text-white relative overflow-hidden shadow-lg"
+        <div className="rounded-2xl p-6 sm:p-8 mb-6 text-white relative overflow-hidden shadow-lg"
           style={{background:'linear-gradient(135deg, #0d3320 0%, #1a5c38 100%)'}}>
           <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full opacity-10"
             style={{background:'radial-gradient(circle, #d4a017, transparent)'}}></div>
@@ -109,7 +178,9 @@ export default function Dashboard() {
               <p className="text-green-300 text-sm font-medium mb-2">{greeting.icon} {greeting.text}</p>
               <h2 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-white mb-1">{firstName}!</h2>
               <p className="text-green-200 text-sm">{profile?.area || profile?.apartment_name || 'Kattigenahalli'}, Bangalore</p>
-              <p className="text-green-300 text-sm mt-1">📞 {profile?.phone}</p>
+              {profile?.loyalty_points > 0 && (
+                <p className="text-[#d4a017] text-xs font-semibold mt-1">⭐ {profile.loyalty_points} loyalty points</p>
+              )}
             </div>
             <img src="/Logo.jpg" alt="Logo"
               className="h-20 w-20 rounded-full object-cover border-4 border-[#d4a017] border-opacity-60 shadow-xl hidden sm:block" />
@@ -124,263 +195,537 @@ export default function Dashboard() {
               <p className="text-green-300 text-xs mt-1 uppercase tracking-widest">Per Day</p>
             </div>
             <div className="text-center cursor-pointer" onClick={() => router.push('/wallet')}>
-              <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#d4a017]">₹{walletBalance}</p>
+              <p className={`font-[family-name:var(--font-playfair)] text-2xl font-bold ${walletBalance < 300 ? 'text-red-300' : 'text-[#d4a017]'}`}>
+                ₹{walletBalance}
+              </p>
               <p className="text-green-300 text-xs mt-1 uppercase tracking-widest">Wallet</p>
             </div>
           </div>
         </div>
 
-        {/* Today's Delivery Status */}
-        {nextDelivery && (
-          <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 mb-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Today's Delivery</h3>
-              <span className="bg-[#f0faf4] text-[#1a5c38] text-xs font-bold px-3 py-1.5 rounded-full border border-[#c8e6d4]">
-                Scheduled
-              </span>
+        {/* Wallet Low Balance Warning */}
+        {walletBalance === 0 && (
+          <div className="bg-red-50 border-2 border-red-400 rounded-xl p-4 mb-5 flex items-start gap-3">
+            <span className="text-2xl flex-shrink-0">🚨</span>
+            <div className="flex-1">
+              <p className="text-red-700 font-bold text-sm">Wallet Empty — Deliveries Paused!</p>
+              <p className="text-red-600 text-xs mt-1">Your wallet is at ₹0. All subscription deliveries are on hold. Add balance immediately to resume.</p>
             </div>
-            <div className="flex items-center gap-5">
-              <div className="w-16 h-16 rounded-2xl bg-[#f5f0e8] flex items-center justify-center text-4xl flex-shrink-0">🥛</div>
-              <div className="flex-1">
-                <p className="font-semibold text-[#1c1c1c] text-base">{nextDelivery.products?.size} Fresh Cow Milk</p>
-                <p className="text-gray-400 text-sm mt-1">{nextDelivery.quantity} bottle(s) per day</p>
-                <div className="flex items-center gap-3 mt-2">
-                  <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-semibold px-3 py-1 rounded-full">
-                    {nextDelivery.delivery_slot === 'morning' ? '🌅 5AM - 8AM' : '🌆 5PM - 7PM'}
-                  </span>
-                  <span className="bg-[#f5f0e8] text-[#1c1c1c] text-xs font-medium px-3 py-1 rounded-full">
-                    {nextDelivery.delivery_mode === 'keep_bottle' ? '🏺 Keep Bottle' : '🔄 Direct Delivery'}
-                  </span>
-                </div>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">
-                  ₹{nextDelivery.products?.price * nextDelivery.quantity}
-                </p>
-                <p className="text-xs text-gray-400">per day</p>
-              </div>
+            <a href="/wallet" className="bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-lg flex-shrink-0 hover:bg-red-700 transition">Top Up →</a>
+          </div>
+        )}
+        {walletBalance > 0 && walletBalance < 300 && (
+          <div className="bg-orange-50 border-2 border-orange-300 rounded-xl p-4 mb-5 flex items-start gap-3">
+            <span className="text-2xl flex-shrink-0">⚠️</span>
+            <div className="flex-1">
+              <p className="text-orange-700 font-bold text-sm">Low Wallet Balance — Top Up Soon!</p>
+              <p className="text-orange-600 text-xs mt-1">Balance ₹{walletBalance} is below the required ₹300 minimum. Deliveries may pause if not topped up.</p>
             </div>
+            <a href="/wallet" className="bg-orange-500 text-white text-xs font-bold px-3 py-2 rounded-lg flex-shrink-0 hover:bg-orange-600 transition">Add Balance →</a>
           </div>
         )}
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
+        {/* Tabs */}
+        <div className="flex gap-1 mb-6 bg-white border border-[#e8e0d0] rounded-xl p-1 shadow-sm overflow-x-auto">
           {[
-            { href: '/order', icon: '🛒', label: 'Order Now', desc: 'One time delivery', color: '#f0faf4', border: '#c8e6d4' },
-            { href: '/subscribe', icon: '📅', label: 'Subscribe', desc: 'Daily milk plan', color: '#fdf6e3', border: '#f0dfa0' },
-            { href: '/pause', icon: '⏸️', label: 'Manage Plan', desc: 'Pause or cancel', color: '#f5f0e8', border: '#e8e0d0' },
-            { href: '/wallet', icon: '💰', label: 'Wallet', desc: 'Add balance', color: '#f0faf4', border: '#c8e6d4' },
-            { href: '/', icon: '🏠', label: 'Our Website', desc: 'View homepage', color: '#fdf6e3', border: '#f0dfa0' },
-          ].map(({ href, icon, label, desc, color, border }) => (
-            <a key={label} href={href}
-              className="rounded-2xl p-5 border hover:shadow-md transition group"
-              style={{background: color, borderColor: border}}>
-              <div className="text-3xl mb-3">{icon}</div>
-              <p className="font-semibold text-[#1c1c1c] text-sm group-hover:text-[#1a5c38] transition">{label}</p>
-              <p className="text-xs text-gray-400 mt-1">{desc}</p>
-            </a>
+            { id: 'overview', label: '🏠 Overview' },
+            { id: 'rewards',  label: '⭐ Rewards' },
+            { id: 'history',  label: '📋 History' },
+            { id: 'report',   label: '📊 Report' },
+          ].map(({ id, label }) => (
+            <button key={id} onClick={() => setActiveTab(id)}
+              className={`flex-1 px-3 py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
+                activeTab === id
+                  ? 'bg-[#1a5c38] text-white shadow'
+                  : 'text-gray-500 hover:text-[#1a5c38]'
+              }`}>
+              {label}
+            </button>
           ))}
         </div>
 
-        {/* Active Subscriptions */}
-        <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden mb-6 shadow-sm">
-          <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between">
-            <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">My Subscriptions</h3>
-            <a href="/subscribe"
-              className="text-xs text-[#1a5c38] font-semibold bg-[#f0faf4] border border-[#c8e6d4] px-4 py-2 rounded-full hover:bg-[#d4eddf] transition">
-              + New Plan
-            </a>
-          </div>
-          {subscriptions.length === 0 ? (
-            <div className="px-6 py-12 text-center">
-              <div className="text-6xl mb-4">🥛</div>
-              <p className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-2">No Active Subscriptions</p>
-              <p className="text-gray-400 text-sm mb-6">Subscribe for daily fresh milk delivery</p>
-              <a href="/subscribe"
-                className="inline-block text-white px-8 py-3 rounded-xl font-semibold hover:opacity-90 transition shadow"
-                style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
-                Subscribe Now
-              </a>
-            </div>
-          ) : (
-            subscriptions.map((sub, index) => (
-              <div key={sub.id}
-                className={`px-6 py-5 flex items-center gap-5 ${index !== subscriptions.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
-                <div className="w-16 h-16 rounded-2xl bg-[#f5f0e8] flex items-center justify-center text-3xl flex-shrink-0">🥛</div>
-                <div className="flex-1">
-                  <p className="font-semibold text-[#1c1c1c]">{sub.products?.size} Fresh Cow Milk</p>
-                  <p className="text-sm text-gray-400 mt-1">{sub.quantity} bottle/day • Started {new Date(sub.start_date).toLocaleDateString('en-IN')}</p>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    <span className="bg-[#f0faf4] text-[#1a5c38] text-xs font-medium px-3 py-1 rounded-full border border-[#c8e6d4]">Active</span>
-                    <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-medium px-3 py-1 rounded-full border border-[#f0dfa0]">
-                      {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
-                    </span>
-                    {sub.paused_dates?.length > 0 && (
-                      <span className="bg-gray-50 text-gray-500 text-xs font-medium px-3 py-1 rounded-full border border-gray-200">
-                        {sub.paused_dates.length} paused
+        {/* ─── OVERVIEW TAB ─── */}
+        {activeTab === 'overview' && (
+          <div className="flex flex-col gap-6">
+
+            {/* Today's Delivery Status */}
+            {nextDelivery && (
+              <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Today's Delivery</h3>
+                  <span className="bg-[#f0faf4] text-[#1a5c38] text-xs font-bold px-3 py-1.5 rounded-full border border-[#c8e6d4]">Scheduled</span>
+                </div>
+                <div className="flex items-center gap-5">
+                  <div className="w-16 h-16 rounded-2xl bg-[#f5f0e8] flex items-center justify-center text-4xl flex-shrink-0">🥛</div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-[#1c1c1c] text-base">{nextDelivery.products?.size} Fresh Cow Milk</p>
+                    <p className="text-gray-400 text-sm mt-1">{nextDelivery.quantity} bottle(s) per day</p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-semibold px-3 py-1 rounded-full">
+                        {nextDelivery.delivery_slot === 'morning' ? '🌅 5AM - 8AM' : '🌆 5PM - 7PM'}
                       </span>
-                    )}
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">
+                      ₹{nextDelivery.products?.price * nextDelivery.quantity}
+                    </p>
+                    <p className="text-xs text-gray-400">per day</p>
                   </div>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">₹{sub.products?.price * sub.quantity}</p>
-                  <p className="text-xs text-gray-400 mb-2">/day</p>
-                  <a href="/pause" className="text-xs text-[#d4a017] font-semibold border border-[#f0dfa0] px-3 py-1 rounded-full hover:bg-[#fdf6e3] transition">
-                    Manage
-                  </a>
-                </div>
               </div>
-            ))
-          )}
-        </div>
+            )}
 
-        {/* Recent Orders */}
-        <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden mb-6 shadow-sm">
-          <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between">
-            <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Recent Orders</h3>
-            <a href="/order"
-              className="text-xs text-[#1a5c38] font-semibold bg-[#f0faf4] border border-[#c8e6d4] px-4 py-2 rounded-full hover:bg-[#d4eddf] transition">
-              + New Order
-            </a>
-          </div>
-          {orders.length === 0 ? (
-            <div className="px-6 py-12 text-center">
-              <div className="text-6xl mb-4">📦</div>
-              <p className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-2">No Orders Yet</p>
-              <p className="text-gray-400 text-sm mb-6">Place your first order today</p>
-              <a href="/order"
-                className="inline-block text-white px-8 py-3 rounded-xl font-semibold hover:opacity-90 transition shadow"
-                style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
-                Order Now
-              </a>
-            </div>
-          ) : (
-            orders.map((order, index) => (
-              <div key={order.id}
-                className={`px-6 py-5 flex items-center gap-5 ${index !== orders.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
-                <div className="w-16 h-16 rounded-2xl bg-[#f5f0e8] flex items-center justify-center text-3xl flex-shrink-0">🥛</div>
-                <div className="flex-1">
-                  <p className="font-semibold text-[#1c1c1c]">{order.products?.size} Fresh Cow Milk</p>
-                  <p className="text-sm text-gray-400 mt-1">{order.quantity} bottle • {order.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {new Date(order.delivery_date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
-                  </p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${
-                    order.status === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' :
-                    order.status === 'pending' ? 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]' :
-                    'bg-gray-50 text-gray-500 border border-gray-200'
-                  }`}>
-                    {order.status === 'delivered' ? 'Delivered' : order.status === 'pending' ? 'Pending' : order.status}
-                  </span>
-                  <p className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mt-2">₹{order.total_price}</p>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Our Milk Journey */}
-        <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm mb-6">
-          <div className="px-6 py-5 border-b border-[#f5f0e8]">
-            <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">🐄 From Farm to Your Door</h3>
-            <p className="text-xs text-gray-400 mt-0.5">How your milk travels before reaching you every day</p>
-          </div>
-          <div className="px-6 py-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10">
+            {/* Quick Actions */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {[
-                { icon: '🐄', title: 'Milking', desc: 'Cows milked hygienically at 4–6 AM at our farm in Kammasandra, Bangalore Rural' },
-                { icon: '🧪', title: 'Quality Check', desc: 'Every batch tested for freshness, purity & fat content before dispatch' },
-                { icon: '🫧', title: 'Bottle Cleaning', desc: 'All returned bottles thoroughly washed, sanitized & sterilized' },
-                { icon: '🥛', title: 'Filling & Sealing', desc: 'Measured quantities hygienically filled & sealed' },
-                { icon: '📦', title: 'Packing', desc: 'Labelled & packed in insulated delivery bags to retain freshness' },
-                { icon: '🛵', title: 'Route Dispatch', desc: 'Delivery agents dispatched by 5 AM with optimized routes' },
-                { icon: '🏠', title: 'Door Delivery', desc: 'Fresh at your doorstep within your chosen morning or evening slot' },
-              ].map(({ icon, title, desc }) => (
-                <div key={title} className="flex items-start gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-[#f0faf4] border-2 border-[#c8e6d4] flex items-center justify-center text-lg flex-shrink-0">
-                    {icon}
-                  </div>
-                  <div className="pt-1">
-                    <p className="font-semibold text-[#1c1c1c] text-sm">{title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{desc}</p>
-                  </div>
-                </div>
+                { href: '/order',     icon: '🛒', label: 'Order Now',   desc: 'One time delivery', color: '#f0faf4', border: '#c8e6d4' },
+                { href: '/subscribe', icon: '📅', label: 'Subscribe',   desc: 'Daily milk plan',   color: '#fdf6e3', border: '#f0dfa0' },
+                { href: '/pause',     icon: '⏸️', label: 'Manage Plan', desc: 'Pause or cancel',   color: '#f5f0e8', border: '#e8e0d0' },
+                { href: '/wallet',    icon: '💰', label: 'Wallet',      desc: 'Add balance',       color: '#f0faf4', border: '#c8e6d4' },
+                { href: '/',          icon: '🏠', label: 'Our Website', desc: 'View homepage',     color: '#fdf6e3', border: '#f0dfa0' },
+              ].map(({ href, icon, label, desc, color, border }) => (
+                <a key={label} href={href}
+                  className="rounded-2xl p-4 border hover:shadow-md transition group"
+                  style={{background: color, borderColor: border}}>
+                  <div className="text-3xl mb-2">{icon}</div>
+                  <p className="font-semibold text-[#1c1c1c] text-sm group-hover:text-[#1a5c38] transition">{label}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+                </a>
               ))}
             </div>
-          </div>
-        </div>
 
-        {/* FAQ */}
-        <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm mb-6">
-          <div className="px-6 py-5 border-b border-[#f5f0e8]">
-            <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">❓ Frequently Asked Questions</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Quick answers to common questions</p>
-          </div>
-          <div className="px-6 py-4 flex flex-col gap-2">
-            {[
-              { q: 'What time is milk delivered?', a: 'Morning slot: 5AM – 8AM. Evening slot: 5PM – 7PM. We always aim to deliver within your chosen slot.' },
-              { q: 'Can I pause my subscription?', a: 'Yes! Go to Manage Plan and select the dates you want to pause. Must be done at least 12 hours in advance.' },
-              { q: 'What is the bottle deposit?', a: 'We charge ₹100 per bottle as a refundable security deposit. Minimum deposit is ₹200. Refunded when bottles are returned in good condition.' },
-              { q: 'How do I add wallet balance?', a: 'Contact us on WhatsApp or call us. We will add the balance manually after receiving payment.' },
-              { q: 'How do I pay for subscriptions?', a: 'Subscriptions use prepaid wallet balance. Daily amounts are auto-deducted. Top up your wallet to keep deliveries running.' },
-              { q: 'Is the milk pasteurized?', a: 'Our milk is farm-fresh and pure, delivered straight from our farm. We follow strict hygiene and quality standards at every step.' },
-            ].map(({ q, a }, i) => (
-              <div key={q} className="border border-[#e8e0d0] rounded-xl overflow-hidden">
-                <button
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  className="w-full px-5 py-4 text-left flex items-center justify-between font-semibold text-[#1c1c1c] text-sm hover:bg-[#fdfbf7] transition">
-                  <span>{q}</span>
-                  <span className={`text-[#d4a017] text-xl font-bold flex-shrink-0 ml-4 transition-transform duration-200 ${openFaq === i ? 'rotate-45' : ''}`}>+</span>
-                </button>
-                {openFaq === i && (
-                  <div className="px-5 pb-4 pt-1 border-t border-[#e8e0d0]">
-                    <p className="text-gray-500 text-sm leading-relaxed">{a}</p>
+            {/* Active Subscriptions */}
+            <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+              <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between">
+                <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">My Subscriptions</h3>
+                <a href="/subscribe"
+                  className="text-xs text-[#1a5c38] font-semibold bg-[#f0faf4] border border-[#c8e6d4] px-4 py-2 rounded-full hover:bg-[#d4eddf] transition">
+                  + New Plan
+                </a>
+              </div>
+              {subscriptions.length === 0 ? (
+                <div className="px-6 py-10 text-center">
+                  <div className="text-5xl mb-3">🥛</div>
+                  <p className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-2">No Active Subscriptions</p>
+                  <p className="text-gray-400 text-sm mb-5">Subscribe for daily fresh milk delivery</p>
+                  <a href="/subscribe" className="inline-block text-white px-8 py-3 rounded-xl font-semibold hover:opacity-90 transition shadow"
+                    style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>Subscribe Now</a>
+                </div>
+              ) : (
+                subscriptions.map((sub, index) => (
+                  <div key={sub.id}
+                    className={`px-6 py-5 flex items-center gap-5 ${index !== subscriptions.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                    <div className="w-16 h-16 rounded-2xl bg-[#f5f0e8] flex items-center justify-center text-3xl flex-shrink-0">🥛</div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-[#1c1c1c]">{sub.products?.size} Fresh Cow Milk</p>
+                      <p className="text-sm text-gray-400 mt-1">{sub.quantity} bottle/day • Started {new Date(sub.start_date).toLocaleDateString('en-IN')}</p>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <span className="bg-[#f0faf4] text-[#1a5c38] text-xs font-medium px-3 py-1 rounded-full border border-[#c8e6d4]">Active</span>
+                        <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-medium px-3 py-1 rounded-full border border-[#f0dfa0]">
+                          {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">₹{sub.products?.price * sub.quantity}</p>
+                      <p className="text-xs text-gray-400 mb-2">/day</p>
+                      <a href="/pause" className="text-xs text-[#d4a017] font-semibold border border-[#f0dfa0] px-3 py-1 rounded-full hover:bg-[#fdf6e3] transition">Manage</a>
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+                ))
+              )}
+            </div>
 
-        {/* Contact Support */}
-        <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
-          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-5">Need Help?</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <a href="tel:8553666002"
-              className="flex items-center gap-4 border border-[#e8e0d0] rounded-xl p-4 hover:border-[#1a5c38] hover:shadow-sm transition">
-              <div className="w-12 h-12 rounded-xl bg-[#f0faf4] flex items-center justify-center text-2xl flex-shrink-0">📞</div>
-              <div>
-                <p className="font-semibold text-[#1c1c1c]">Call Us</p>
-                <p className="text-sm text-gray-400">8553666002</p>
-                <p className="text-xs text-gray-400">Mon-Sun, 6AM - 8PM</p>
+            {/* Recent Orders */}
+            <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+              <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between">
+                <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Recent Orders</h3>
+                <button onClick={() => setActiveTab('history')}
+                  className="text-xs text-[#1a5c38] font-semibold bg-[#f0faf4] border border-[#c8e6d4] px-4 py-2 rounded-full hover:bg-[#d4eddf] transition">
+                  View All →
+                </button>
               </div>
-            </a>
-            <a href="https://wa.me/918553666002" target="_blank"
-              className="flex items-center gap-4 border border-[#e8e0d0] rounded-xl p-4 hover:border-[#25D366] hover:shadow-sm transition">
-              <div className="w-12 h-12 rounded-xl bg-[#f0faf4] flex items-center justify-center flex-shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-7 h-7" fill="#25D366">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                </svg>
+              {orders.length === 0 ? (
+                <div className="px-6 py-10 text-center">
+                  <div className="text-5xl mb-3">📦</div>
+                  <p className="text-gray-400 text-sm mb-4">No orders yet. Place your first order today!</p>
+                  <a href="/order" className="inline-block text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition shadow text-sm"
+                    style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>Order Now</a>
+                </div>
+              ) : (
+                orders.map((order, index) => (
+                  <div key={order.id}
+                    className={`px-6 py-5 flex items-center gap-4 ${index !== orders.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                    <div className="w-14 h-14 rounded-2xl bg-[#f5f0e8] flex items-center justify-center text-3xl flex-shrink-0">🥛</div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-[#1c1c1c] text-sm">{order.products?.size} Fresh Cow Milk</p>
+                      <p className="text-xs text-gray-400 mt-1">{new Date(order.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                        order.status === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' :
+                        order.status === 'pending'   ? 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]' :
+                        'bg-gray-50 text-gray-500 border border-gray-200'
+                      }`}>{order.status}</span>
+                      <p className="font-bold text-[#1a5c38] text-base mt-1">₹{order.total_price}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* FAQ */}
+            <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+              <div className="px-6 py-5 border-b border-[#f5f0e8]">
+                <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">❓ Frequently Asked Questions</h3>
               </div>
-              <div>
-                <p className="font-semibold text-[#1c1c1c]">WhatsApp</p>
-                <p className="text-sm text-gray-400">Chat with us</p>
-                <p className="text-xs text-gray-400">Quick replies guaranteed</p>
+              <div className="px-6 py-4 flex flex-col gap-2">
+                {[
+                  { q: 'What time is milk delivered?', a: 'Morning slot: 5AM – 8AM. Evening slot: 5PM – 7PM.' },
+                  { q: 'What is the bottle deposit?', a: 'A one-time refundable deposit of ₹100 total (minimum ₹200 for 2 bottles). Returned when bottles are given back.' },
+                  { q: 'What is the minimum wallet balance?', a: 'Your wallet must stay above ₹300 for deliveries to continue. Delivery is auto-paused if balance drops below ₹300 or reaches ₹0.' },
+                  { q: 'Is the milk safe to drink directly?', a: '⚠️ Our milk is raw and not pasteurized. Please boil before consuming, especially for children, elderly, and pregnant women. FSSAI Lic. No: 21225008004544.' },
+                  { q: 'Can I pause my subscription?', a: 'Yes! Go to Manage Plan and select dates to pause. Must be done at least 12 hours in advance.' },
+                  { q: 'How do I add wallet balance?', a: 'Contact us on WhatsApp or call. We add balance manually after receiving payment.' },
+                ].map(({ q, a }, i) => (
+                  <div key={q} className="border border-[#e8e0d0] rounded-xl overflow-hidden">
+                    <button
+                      onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                      className="w-full px-5 py-4 text-left flex items-center justify-between font-semibold text-[#1c1c1c] text-sm hover:bg-[#fdfbf7] transition">
+                      <span>{q}</span>
+                      <span className={`text-[#d4a017] text-xl font-bold flex-shrink-0 ml-4 transition-transform duration-200 ${openFaq === i ? 'rotate-45' : ''}`}>+</span>
+                    </button>
+                    {openFaq === i && (
+                      <div className="px-5 pb-4 pt-1 border-t border-[#e8e0d0]">
+                        <p className="text-gray-500 text-sm leading-relaxed">{a}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-            </a>
+            </div>
+
+            {/* Contact */}
+            <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
+              <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-4">Need Help?</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <a href="tel:8553666002" className="flex items-center gap-4 border border-[#e8e0d0] rounded-xl p-4 hover:border-[#1a5c38] transition">
+                  <div className="w-12 h-12 rounded-xl bg-[#f0faf4] flex items-center justify-center text-2xl">📞</div>
+                  <div><p className="font-semibold text-[#1c1c1c]">Call Us</p><p className="text-sm text-gray-400">8553666002</p></div>
+                </a>
+                <a href="https://wa.me/918553666002" target="_blank" className="flex items-center gap-4 border border-[#e8e0d0] rounded-xl p-4 hover:border-[#25D366] transition">
+                  <div className="w-12 h-12 rounded-xl bg-[#f0faf4] flex items-center justify-center text-2xl">💬</div>
+                  <div><p className="font-semibold text-[#1c1c1c]">WhatsApp</p><p className="text-sm text-gray-400">Chat with us</p></div>
+                </a>
+              </div>
+            </div>
+
           </div>
-        </div>
+        )}
+
+        {/* ─── REWARDS TAB ─── */}
+        {activeTab === 'rewards' && (
+          <div className="flex flex-col gap-5">
+
+            {/* Loyalty Points */}
+            <div className="rounded-2xl p-6 text-white shadow-lg"
+              style={{background:'linear-gradient(135deg, #0d3320 0%, #1a5c38 100%)'}}>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-green-300 text-xs font-semibold uppercase tracking-widest mb-1">Loyalty Points</p>
+                  <p className="font-[family-name:var(--font-playfair)] text-5xl font-bold text-[#d4a017]">
+                    {profile?.loyalty_points || 0}
+                  </p>
+                  <p className="text-green-200 text-sm mt-1">points earned</p>
+                </div>
+                <div className="text-6xl">⭐</div>
+              </div>
+              <div className="bg-white bg-opacity-10 rounded-xl p-4 mb-4">
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-green-200">Progress to next reward</span>
+                  <span className="text-[#d4a017] font-bold">{(profile?.loyalty_points || 0) % 100}/100</span>
+                </div>
+                <div className="bg-white bg-opacity-20 rounded-full h-2">
+                  <div className="bg-[#d4a017] h-2 rounded-full transition-all"
+                    style={{width: `${((profile?.loyalty_points || 0) % 100)}%`}}></div>
+                </div>
+                <p className="text-green-300 text-xs mt-2">Every ₹100 spent = 1 point • 100 points = 1 litre free milk</p>
+              </div>
+              <button onClick={handleRedeemPoints} disabled={redeemLoading || (profile?.loyalty_points || 0) < 100}
+                className="w-full bg-[#d4a017] text-white font-bold py-3 rounded-xl hover:bg-[#b8860b] transition disabled:opacity-50">
+                {redeemLoading ? 'Redeeming...' : `🥛 Redeem 100 Points for Free 1L Milk`}
+              </button>
+              {redeemMsg && <p className="text-center text-sm mt-3 font-medium">{redeemMsg}</p>}
+            </div>
+
+            {/* Streak & Badges */}
+            <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+              <div className="px-6 py-5 border-b border-[#f5f0e8]">
+                <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">🔥 Delivery Streak</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Keep your streak going to unlock badges!</p>
+              </div>
+              <div className="px-6 py-5">
+                <div className="flex items-center gap-5 mb-6">
+                  <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl font-bold"
+                    style={{background:'linear-gradient(135deg, #0d3320, #1a5c38)', color:'#d4a017'}}>
+                    {profile?.streak_count || 0}
+                  </div>
+                  <div>
+                    <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1c1c1c]">{profile?.streak_count || 0} Day Streak</p>
+                    <p className="text-gray-400 text-sm">consecutive delivery days</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {Object.entries(BADGE_INFO).map(([key, badge]) => {
+                    const earned = (profile?.badges || []).includes(key)
+                    return (
+                      <div key={key}
+                        className={`rounded-xl p-4 border-2 ${earned ? 'border-[#d4a017] bg-[#fdf6e3]' : 'border-[#e8e0d0] bg-gray-50 opacity-60'}`}>
+                        <div className="text-3xl mb-2">{earned ? badge.emoji : '🔒'}</div>
+                        <p className={`font-bold text-sm ${earned ? 'text-[#1c1c1c]' : 'text-gray-400'}`}>{badge.label}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{badge.days} days</p>
+                        {earned && <span className="inline-block mt-1 text-[#d4a017] text-xs font-bold">✓ Earned!</span>}
+                        {!earned && <span className="inline-block mt-1 text-gray-400 text-xs">{Math.max(0, badge.days - (profile?.streak_count || 0))} days to go</span>}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Refer & Earn */}
+            <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+              <div className="px-6 py-5 border-b border-[#f5f0e8]">
+                <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">🎁 Refer & Earn</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Both you and your friend get 500ml free for 4 days!</p>
+              </div>
+              <div className="px-6 py-5">
+                <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-xl p-4 mb-4">
+                  <p className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-widest">Your Referral Code</p>
+                  <div className="flex items-center gap-3">
+                    <p className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#1a5c38] tracking-widest">
+                      {profile?.referral_code || '---'}
+                    </p>
+                    <button onClick={copyReferralCode}
+                      className="bg-[#1a5c38] text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-[#14472c] transition">
+                      {copyMsg || 'Copy'}
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3 mb-4 text-center">
+                  {[
+                    { icon: '📤', label: 'Share code' },
+                    { icon: '👤', label: 'Friend signs up' },
+                    { icon: '🥛', label: 'Both get free milk' },
+                  ].map(({ icon, label }) => (
+                    <div key={label} className="bg-[#fdfbf7] rounded-xl p-3 border border-[#e8e0d0]">
+                      <div className="text-2xl mb-1">{icon}</div>
+                      <p className="text-xs text-gray-500">{label}</p>
+                    </div>
+                  ))}
+                </div>
+                <a href={`https://wa.me/?text=Get fresh farm milk delivered daily! Use my referral code ${profile?.referral_code || ''} when signing up at Sri Krishnaa Dairy and we both get 500ml free for 4 days 🥛`}
+                  target="_blank"
+                  className="flex items-center justify-center gap-2 bg-[#25D366] text-white font-bold py-3 rounded-xl hover:bg-[#1da851] transition text-sm">
+                  <span>💬</span> Share via WhatsApp
+                </a>
+              </div>
+              {referrals.length > 0 && (
+                <div className="border-t border-[#f5f0e8]">
+                  <div className="px-6 py-4">
+                    <p className="text-sm font-bold text-[#1c1c1c] mb-3">Your Referrals ({referrals.length})</p>
+                    {referrals.map((ref) => (
+                      <div key={ref.id} className="flex items-center justify-between py-2 border-b border-[#f5f0e8] last:border-0">
+                        <div>
+                          <p className="text-sm font-semibold text-[#1c1c1c]">{ref.profiles?.full_name || 'Friend'}</p>
+                          <p className="text-xs text-gray-400">{new Date(ref.created_at).toLocaleDateString('en-IN')}</p>
+                        </div>
+                        <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+                          ref.status === 'rewarded' ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' :
+                          ref.status === 'completed' ? 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]' :
+                          'bg-gray-50 text-gray-500 border border-gray-200'
+                        }`}>{ref.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
+
+        {/* ─── HISTORY TAB ─── */}
+        {activeTab === 'history' && (
+          <div className="flex flex-col gap-5">
+
+            {/* Wallet Transactions */}
+            <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+              <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between">
+                <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">💰 Wallet Transactions</h3>
+                <a href="/wallet" className="text-xs text-[#1a5c38] font-semibold bg-[#f0faf4] border border-[#c8e6d4] px-3 py-1.5 rounded-full hover:bg-[#d4eddf] transition">
+                  Wallet →
+                </a>
+              </div>
+              {transactions.length === 0 ? (
+                <div className="px-6 py-10 text-center text-gray-400 text-sm">No transactions yet.</div>
+              ) : (
+                transactions.slice(0, 20).map((txn, index) => (
+                  <div key={txn.id}
+                    className={`px-5 py-4 flex items-center justify-between ${index !== Math.min(transactions.length, 20) - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${txn.type === 'credit' ? 'bg-[#f0faf4]' : 'bg-red-50'}`}>
+                        {txn.type === 'credit' ? '💰' : '🥛'}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-[#1c1c1c] text-sm">{txn.description}</p>
+                        <p className="text-xs text-gray-400">{new Date(txn.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                      </div>
+                    </div>
+                    <p className={`font-bold ${txn.type === 'credit' ? 'text-[#1a5c38]' : 'text-red-500'}`}>
+                      {txn.type === 'credit' ? '+' : '-'}₹{txn.amount}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* All Orders */}
+            <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+              <div className="px-6 py-5 border-b border-[#f5f0e8]">
+                <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">📦 Order History</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{allOrders.length} total orders</p>
+              </div>
+              {allOrders.length === 0 ? (
+                <div className="px-6 py-10 text-center text-gray-400 text-sm">No orders placed yet.</div>
+              ) : (
+                allOrders.map((order, index) => (
+                  <div key={order.id}
+                    className={`px-6 py-4 flex items-center gap-4 ${index !== allOrders.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                    <div className="w-12 h-12 rounded-xl bg-[#f5f0e8] flex items-center justify-center text-2xl flex-shrink-0">🥛</div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-[#1c1c1c] text-sm">{order.products?.size} x {order.quantity}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {new Date(order.delivery_date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })} •
+                        {order.delivery_slot === 'morning' ? ' 🌅 Morning' : ' 🌆 Evening'}
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                        order.status === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' :
+                        order.status === 'pending'   ? 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]' :
+                        'bg-gray-50 text-gray-500 border border-gray-200'
+                      }`}>{order.status}</span>
+                      <p className="font-bold text-[#1a5c38] text-sm mt-1">₹{order.total_price}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+          </div>
+        )}
+
+        {/* ─── REPORT TAB ─── */}
+        {activeTab === 'report' && (
+          <div className="flex flex-col gap-5">
+
+            {/* Monthly Summary */}
+            <div className="rounded-2xl p-6 text-white shadow-lg"
+              style={{background:'linear-gradient(135deg, #0d3320 0%, #1a5c38 100%)'}}>
+              <p className="text-green-300 text-xs font-semibold uppercase tracking-widest mb-1">Monthly Milk Report</p>
+              <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-white mb-5">
+                {new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  { label: 'Bottles Ordered', value: report.totalBottles, unit: 'bottles', icon: '🥛' },
+                  { label: 'Total Orders',     value: report.orderCount,  unit: 'orders',  icon: '📦' },
+                  { label: 'Total Spent',      value: `₹${report.totalSpent}`, unit: 'this month', icon: '💰' },
+                  { label: 'Money Saved',      value: `₹${report.moneySaved}`, unit: 'vs market',  icon: '🎉' },
+                ].map(({ label, value, unit, icon }) => (
+                  <div key={label} className="bg-white bg-opacity-10 rounded-xl p-4">
+                    <div className="text-2xl mb-2">{icon}</div>
+                    <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#d4a017]">{value}</p>
+                    <p className="text-green-200 text-xs mt-0.5">{label}</p>
+                    <p className="text-green-300 text-xs">{unit}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Savings Breakdown */}
+            <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
+              <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-4">💡 Your Savings Insight</h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between py-3 border-b border-[#f5f0e8]">
+                  <div>
+                    <p className="font-semibold text-[#1c1c1c] text-sm">Milk from Us</p>
+                    <p className="text-xs text-gray-400">Farm-fresh, direct delivery</p>
+                  </div>
+                  <p className="font-bold text-[#1a5c38]">₹{report.totalSpent}</p>
+                </div>
+                <div className="flex items-center justify-between py-3 border-b border-[#f5f0e8]">
+                  <div>
+                    <p className="font-semibold text-[#1c1c1c] text-sm">Market Price Equivalent</p>
+                    <p className="text-xs text-gray-400">Approx. retail / packaged milk cost</p>
+                  </div>
+                  <p className="font-bold text-gray-500">₹{report.totalSpent + report.moneySaved}</p>
+                </div>
+                <div className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="font-semibold text-[#d4a017] text-sm">You Saved!</p>
+                    <p className="text-xs text-gray-400">This month with Sri Krishnaa Dairy</p>
+                  </div>
+                  <p className="font-bold text-[#d4a017] text-lg">₹{report.moneySaved}</p>
+                </div>
+              </div>
+              <div className="bg-[#f0faf4] rounded-xl p-4 mt-2">
+                <p className="text-[#1a5c38] text-xs font-semibold">
+                  🌿 Plus you're getting fresher, preservative-free milk directly from the farm — no middlemen, no processing!
+                </p>
+              </div>
+            </div>
+
+            {/* Monthly Delivery Calendar hint */}
+            <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
+              <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-4">📅 This Month's Orders</h3>
+              {allOrders.filter(o => {
+                const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+                return o.created_at >= monthStart
+              }).length === 0 ? (
+                <p className="text-gray-400 text-sm">No orders this month yet.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {allOrders.filter(o => {
+                    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+                    return o.created_at >= monthStart
+                  }).map((order) => (
+                    <div key={order.id} className="flex items-center justify-between py-2 border-b border-[#f5f0e8] last:border-0">
+                      <span className="text-sm text-[#1c1c1c] font-medium">
+                        {new Date(order.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      </span>
+                      <span className="text-sm text-gray-500">{order.products?.size} x{order.quantity}</span>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                        order.status === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38]' : 'bg-[#fdf6e3] text-[#d4a017]'
+                      }`}>{order.status}</span>
+                      <span className="font-bold text-[#1a5c38] text-sm">₹{order.total_price}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
 
       </div>
 
       {/* Footer */}
-      <footer className="bg-[#0d1f13] text-white px-6 pt-16 pb-8">
+      <footer className="bg-[#0d1f13] text-white px-6 pt-16 pb-8 mt-8">
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-10 pb-12 border-b border-gray-800">
-
-            {/* Brand */}
             <div className="sm:col-span-1">
               <div className="flex items-center gap-3 mb-4">
                 <img src="/Logo.jpg" alt="Logo" className="h-14 w-14 rounded-full object-cover border-2 border-[#d4a017]" />
@@ -388,25 +733,13 @@ export default function Dashboard() {
                   <p className="font-[family-name:var(--font-playfair)] font-bold text-lg leading-tight">Sri Krishnaa<br />Dairy Farms</p>
                 </div>
               </div>
-              <p className="text-gray-400 text-sm leading-relaxed mb-4">
-                Pure, fresh cow milk delivered straight from our farm to your doorstep every morning.
-              </p>
+              <p className="text-gray-400 text-sm leading-relaxed mb-4">Pure, fresh cow milk from our farm to your doorstep.</p>
               <div className="flex gap-3">
                 <a href="https://wa.me/918553666002" target="_blank"
-                  className="flex items-center gap-2 bg-[#25D366] hover:bg-[#1da851] text-white text-xs font-semibold px-4 py-2 rounded transition">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4" fill="white">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                  </svg>
-                  WhatsApp
-                </a>
-                <a href="tel:8553666002"
-                  className="bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold px-4 py-2 rounded transition">
-                  📞 Call Us
-                </a>
+                  className="bg-[#25D366] hover:bg-[#1da851] text-white text-xs font-semibold px-4 py-2 rounded transition">WhatsApp</a>
+                <a href="tel:8553666002" className="bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold px-4 py-2 rounded transition">📞 Call</a>
               </div>
             </div>
-
-            {/* Quick Links */}
             <div>
               <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Quick Links</p>
               <ul className="flex flex-col gap-3 text-sm text-gray-400">
@@ -417,63 +750,23 @@ export default function Dashboard() {
                 <li><a href="/profile" className="hover:text-[#d4a017] transition">My Profile</a></li>
               </ul>
             </div>
-
-            {/* Explore */}
             <div>
               <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Explore</p>
               <ul className="flex flex-col gap-3 text-sm text-gray-400">
-                <li><a href="/#how-it-works" className="hover:text-[#d4a017] transition">How It Works</a></li>
-                <li><a href="/#why-us" className="hover:text-[#d4a017] transition">Why Choose Us</a></li>
                 <li><a href="/#faq" className="hover:text-[#d4a017] transition">FAQ</a></li>
                 <li><a href="/#products" className="hover:text-[#d4a017] transition">Our Products</a></li>
                 <li><a href="/#contact" className="hover:text-[#d4a017] transition">Contact Us</a></li>
               </ul>
             </div>
-
-            {/* Contact */}
             <div>
-              <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Contact Us</p>
+              <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Contact</p>
               <ul className="flex flex-col gap-4 text-sm text-gray-400">
-                <li className="flex items-start gap-3">
-                  <span className="text-[#d4a017] mt-0.5">📞</span>
-                  <a href="tel:8553666002" className="hover:text-white transition">8553666002</a>
-                </li>
-                <li className="flex items-start gap-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4 mt-0.5 flex-shrink-0" fill="#25D366">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                  </svg>
-                  <a href="https://wa.me/918553666002" target="_blank" className="hover:text-white transition">WhatsApp Us</a>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-[#d4a017] mt-0.5">📍</span>
-                  <span>Kattigenahalli,<br />Bangalore, Karnataka</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-[#d4a017] mt-0.5">🕐</span>
-                  <span>Morning: 5AM – 8AM<br />Evening: 5PM – 7PM</span>
-                </li>
+                <li className="flex items-start gap-3"><span className="text-[#d4a017]">📞</span><a href="tel:8553666002" className="hover:text-white">8553666002</a></li>
+                <li className="flex items-start gap-3"><span className="text-[#d4a017]">📍</span><span>Kattigenahalli, Bangalore</span></li>
+                <li className="flex items-start gap-3"><span className="text-[#d4a017]">🕐</span><span>5AM–8AM & 5PM–7PM</span></li>
               </ul>
             </div>
           </div>
-
-          {/* Middle Footer */}
-          <div className="py-8 border-b border-gray-800">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
-              {[
-                { icon: '🌿', text: 'No Preservatives' },
-                { icon: '🐄', text: 'Farm Direct' },
-                { icon: '✅', text: 'Quality Tested' },
-                { icon: '💚', text: 'Ethically Farmed' },
-              ].map(({ icon, text }) => (
-                <div key={text} className="flex items-center justify-center gap-2">
-                  <span>{icon}</span>
-                  <span className="text-gray-400 text-sm">{text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Bottom Footer */}
           <div className="pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-gray-500">
             <div className="text-center sm:text-left">
               <p>© 2025 Sri Krishnaa Dairy Farms. All rights reserved.</p>
@@ -482,13 +775,14 @@ export default function Dashboard() {
             <p className="text-gray-600">Made with ❤️ in Bangalore</p>
             <div className="flex flex-wrap justify-center gap-4">
               <a href="/privacy-policy" className="hover:text-gray-300 transition">Privacy Policy</a>
-              <a href="/terms-of-service" className="hover:text-gray-300 transition">Terms of Service</a>
+              <a href="/terms-of-service" className="hover:text-gray-300 transition">Terms</a>
               <a href="/refund-policy" className="hover:text-gray-300 transition">Refund Policy</a>
               <a href="/health-disclaimer" className="hover:text-gray-300 transition">Health Disclaimer</a>
             </div>
           </div>
         </div>
       </footer>
+
       <DisclaimerPopup />
     </div>
   )

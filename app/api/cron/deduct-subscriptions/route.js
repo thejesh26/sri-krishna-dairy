@@ -109,6 +109,37 @@ async function runDeductions() {
       description,
     })
 
+    // Award loyalty points: 1 point per Rs.100 spent
+    const pointsEarned = Math.floor(dailyAmount / 100)
+    if (pointsEarned > 0) {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('loyalty_points, streak_count, last_delivery_date, badges')
+        .eq('id', sub.user_id)
+        .single()
+
+      if (profileData) {
+        const newPoints = (profileData.loyalty_points || 0) + pointsEarned
+        const yesterday = new Date()
+        yesterday.setDate(yesterday.getDate() - 1)
+        const yesterdayStr = yesterday.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+        const isConsecutive = profileData.last_delivery_date === yesterdayStr || profileData.last_delivery_date === today
+        const newStreak = isConsecutive ? (profileData.streak_count || 0) + 1 : 1
+        const currentBadges = profileData.badges || []
+        const newBadges = [...currentBadges]
+        if (newStreak >= 7 && !newBadges.includes('fresh_start')) newBadges.push('fresh_start')
+        if (newStreak >= 30 && !newBadges.includes('milk_lover')) newBadges.push('milk_lover')
+        if (newStreak >= 90 && !newBadges.includes('health_champion')) newBadges.push('health_champion')
+        if (newStreak >= 365 && !newBadges.includes('dairy_legend')) newBadges.push('dairy_legend')
+        await supabase.from('profiles').update({
+          loyalty_points: newPoints,
+          streak_count: newStreak,
+          last_delivery_date: today,
+          badges: newBadges,
+        }).eq('id', sub.user_id)
+      }
+    }
+
     deducted.push({
       subscriptionId: sub.id,
       userId: sub.user_id,

@@ -75,9 +75,37 @@ export default function Wallet() {
           <p className="text-gray-400 text-sm mt-1">Manage your prepaid balance</p>
         </div>
 
+        {/* Low Balance Warnings */}
+        {wallet && wallet.balance === 0 && (
+          <div className="bg-red-50 border-2 border-red-400 rounded-xl p-4 mb-5 flex items-start gap-3">
+            <span className="text-2xl flex-shrink-0">🚨</span>
+            <div>
+              <p className="text-red-700 font-bold text-sm">Wallet Empty — Deliveries Paused!</p>
+              <p className="text-red-600 text-xs mt-1">Your wallet balance is ₹0. All subscription deliveries are on hold. Please add balance immediately to resume.</p>
+              <a href="https://wa.me/918553666002?text=Hi, I need to add balance to my wallet urgently" target="_blank"
+                className="inline-block mt-2 bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-red-700 transition">
+                Add Balance Now →
+              </a>
+            </div>
+          </div>
+        )}
+        {wallet && wallet.balance > 0 && wallet.balance < 300 && (
+          <div className="bg-orange-50 border-2 border-orange-300 rounded-xl p-4 mb-5 flex items-start gap-3">
+            <span className="text-2xl flex-shrink-0">⚠️</span>
+            <div>
+              <p className="text-orange-700 font-bold text-sm">Low Balance — Top Up Soon!</p>
+              <p className="text-orange-600 text-xs mt-1">Your balance (₹{wallet.balance}) is below the minimum ₹300 required. Deliveries may be paused if not topped up.</p>
+              <a href="https://wa.me/918553666002?text=Hi, I want to add balance to my Sri Krishnaa Dairy wallet" target="_blank"
+                className="inline-block mt-2 bg-orange-500 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-orange-600 transition">
+                Add Balance →
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* Wallet Balance Card */}
         <div className="rounded-2xl p-8 mb-6 text-white relative overflow-hidden shadow-xl"
-          style={{background:'linear-gradient(135deg, #0d3320 0%, #1a5c38 100%)'}}>
+          style={{background: wallet?.balance === 0 ? 'linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%)' : wallet?.balance < 300 ? 'linear-gradient(135deg, #78350f 0%, #b45309 100%)' : 'linear-gradient(135deg, #0d3320 0%, #1a5c38 100%)'}}>
           <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full opacity-10"
             style={{background:'radial-gradient(circle, #d4a017, transparent)'}}></div>
           <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl"

@@ -17,6 +17,8 @@ export default function DeliveryDashboard() {
     out: 0,
     delivered: 0
   })
+  const [historyOrders, setHistoryOrders] = useState([])
+  const [historyLoaded, setHistoryLoaded] = useState(false)
 
   useEffect(() => { checkDelivery() }, [])
 
@@ -102,6 +104,27 @@ export default function DeliveryDashboard() {
         delivered: updated.filter(o => o.status === 'delivered').length,
       })
     }
+  }
+
+  const loadHistory = async () => {
+    if (historyLoaded) return
+    const today = new Date().toLocaleDateString('en-CA')
+    let q = supabase
+      .from('orders')
+      .select('*, products(*), profiles(*)')
+      .eq('status', 'delivered')
+      .lt('delivery_date', today)
+      .order('delivery_date', { ascending: false })
+      .limit(100)
+    if (!profile?.is_admin) q = q.eq('assigned_to', user.id)
+    const { data } = await q
+    setHistoryOrders(data || [])
+    setHistoryLoaded(true)
+  }
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab)
+    if (tab === 'history') loadHistory()
   }
 
   const handleLogout = async () => {
@@ -229,30 +252,85 @@ export default function DeliveryDashboard() {
         )}
 
         {/* Order Tabs */}
-        <div className="flex gap-2 mb-4 bg-white border border-[#e8e0d0] rounded-xl p-1 shadow-sm overflow-x-auto">
+        <div className="flex gap-1 mb-4 bg-white border border-[#e8e0d0] rounded-xl p-1 shadow-sm overflow-x-auto">
           {[
-            { id: 'all', label: 'All', count: stats.total },
-            { id: 'pending', label: 'Pending', count: stats.pending },
-            { id: 'out', label: 'Out', count: stats.out },
-            { id: 'delivered', label: 'Delivered', count: stats.delivered },
+            { id: 'all',       label: 'All',       count: stats.total     },
+            { id: 'pending',   label: 'Pending',   count: stats.pending   },
+            { id: 'out',       label: 'Out',        count: stats.out      },
+            { id: 'delivered', label: 'Done',       count: stats.delivered },
+            { id: 'history',   label: '📋 History', count: null            },
           ].map(({ id, label, count }) => (
-            <button key={id} onClick={() => setActiveTab(id)}
-              className={`flex items-center gap-1 px-4 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
+            <button key={id} onClick={() => handleTabChange(id)}
+              className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
                 activeTab === id
                   ? 'bg-[#1a5c38] text-white shadow'
                   : 'text-gray-500 hover:text-[#1a5c38]'
               }`}>
               {label}
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                activeTab === id ? 'bg-white text-[#1a5c38]' : 'bg-gray-100'
-              }`}>
-                {count}
-              </span>
+              {count !== null && (
+                <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                  activeTab === id ? 'bg-white text-[#1a5c38]' : 'bg-gray-100'
+                }`}>
+                  {count}
+                </span>
+              )}
             </button>
           ))}
         </div>
 
-        {/* Orders List */}
+        {/* History Tab Content */}
+        {activeTab === 'history' && (
+          <div className="flex flex-col gap-4">
+            {/* Daily Summary */}
+            {historyOrders.length > 0 && (() => {
+              const byDate = historyOrders.reduce((acc, o) => {
+                const d = o.delivery_date
+                if (!acc[d]) acc[d] = []
+                acc[d].push(o)
+                return acc
+              }, {})
+              return Object.entries(byDate).slice(0, 14).map(([date, dayOrders]) => (
+                <div key={date} className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+                  <div className="px-5 py-3 border-b border-[#f5f0e8] flex items-center justify-between bg-[#fdfbf7]">
+                    <p className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c] text-sm">
+                      {new Date(date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="bg-[#f0faf4] text-[#1a5c38] text-xs font-bold px-2.5 py-1 rounded-full border border-[#c8e6d4]">
+                        ✅ {dayOrders.length} delivered
+                      </span>
+                    </div>
+                  </div>
+                  {dayOrders.map((order, idx) => (
+                    <div key={order.id}
+                      className={`px-5 py-3 flex items-center gap-3 ${idx !== dayOrders.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                      <div className="w-8 h-8 rounded-full bg-[#1a5c38] flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                        {order.profiles?.full_name?.[0] || '?'}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-[#1c1c1c] text-sm">{order.profiles?.full_name}</p>
+                        <p className="text-xs text-gray-400">{order.profiles?.apartment_name}, {order.profiles?.area}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-xs font-semibold text-[#1a5c38]">{order.products?.size} x{order.quantity}</p>
+                        <p className="text-xs text-gray-400">{order.delivery_slot === 'morning' ? '🌅' : '🌆'}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))
+            })()}
+            {historyOrders.length === 0 && (
+              <div className="bg-white rounded-2xl border border-[#e8e0d0] px-5 py-12 text-center shadow-sm">
+                <div className="text-5xl mb-3">📋</div>
+                <p className="text-gray-400 text-sm">No delivery history yet.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Today's Orders List */}
+        {activeTab !== 'history' && (
         <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
           {filteredOrders.length === 0 ? (
             <div className="px-5 py-12 text-center">
@@ -337,6 +415,7 @@ export default function DeliveryDashboard() {
             ))
           )}
         </div>
+        )}
 
       </div>
     </div>
