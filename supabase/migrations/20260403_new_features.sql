@@ -32,15 +32,16 @@ CREATE TABLE IF NOT EXISTS referrals (
 -- 4. RLS for referrals
 ALTER TABLE referrals ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Users see own referrals"
+-- Note: referrals table is new in this migration so policies won't already exist
+CREATE POLICY "Users see own referrals"
   ON referrals FOR SELECT
   USING (referrer_id = auth.uid() OR referee_id = auth.uid());
 
-CREATE POLICY IF NOT EXISTS "Users create referral on signup"
+CREATE POLICY "Users create referral on signup"
   ON referrals FOR INSERT
   WITH CHECK (referee_id = auth.uid());
 
-CREATE POLICY IF NOT EXISTS "Admins manage referrals"
+CREATE POLICY "Admins manage referrals"
   ON referrals FOR ALL
   USING (
     EXISTS (

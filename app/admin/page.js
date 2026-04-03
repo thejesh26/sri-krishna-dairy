@@ -282,6 +282,43 @@ setWallets(allWallets || [])
           ))}
         </div>
 
+        {/* Low Balance Alerts */}
+        {(() => {
+          const lowBalance = wallets
+            .filter(w => w.balance < 300)
+            .map(w => ({ ...w, customer: customers.find(c => c.id === w.user_id) }))
+            .filter(w => w.customer)
+          if (lowBalance.length === 0) return null
+          return (
+            <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-5 mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xl">🚨</span>
+                <p className="font-bold text-red-700">{lowBalance.length} Customer{lowBalance.length > 1 ? 's' : ''} with Low Wallet Balance</p>
+              </div>
+              <div className="flex flex-col gap-2">
+                {lowBalance.map(w => (
+                  <div key={w.user_id} className="flex items-center justify-between bg-white rounded-xl px-4 py-3 border border-red-200">
+                    <div>
+                      <p className="font-semibold text-[#1c1c1c] text-sm">{w.customer.full_name}</p>
+                      <p className="text-xs text-gray-400">📞 {w.customer.phone} • {w.customer.area}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`text-sm font-bold px-3 py-1 rounded-full ${w.balance === 0 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                        {w.balance === 0 ? '🚫 ₹0 — Paused' : `⚠️ ₹${w.balance}`}
+                      </span>
+                      <a href={`https://wa.me/91${w.customer.phone}?text=Hi ${w.customer.full_name}, your Sri Krishnaa Dairy wallet balance is low (Rs.${w.balance}). Please top up to continue daily deliveries.`}
+                        target="_blank"
+                        className="bg-[#25D366] text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-[#1da851] transition">
+                        Remind
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Tabs */}
         <div className="flex gap-2 mb-6 bg-white border border-[#e8e0d0] rounded-xl p-1 shadow-sm overflow-x-auto">
           {[
@@ -579,7 +616,18 @@ setWallets(allWallets || [])
                       {customer.full_name?.[0] || '?'}
                     </div>
                     <div className="flex-1">
-                      <p className="font-semibold text-[#1c1c1c]">{customer.full_name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-[#1c1c1c]">{customer.full_name}</p>
+                        {(() => {
+                          const w = wallets.find(w => w.user_id === customer.id)
+                          if (!w || w.balance >= 300) return null
+                          return (
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${w.balance === 0 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                              {w.balance === 0 ? '🚫 ₹0' : `⚠️ ₹${w.balance}`}
+                            </span>
+                          )
+                        })()}
+                      </div>
                       <p className="text-sm text-gray-400">📞 {customer.phone}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {customer.area} • {customer.apartment_name}, Flat {customer.flat_number}
