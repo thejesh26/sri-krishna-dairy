@@ -453,7 +453,8 @@ export default function Dashboard() {
                 <p className="text-green-300 text-xs mt-2">Every ₹100 spent = 1 point • 100 points = 1 litre free milk</p>
               </div>
               <button onClick={handleRedeemPoints} disabled={redeemLoading || (profile?.loyalty_points || 0) < 100}
-                className="w-full bg-[#d4a017] text-white font-bold py-3 rounded-xl hover:bg-[#b8860b] transition disabled:opacity-50">
+                className="w-full text-white font-bold py-3 rounded-xl transition disabled:opacity-50"
+                style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
                 {redeemLoading ? 'Redeeming...' : `🥛 Redeem 100 Points for Free 1L Milk`}
               </button>
               {redeemMsg && <p className="text-center text-sm mt-3 font-medium">{redeemMsg}</p>}
@@ -481,12 +482,13 @@ export default function Dashboard() {
                     const earned = (profile?.badges || []).includes(key)
                     return (
                       <div key={key}
-                        className={`rounded-xl p-4 border-2 ${earned ? 'border-[#d4a017] bg-[#fdf6e3]' : 'border-[#e8e0d0] bg-gray-50 opacity-60'}`}>
+                        className={`rounded-xl p-4 border-2 ${earned ? 'border-[#d4a017] bg-[#fdf6e3]' : 'border-[#e8e0d0]'}`}
+                        style={!earned ? {backgroundColor:'#f5f5f5'} : {}}>
                         <div className="text-3xl mb-2">{earned ? badge.emoji : '🔒'}</div>
-                        <p className={`font-bold text-sm ${earned ? 'text-[#1c1c1c]' : 'text-gray-400'}`}>{badge.label}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{badge.days} days</p>
+                        <p className="font-bold text-sm" style={{color: earned ? '#1c1c1c' : '#666'}}>{badge.label}</p>
+                        <p className="text-xs mt-0.5" style={{color: earned ? '#888' : '#999'}}>{badge.days} days</p>
                         {earned && <span className="inline-block mt-1 text-[#d4a017] text-xs font-bold">✓ Earned!</span>}
-                        {!earned && <span className="inline-block mt-1 text-gray-400 text-xs">{Math.max(0, badge.days - (profile?.streak_count || 0))} days to go</span>}
+                        {!earned && <span className="inline-block mt-1 text-xs" style={{color:'#999'}}>{Math.max(0, badge.days - (profile?.streak_count || 0))} days to go</span>}
                       </div>
                     )
                   })}
@@ -645,11 +647,11 @@ export default function Dashboard() {
                   { label: 'Total Spent',      value: `₹${report.totalSpent}`, unit: 'this month', icon: '💰' },
                   { label: 'Money Saved',      value: `₹${report.moneySaved}`, unit: 'vs market',  icon: '🎉' },
                 ].map(({ label, value, unit, icon }) => (
-                  <div key={label} className="bg-white bg-opacity-10 rounded-xl p-4">
+                  <div key={label} className="bg-white rounded-xl p-4">
                     <div className="text-2xl mb-2">{icon}</div>
-                    <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#d4a017]">{value}</p>
-                    <p className="text-green-200 text-xs mt-0.5">{label}</p>
-                    <p className="text-green-300 text-xs">{unit}</p>
+                    <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1c1c1c]">{value}</p>
+                    <p className="text-gray-500 text-xs mt-0.5">{label}</p>
+                    <p className="text-gray-400 text-xs">{unit}</p>
                   </div>
                 ))}
               </div>
