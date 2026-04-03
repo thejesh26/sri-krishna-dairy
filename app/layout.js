@@ -86,7 +86,7 @@ export default function RootLayout({ children }) {
     gtag('config', 'G-MB9J216FPB');
   `}} />
   <script dangerouslySetInnerHTML={{__html: `
-    document.addEventListener('DOMContentLoaded', function() {
+    function _initProtect() {
       document.addEventListener('contextmenu', function(e) {
         if (e.target.tagName === 'IMG') e.preventDefault();
       });
@@ -98,7 +98,12 @@ export default function RootLayout({ children }) {
           e.preventDefault();
         }
       });
-    });
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', _initProtect);
+    } else {
+      _initProtect();
+    }
   `}} />
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="/favicon.ico" />
@@ -107,6 +112,13 @@ export default function RootLayout({ children }) {
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="SK Dairy" />
         <meta name="mobile-web-app-capable" content="yes" />
+        <script type="text/javascript" dangerouslySetInnerHTML={{__html: `
+    (function(c,l,a,r,i,t,y){
+      c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+      t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+      y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "w6131yjrnm");
+  `}} />
       </head>
       <body className={`${playfair.variable} ${inter.variable} antialiased`}>
         {children}
