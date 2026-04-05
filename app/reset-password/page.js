@@ -35,6 +35,10 @@ function ResetPasswordContent() {
       return
     }
 
+    // Read the hash NOW before Supabase potentially clears it during token processing
+    const hashHasRecovery =
+      typeof window !== 'undefined' && window.location.hash.includes('type=recovery')
+
     // Supabase fires PASSWORD_RECOVERY when it detects the recovery token in the URL hash.
     // We must wait for this event before allowing the user to update their password.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
@@ -43,10 +47,18 @@ function ResetPasswordContent() {
       }
     })
 
-    // If no PASSWORD_RECOVERY event fires within 3 seconds, the link is invalid/expired
+    // Race-condition fallback: if the hash indicated a recovery flow but Supabase already
+    // processed the token before our listener registered, check for an active session.
+    if (hashHasRecovery) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) setRecoveryReady(true)
+      })
+    }
+
+    // If no PASSWORD_RECOVERY event fires within 5 seconds, the link is invalid/expired
     const timeout = setTimeout(() => {
       setInvalidLink(true)
-    }, 3000)
+    }, 5000)
 
     return () => {
       subscription.unsubscribe()
