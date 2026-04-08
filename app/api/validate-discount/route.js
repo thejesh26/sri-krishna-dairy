@@ -25,14 +25,8 @@ function checkRateLimit(ip, maxAttempts = 10, windowMs = 60_000) {
  *   DISCOUNT_CODE_KRISHNA=KRISHNA20:20
  */
 const DISCOUNT_CODES = {
-  [process.env.DISCOUNT_CODE_1 || 'NEWMILK10']: {
-    percent: 10,
-    label: '10% off applied!',
-  },
-  [process.env.DISCOUNT_CODE_2 || 'KRISHNA20']: {
-    percent: 20,
-    label: '20% off applied!',
-  },
+  ...(process.env.DISCOUNT_CODE_1 ? { [process.env.DISCOUNT_CODE_1]: { percent: 10, label: '10% off applied!' } } : {}),
+  ...(process.env.DISCOUNT_CODE_2 ? { [process.env.DISCOUNT_CODE_2]: { percent: 20, label: '20% off applied!' } } : {}),
 }
 
 export async function POST(request) {

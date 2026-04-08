@@ -65,7 +65,7 @@ export default function Dashboard() {
       .eq('user_id', u.id).order('created_at', { ascending: false }).limit(50)
     setTransactions(txns || [])
 
-    const { data: refs } = await supabase.from('referrals').select('*, profiles!referrals_referee_id_fkey(full_name)')
+    const { data: refs } = await supabase.from('referrals').select('*, profiles!referrals_referred_id_fkey(full_name)')
       .eq('referrer_id', u.id).order('created_at', { ascending: false })
     setReferrals(refs || [])
 

@@ -98,12 +98,12 @@ export default function SignUp() {
           .from('profiles')
           .select('id')
           .eq('referral_code', code)
-          .single()
-        if (referrer) {
+          .maybeSingle()
+        // Validate: referrer exists AND is not the same person signing up
+        if (referrer && referrer.id !== data.user.id) {
           await supabase.from('referrals').insert({
             referrer_id: referrer.id,
-            referee_id: data.user.id,
-            referral_code: code,
+            referred_id: data.user.id,
             status: 'pending',
           })
         }

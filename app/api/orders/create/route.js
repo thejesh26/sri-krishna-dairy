@@ -28,8 +28,8 @@ const MIN_BOTTLE_UNITS = 2
 
 // Mirror of DISCOUNT_CODES in validate-discount/route.js — single source of truth
 const DISCOUNT_CODES = {
-  [process.env.DISCOUNT_CODE_1 || 'NEWMILK10']: 10,
-  [process.env.DISCOUNT_CODE_2 || 'KRISHNA20']: 20,
+  ...(process.env.DISCOUNT_CODE_1 ? { [process.env.DISCOUNT_CODE_1]: 10 } : {}),
+  ...(process.env.DISCOUNT_CODE_2 ? { [process.env.DISCOUNT_CODE_2]: 20 } : {}),
 }
 
 export async function POST(request) {

@@ -56,10 +56,24 @@ export async function POST(request) {
     .select('id')
     .eq('user_id', user.id)
     .eq('delivery_date', deliveryDate)
-    .single()
+    .maybeSingle()
 
   if (existingOrder) {
     return NextResponse.json({ error: 'You already have an order for tomorrow. Try redeeming for a different date.' }, { status: 400 })
+  }
+
+  // Atomically deduct 100 points — only succeeds if loyalty_points is still >= 100.
+  // The .gte() acts as an optimistic lock preventing race-condition double-spend.
+  const { data: deducted } = await supabase
+    .from('profiles')
+    .update({ loyalty_points: profile.loyalty_points - 100 })
+    .eq('id', user.id)
+    .gte('loyalty_points', 100)
+    .select('loyalty_points')
+    .maybeSingle()
+
+  if (!deducted) {
+    return NextResponse.json({ error: 'Insufficient points.' }, { status: 400 })
   }
 
   // Create the free order (total_price = 0, bottle_deposit = 0)
@@ -77,17 +91,12 @@ export async function POST(request) {
   })
 
   if (orderError) {
+    // Rollback: restore the deducted points
+    await supabase
+      .from('profiles')
+      .update({ loyalty_points: profile.loyalty_points })
+      .eq('id', user.id)
     return NextResponse.json({ error: 'Could not place free order. ' + orderError.message }, { status: 500 })
-  }
-
-  // Deduct 100 points
-  const { error: updateError } = await supabase
-    .from('profiles')
-    .update({ loyalty_points: profile.loyalty_points - 100 })
-    .eq('id', user.id)
-
-  if (updateError) {
-    return NextResponse.json({ error: 'Order placed but points deduction failed. Contact support.' }, { status: 500 })
   }
 
   // Record in wallet_transactions for history

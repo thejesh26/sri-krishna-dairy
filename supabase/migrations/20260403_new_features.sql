@@ -20,13 +20,12 @@ WHERE referral_code IS NULL;
 CREATE TABLE IF NOT EXISTS referrals (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   referrer_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  referee_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
-  referral_code TEXT NOT NULL,
+  referred_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'rewarded')),
   reward_type TEXT NOT NULL DEFAULT '500ml_4days',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   completed_at TIMESTAMPTZ,
-  UNIQUE(referee_id)
+  UNIQUE(referred_id)
 );
 
 -- 4. RLS for referrals
@@ -35,11 +34,11 @@ ALTER TABLE referrals ENABLE ROW LEVEL SECURITY;
 -- Note: referrals table is new in this migration so policies won't already exist
 CREATE POLICY "Users see own referrals"
   ON referrals FOR SELECT
-  USING (referrer_id = auth.uid() OR referee_id = auth.uid());
+  USING (referrer_id = auth.uid() OR referred_id = auth.uid());
 
 CREATE POLICY "Users create referral on signup"
   ON referrals FOR INSERT
-  WITH CHECK (referee_id = auth.uid());
+  WITH CHECK (referred_id = auth.uid());
 
 CREATE POLICY "Admins manage referrals"
   ON referrals FOR ALL

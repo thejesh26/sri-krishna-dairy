@@ -89,17 +89,23 @@ async function runDeductions() {
       continue
     }
 
-    // Deduct balance
-    if (wallet) {
-      await supabase
-        .from('wallet')
-        .update({ balance: balance - dailyAmount })
-        .eq('user_id', sub.user_id)
-    } else {
-      await supabase
-        .from('wallet')
-        .insert({ user_id: sub.user_id, balance: 0 - dailyAmount })
+    // Deduct balance — skip entirely if no wallet row exists (should not happen)
+    if (!wallet) {
+      failed.push({
+        subscriptionId: sub.id,
+        userId: sub.user_id,
+        product: `${sub.products.size} x${sub.quantity}`,
+        balance: 0,
+        required: dailyAmount,
+        reason: 'No wallet found',
+      })
+      continue
     }
+
+    await supabase
+      .from('wallet')
+      .update({ balance: balance - dailyAmount })
+      .eq('user_id', sub.user_id)
 
     // Record transaction
     await supabase.from('wallet_transactions').insert({
