@@ -61,7 +61,7 @@ export async function POST(request) {
     } = body
 
     // Type and range checks — never trust client values
-    if (!product_id || typeof product_id !== 'string') {
+    if (!product_id || (typeof product_id !== 'string' && typeof product_id !== 'number')) {
       return NextResponse.json({ error: 'Invalid product.' }, { status: 400 })
     }
     const qty = parseInt(quantity, 10)
