@@ -5,6 +5,6 @@ export default function robots() {
       allow: '/',
       disallow: ['/admin', '/dashboard', '/wallet', '/profile'],
     },
-    sitemap: 'https://sri-krishna-dairy.vercel.app/sitemap.xml',
+    sitemap: 'https://srikrishnaadairy.in/sitemap.xml',
   }
 }

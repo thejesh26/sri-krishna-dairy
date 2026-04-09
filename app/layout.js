@@ -25,14 +25,14 @@ export const metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL('https://sri-krishna-dairy.vercel.app'),
+  metadataBase: new URL('https://srikrishnaadairy.in'),
   alternates: {
     canonical: '/',
   },
   openGraph: {
     title: 'Sri Krishnaa Dairy Farms | Fresh Cow Milk Delivery Bangalore',
     description: 'Pure fresh cow milk delivered daily to your doorstep in Kattigenahalli & nearby areas. Subscribe now!',
-    url: 'https://sri-krishna-dairy.vercel.app',
+    url: 'https://srikrishnaadairy.in',
     siteName: 'Sri Krishnaa Dairy Farms',
     images: [
       {
