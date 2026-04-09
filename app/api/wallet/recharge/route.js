@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createServerClient } from '../../../lib/supabase-server'
+import { sendWalletRechargeEmail } from '../../../lib/email'
 
 /**
  * Verifies Razorpay payment signature and credits the user's wallet.
@@ -80,6 +81,27 @@ export async function POST(request) {
       type: 'credit',
       description: `Wallet recharge [${razorpay_payment_id}]`,
     })
+
+    // Send recharge confirmation email (non-blocking).
+    // Done here — not in the client — so it fires for all payment methods
+    // (UPI, card, netbanking) regardless of client-side handler reliability.
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single()
+
+      await sendWalletRechargeEmail({
+        to: user.email,
+        name: profile?.full_name || user.email,
+        amountAdded: amt,
+        newBalance: wallet.balance + amt,
+        paymentId: razorpay_payment_id,
+      })
+    } catch {
+      // Email failure must not block wallet credit response
+    }
 
     return NextResponse.json({ success: true, new_balance: wallet.balance + amt })
   } catch (err) {

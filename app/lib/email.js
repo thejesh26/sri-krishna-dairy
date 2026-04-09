@@ -1,9 +1,27 @@
 import { Resend } from 'resend'
 
 const FROM = 'Sri Krishnaa Dairy <orders@srikrishnaadairy.in>'
+const REPLY_TO = 'hello@srikrishnaadairy.in'
+const UNSUBSCRIBE_EMAIL = 'mailto:hello@srikrishnaadairy.in?subject=unsubscribe'
 
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY)
+}
+
+// ── Shared send wrapper — applies common headers to every email ───────────────
+function sendEmail({ to, subject, html, text }) {
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject,
+    html,
+    text,
+    reply_to: REPLY_TO,
+    headers: {
+      'List-Unsubscribe': `<${UNSUBSCRIBE_EMAIL}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
+  })
 }
 
 // ── Shared HTML layout ────────────────────────────────────────────────────────
@@ -42,11 +60,16 @@ function wrapLayout(title, bodyHtml) {
               <p style="margin:0 0 4px;color:#d4a017;font-size:13px;font-weight:bold;">Sri Krishnaa Dairy Farms</p>
               <p style="margin:0 0 4px;color:#9ca3af;font-size:12px;">Kattigenahalli, Bangalore, Karnataka</p>
               <p style="margin:0 0 8px;color:#9ca3af;font-size:12px;">
-                📞 <a href="tel:8553666002" style="color:#9ca3af;text-decoration:none;">8553666002</a>
+                <a href="tel:8553666002" style="color:#9ca3af;text-decoration:none;">8553666002</a>
                 &nbsp;&bull;&nbsp;
-                🌐 <a href="https://srikrishnaadairy.in" style="color:#d4a017;text-decoration:none;">srikrishnaadairy.in</a>
+                <a href="https://srikrishnaadairy.in" style="color:#d4a017;text-decoration:none;">srikrishnaadairy.in</a>
               </p>
-              <p style="margin:0;color:#4b5563;font-size:11px;">FSSAI Lic. No: 21225008004544 &nbsp;&bull;&nbsp; © 2025 Sri Krishnaa Dairy Farms</p>
+              <p style="margin:0 0 4px;color:#4b5563;font-size:11px;">FSSAI Lic. No: 21225008004544 &nbsp;&bull;&nbsp; &copy; 2025 Sri Krishnaa Dairy Farms</p>
+              <p style="margin:0;font-size:10px;color:#374151;">
+                You received this email because you have an account with Sri Krishnaa Dairy.
+                To stop receiving these emails, reply with &quot;unsubscribe&quot; to
+                <a href="mailto:hello@srikrishnaadairy.in" style="color:#6b7280;">hello@srikrishnaadairy.in</a>
+              </p>
             </td>
           </tr>
 
@@ -67,110 +90,266 @@ function row(label, value, accent = false) {
   </tr>`
 }
 
+// ── Plain text footer (shared) ────────────────────────────────────────────────
+const TEXT_FOOTER = `
+--
+Sri Krishnaa Dairy Farms
+Kattigenahalli, Bangalore, Karnataka
+Phone: 8553666002
+Website: https://srikrishnaadairy.in
+FSSAI Lic. No: 21225008004544
+
+You received this email because you have an account with Sri Krishnaa Dairy.
+To unsubscribe, email hello@srikrishnaadairy.in with subject "unsubscribe".`
+
 // ── 1. Order Placed ───────────────────────────────────────────────────────────
 export async function sendOrderConfirmationEmail({ to, name, product, quantity, deliveryDate, deliverySlot, totalAmount }) {
-  const slotLabel = deliverySlot === 'morning' ? '🌅 Morning (5AM – 8AM)' : '🌆 Evening (5PM – 7PM)'
+  const slotLabel = deliverySlot === 'morning' ? 'Morning (5AM - 8AM)' : 'Evening (5PM - 7PM)'
+  const slotEmoji = deliverySlot === 'morning' ? '🌅' : '🌆'
   const formattedDate = new Date(deliveryDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 
-  const body = `
+  const html = wrapLayout('Order Confirmed - Sri Krishnaa Dairy', `
     <p style="margin:0 0 6px;font-size:13px;color:#d4a017;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Order Confirmed</p>
     <h1 style="margin:0 0 8px;font-size:22px;color:#1a5c38;">Your order is placed! 🥛</h1>
     <p style="margin:0 0 24px;font-size:14px;color:#4b5563;">Hi <strong>${name}</strong>, thank you for your order. Here are the details:</p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #f0ebe0;margin-bottom:24px;">
-      ${row('Product', `${product} × ${quantity}`)}
+      ${row('Product', `${product} x ${quantity}`)}
       ${row('Delivery Date', formattedDate)}
-      ${row('Delivery Slot', slotLabel)}
+      ${row('Delivery Slot', `${slotEmoji} ${slotLabel}`)}
       ${row('Payment', 'Cash on Delivery')}
-      ${row('Total Amount', `₹${totalAmount}`, true)}
+      ${row('Total Amount', `Rs.${totalAmount}`, true)}
     </table>
 
     <div style="background:#fdf6e3;border:1px solid #f0dfa0;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
-      <p style="margin:0;font-size:13px;color:#92400e;font-weight:bold;">💰 Payment Reminder</p>
-      <p style="margin:6px 0 0;font-size:13px;color:#92400e;">Please keep <strong>₹${totalAmount} cash</strong> ready for the delivery person.</p>
+      <p style="margin:0;font-size:13px;color:#92400e;font-weight:bold;">Payment Reminder</p>
+      <p style="margin:6px 0 0;font-size:13px;color:#92400e;">Please keep <strong>Rs.${totalAmount} cash</strong> ready for the delivery person.</p>
     </div>
 
     <div style="background:#f0faf4;border:1px solid #c8e6d4;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
-      <p style="margin:0;font-size:13px;color:#1a5c38;font-weight:bold;">⚠️ Raw Milk Advisory</p>
+      <p style="margin:0;font-size:13px;color:#1a5c38;font-weight:bold;">Raw Milk Advisory</p>
       <p style="margin:6px 0 0;font-size:13px;color:#1a5c38;">Our milk is farm-fresh and not pasteurized. Please boil before consumption.</p>
     </div>
 
     <div style="text-align:center;">
       <a href="https://srikrishnaadairy.in/dashboard" style="display:inline-block;background:linear-gradient(135deg,#1a5c38,#2d7a50);color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:8px;">View Dashboard</a>
-    </div>`
+    </div>`)
 
-  return getResend().emails.send({
-    from: FROM,
+  const text = `Hi ${name},
+
+Your order has been placed successfully.
+
+ORDER DETAILS
+-------------
+Product:       ${product} x ${quantity}
+Delivery Date: ${formattedDate}
+Delivery Slot: ${slotLabel}
+Payment:       Cash on Delivery
+Total Amount:  Rs.${totalAmount}
+
+Please keep Rs.${totalAmount} cash ready for the delivery person.
+
+Raw Milk Advisory: Our milk is farm-fresh and not pasteurized. Please boil before consumption.
+
+View your dashboard: https://srikrishnaadairy.in/dashboard
+${TEXT_FOOTER}`
+
+  return sendEmail({
     to,
-    subject: 'Order Confirmed - Sri Krishnaa Dairy 🥛',
-    html: wrapLayout('Order Confirmed - Sri Krishnaa Dairy', body),
+    subject: 'Your Sri Krishnaa Dairy order is confirmed',
+    html,
+    text,
   })
 }
 
 // ── 2. Subscription Activated ─────────────────────────────────────────────────
 export async function sendSubscriptionConfirmationEmail({ to, name, product, quantity, startDate, deliverySlot, dailyAmount }) {
-  const slotLabel = deliverySlot === 'morning' ? '🌅 Morning (5AM – 8AM)' : '🌆 Evening (5PM – 7PM)'
+  const slotLabel = deliverySlot === 'morning' ? 'Morning (5AM - 8AM)' : 'Evening (5PM - 7PM)'
+  const slotEmoji = deliverySlot === 'morning' ? '🌅' : '🌆'
   const formattedStart = new Date(startDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 
-  const body = `
-    <p style="margin:0 0 6px;font-size:13px;color:#d4a017;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Subscription Activated</p>
+  const html = wrapLayout('Daily Milk Delivery Started - Sri Krishnaa Dairy', `
+    <p style="margin:0 0 6px;font-size:13px;color:#d4a017;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Subscription Active</p>
     <h1 style="margin:0 0 8px;font-size:22px;color:#1a5c38;">Welcome to daily fresh milk! 🥛</h1>
     <p style="margin:0 0 24px;font-size:14px;color:#4b5563;">Hi <strong>${name}</strong>, your subscription is now active. Fresh milk will be delivered to your doorstep every day.</p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #f0ebe0;margin-bottom:24px;">
-      ${row('Product', `${product} × ${quantity} per day`)}
+      ${row('Product', `${product} x ${quantity} per day`)}
       ${row('Starts From', formattedStart)}
-      ${row('Delivery Slot', slotLabel)}
-      ${row('Daily Charge', `₹${dailyAmount}`, true)}
+      ${row('Delivery Slot', `${slotEmoji} ${slotLabel}`)}
+      ${row('Daily Charge', `Rs.${dailyAmount}`, true)}
     </table>
 
     <div style="background:#f0faf4;border:1px solid #c8e6d4;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
-      <p style="margin:0;font-size:13px;color:#1a5c38;font-weight:bold;">💳 Wallet Deductions</p>
-      <p style="margin:6px 0 0;font-size:13px;color:#1a5c38;">₹${dailyAmount} will be deducted from your wallet each day. Please ensure your wallet balance stays above ₹300 to avoid interruption.</p>
+      <p style="margin:0;font-size:13px;color:#1a5c38;font-weight:bold;">Wallet Deductions</p>
+      <p style="margin:6px 0 0;font-size:13px;color:#1a5c38;">Rs.${dailyAmount} will be deducted from your wallet each day. Please ensure your wallet balance stays above Rs.300 to avoid interruption.</p>
     </div>
 
     <div style="background:#fdf6e3;border:1px solid #f0dfa0;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
-      <p style="margin:0;font-size:13px;color:#92400e;font-weight:bold;">⚠️ Raw Milk Advisory</p>
+      <p style="margin:0;font-size:13px;color:#92400e;font-weight:bold;">Raw Milk Advisory</p>
       <p style="margin:6px 0 0;font-size:13px;color:#92400e;">Our milk is farm-fresh and not pasteurized. Please boil before consumption.</p>
     </div>
 
     <div style="text-align:center;">
       <a href="https://srikrishnaadairy.in/dashboard" style="display:inline-block;background:linear-gradient(135deg,#1a5c38,#2d7a50);color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:8px;">View Dashboard</a>
-    </div>`
+    </div>`)
 
-  return getResend().emails.send({
-    from: FROM,
+  const text = `Hi ${name},
+
+Your daily milk delivery subscription is now active.
+
+SUBSCRIPTION DETAILS
+--------------------
+Product:       ${product} x ${quantity} per day
+Starts From:   ${formattedStart}
+Delivery Slot: ${slotLabel}
+Daily Charge:  Rs.${dailyAmount}
+
+Rs.${dailyAmount} will be deducted from your wallet each day. Please keep your wallet balance above Rs.300 to avoid interruption.
+
+Raw Milk Advisory: Our milk is farm-fresh and not pasteurized. Please boil before consumption.
+
+View your dashboard: https://srikrishnaadairy.in/dashboard
+${TEXT_FOOTER}`
+
+  return sendEmail({
     to,
-    subject: 'Subscription Activated - Sri Krishnaa Dairy 🥛',
-    html: wrapLayout('Subscription Activated - Sri Krishnaa Dairy', body),
+    subject: 'Your daily milk delivery has started - Sri Krishnaa Dairy',
+    html,
+    text,
   })
 }
 
-// ── 3. Low Wallet Balance ─────────────────────────────────────────────────────
-export async function sendLowBalanceEmail({ to, name, balance }) {
-  const body = `
-    <p style="margin:0 0 6px;font-size:13px;color:#d4a017;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Wallet Alert</p>
-    <h1 style="margin:0 0 8px;font-size:22px;color:#b45309;">Low Wallet Balance ⚠️</h1>
-    <p style="margin:0 0 24px;font-size:14px;color:#4b5563;">Hi <strong>${name}</strong>, your wallet balance is running low. Please recharge to continue receiving fresh milk.</p>
+// ── 3. Payment Received (subscription) ───────────────────────────────────────
+export async function sendPaymentReceivedEmail({ to, name, amountPaid, paymentId }) {
+  const html = wrapLayout('Payment Received - Sri Krishnaa Dairy', `
+    <p style="margin:0 0 6px;font-size:13px;color:#d4a017;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Payment Received</p>
+    <h1 style="margin:0 0 8px;font-size:22px;color:#1a5c38;">We received your payment 🥛</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#4b5563;">Hi <strong>${name}</strong>, your payment has been verified. Your subscription will be activated shortly.</p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #f0ebe0;margin-bottom:24px;">
-      ${row('Current Balance', `₹${balance}`)}
-      ${row('Minimum Required', '₹300')}
+      ${row('Amount', `Rs.${amountPaid}`, true)}
+      ${row('Reference ID', `<span style="font-family:monospace;font-size:12px;">${paymentId}</span>`)}
+      ${row('Status', '<span style="color:#1a5c38;font-weight:bold;">Verified</span>')}
     </table>
 
-    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
-      <p style="margin:0;font-size:13px;color:#991b1b;font-weight:bold;">🚫 Delivery at Risk</p>
-      <p style="margin:6px 0 0;font-size:13px;color:#991b1b;">Your daily milk delivery will be paused if your wallet balance drops below the daily charge amount. Recharge now to avoid missing your delivery.</p>
+    <div style="background:#f0faf4;border:1px solid #c8e6d4;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:#1a5c38;">You will receive a separate email once your subscription is fully activated. If you have any questions, reply to this email or contact us with your Reference ID.</p>
     </div>
 
     <div style="text-align:center;">
-      <a href="https://srikrishnaadairy.in/wallet" style="display:inline-block;background:linear-gradient(135deg,#b45309,#d97706);color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:8px;">Recharge Wallet Now</a>
-    </div>`
+      <a href="https://srikrishnaadairy.in/dashboard" style="display:inline-block;background:linear-gradient(135deg,#1a5c38,#2d7a50);color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:8px;">View Dashboard</a>
+    </div>`)
 
-  return getResend().emails.send({
-    from: FROM,
+  const text = `Hi ${name},
+
+We have received and verified your payment.
+
+PAYMENT DETAILS
+---------------
+Amount:       Rs.${amountPaid}
+Reference ID: ${paymentId}
+Status:       Verified
+
+Your subscription will be activated shortly. You will receive a separate confirmation email once it is active. If you have any questions, reply to this email or contact us with your Reference ID.
+
+View your dashboard: https://srikrishnaadairy.in/dashboard
+${TEXT_FOOTER}`
+
+  return sendEmail({
     to,
-    subject: 'Low Wallet Balance - Sri Krishnaa Dairy ⚠️',
-    html: wrapLayout('Low Wallet Balance - Sri Krishnaa Dairy', body),
+    subject: 'Payment received - Sri Krishnaa Dairy',
+    html,
+    text,
+  })
+}
+
+// ── 4. Wallet Recharged ───────────────────────────────────────────────────────
+export async function sendWalletRechargeEmail({ to, name, amountAdded, newBalance, paymentId }) {
+  const html = wrapLayout('Wallet Balance Updated - Sri Krishnaa Dairy', `
+    <p style="margin:0 0 6px;font-size:13px;color:#d4a017;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Wallet Updated</p>
+    <h1 style="margin:0 0 8px;font-size:22px;color:#1a5c38;">Wallet balance added 🥛</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#4b5563;">Hi <strong>${name}</strong>, your Sri Krishnaa Dairy wallet has been topped up successfully.</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #f0ebe0;margin-bottom:24px;">
+      ${row('Amount Added', `Rs.${amountAdded}`, true)}
+      ${row('New Balance', `Rs.${newBalance}`, true)}
+      ${row('Reference ID', `<span style="font-family:monospace;font-size:12px;">${paymentId}</span>`)}
+      ${row('Status', '<span style="color:#1a5c38;font-weight:bold;">Credited</span>')}
+    </table>
+
+    <div style="background:#f0faf4;border:1px solid #c8e6d4;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:#1a5c38;font-weight:bold;">Your daily deliveries will continue without interruption.</p>
+      <p style="margin:6px 0 0;font-size:13px;color:#1a5c38;">Daily charges are automatically deducted from your wallet each morning.</p>
+    </div>
+
+    <div style="text-align:center;">
+      <a href="https://srikrishnaadairy.in/wallet" style="display:inline-block;background:linear-gradient(135deg,#1a5c38,#2d7a50);color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:8px;">View Wallet</a>
+    </div>`)
+
+  const text = `Hi ${name},
+
+Your Sri Krishnaa Dairy wallet has been topped up.
+
+WALLET UPDATE
+-------------
+Amount Added:  Rs.${amountAdded}
+New Balance:   Rs.${newBalance}
+Reference ID:  ${paymentId}
+Status:        Credited
+
+Your daily deliveries will continue without interruption. Daily charges are automatically deducted each morning.
+
+View your wallet: https://srikrishnaadairy.in/wallet
+${TEXT_FOOTER}`
+
+  return sendEmail({
+    to,
+    subject: 'Wallet balance updated - Sri Krishnaa Dairy',
+    html,
+    text,
+  })
+}
+
+// ── 5. Low Wallet Balance ─────────────────────────────────────────────────────
+export async function sendLowBalanceEmail({ to, name, balance }) {
+  const html = wrapLayout('Wallet Balance Needs Attention - Sri Krishnaa Dairy', `
+    <p style="margin:0 0 6px;font-size:13px;color:#d4a017;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Wallet Balance</p>
+    <h1 style="margin:0 0 8px;font-size:22px;color:#b45309;">Your wallet balance is low</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#4b5563;">Hi <strong>${name}</strong>, your wallet balance has fallen below Rs.300. Please add funds to keep your milk delivery running.</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #f0ebe0;margin-bottom:24px;">
+      ${row('Current Balance', `Rs.${balance}`)}
+      ${row('Recommended Minimum', 'Rs.300')}
+    </table>
+
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:#991b1b;font-weight:bold;">Delivery may be affected</p>
+      <p style="margin:6px 0 0;font-size:13px;color:#991b1b;">If your wallet balance drops below the daily charge amount, your milk delivery will be paused until you add funds.</p>
+    </div>
+
+    <div style="text-align:center;">
+      <a href="https://srikrishnaadairy.in/wallet" style="display:inline-block;background:linear-gradient(135deg,#b45309,#d97706);color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:8px;">Add Funds to Wallet</a>
+    </div>`)
+
+  const text = `Hi ${name},
+
+Your Sri Krishnaa Dairy wallet balance has fallen below Rs.300.
+
+WALLET STATUS
+-------------
+Current Balance:       Rs.${balance}
+Recommended Minimum:   Rs.300
+
+If your balance drops below the daily charge amount, your milk delivery will be paused until you add funds.
+
+Add funds to your wallet: https://srikrishnaadairy.in/wallet
+${TEXT_FOOTER}`
+
+  return sendEmail({
+    to,
+    subject: 'Your Sri Krishnaa Dairy wallet needs attention',
+    html,
+    text,
   })
 }
