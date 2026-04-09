@@ -10,6 +10,9 @@ export default function Wallet() {
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
+  const [rechargeLoading, setRechargeLoading] = useState(false)
+  const [customAmount, setCustomAmount] = useState('')
+  const [selectedAmount, setSelectedAmount] = useState(null)
 
   useEffect(() => { getUser() }, [])
 
@@ -41,6 +44,75 @@ export default function Wallet() {
       .order('created_at', { ascending: false })
       .limit(20)
     setTransactions(transactions || [])
+  }
+
+  const handleRecharge = async () => {
+    const amount = selectedAmount === 'custom' ? parseInt(customAmount, 10) : selectedAmount
+    if (!amount || amount < 100 || amount > 50000) {
+      setMessage('❌ Please enter a valid amount (₹100 – ₹50,000).')
+      return
+    }
+    setRechargeLoading(true)
+    setMessage('')
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      const orderRes = await fetch('/api/razorpay/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ amount_rupees: amount }),
+      })
+      const orderData = await orderRes.json()
+      if (!orderRes.ok) {
+        setMessage('❌ Could not initiate payment: ' + (orderData.error || 'Try again.'))
+        setRechargeLoading(false)
+        return
+      }
+
+      const rzp = new window.Razorpay({
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        order_id: orderData.order_id,
+        amount: orderData.amount,
+        currency: 'INR',
+        name: 'Sri Krishnaa Dairy',
+        description: 'Wallet Recharge',
+        image: '/Logo.jpg',
+        theme: { color: '#1a5c38' },
+        handler: async (response) => {
+          const rechargeRes = await fetch('/api/wallet/recharge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              amount_rupees: amount,
+            }),
+          })
+          const rechargeData = await rechargeRes.json()
+          if (!rechargeRes.ok || !rechargeData.success) {
+            setMessage('❌ Payment done but wallet credit failed. Contact support with payment ID: ' + response.razorpay_payment_id)
+          } else {
+            setMessage('✅ Wallet recharged successfully!')
+            setSelectedAmount(null)
+            setCustomAmount('')
+            await loadWallet(user.id)
+          }
+          setRechargeLoading(false)
+        },
+        modal: {
+          ondismiss: () => {
+            setMessage('❌ Payment cancelled.')
+            setRechargeLoading(false)
+          },
+        },
+      })
+      rzp.open()
+    } catch {
+      setMessage('❌ Something went wrong. Please try again.')
+      setRechargeLoading(false)
+    }
   }
 
   if (loading) return (
@@ -82,10 +154,10 @@ export default function Wallet() {
             <div>
               <p className="text-red-700 font-bold text-sm">Wallet Empty — Deliveries Paused!</p>
               <p className="text-red-600 text-xs mt-1">Your wallet balance is ₹0. All subscription deliveries are on hold. Please add balance immediately to resume.</p>
-              <a href="https://wa.me/918553666002?text=Hi, I need to add balance to my wallet urgently" target="_blank"
+              <button onClick={() => document.getElementById('add-money')?.scrollIntoView({ behavior: 'smooth' })}
                 className="inline-block mt-2 bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-red-700 transition">
                 Add Balance Now →
-              </a>
+              </button>
             </div>
           </div>
         )}
@@ -95,10 +167,10 @@ export default function Wallet() {
             <div>
               <p className="text-orange-700 font-bold text-sm">Low Balance — Top Up Soon!</p>
               <p className="text-orange-600 text-xs mt-1">Your balance (₹{wallet.balance}) is below the minimum ₹300 required. Deliveries may be paused if not topped up.</p>
-              <a href="https://wa.me/918553666002?text=Hi, I want to add balance to my Sri Krishnaa Dairy wallet" target="_blank"
+              <button onClick={() => document.getElementById('add-money')?.scrollIntoView({ behavior: 'smooth' })}
                 className="inline-block mt-2 bg-orange-500 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-orange-600 transition">
                 Add Balance →
-              </a>
+              </button>
             </div>
           </div>
         )}
@@ -119,26 +191,65 @@ export default function Wallet() {
           </div>
         </div>
 
-        {/* How to Add Balance */}
-        <div className="bg-[#fdf6e3] border border-[#f0dfa0] rounded-xl p-5 mb-6">
-          <p className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c] mb-2">How to Add Balance?</p>
-          <p className="text-sm text-gray-500 mb-3">
-            To add balance to your wallet, please contact us on WhatsApp or call us. We'll add the balance manually after receiving payment.
-          </p>
-          <div className="flex gap-3">
-            <a href="https://wa.me/918553666002?text=Hi, I want to add balance to my Sri Krishnaa Dairy wallet"
-              target="_blank"
-              className="flex items-center gap-2 bg-[#25D366] text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-[#1da851] transition">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4" fill="white">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-              </svg>
-              WhatsApp Us
-            </a>
-            <a href="tel:8553666002"
-              className="flex items-center gap-2 bg-[#1a5c38] text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-[#14472c] transition">
-              📞 Call Us
-            </a>
+        {/* Add Money to Wallet */}
+        <div id="add-money" className="bg-white border border-[#e8e0d0] rounded-xl p-5 mb-6 shadow-sm">
+          <p className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c] mb-1">Add Money to Wallet</p>
+          <p className="text-xs text-gray-400 mb-4">Instant credit via UPI, Card, or Net Banking</p>
+
+          {/* Preset amounts */}
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {[500, 1000, 2000].map((amt) => (
+              <button key={amt}
+                onClick={() => { setSelectedAmount(amt); setCustomAmount('') }}
+                className={`border-2 rounded-lg py-3 text-sm font-bold transition ${
+                  selectedAmount === amt
+                    ? 'border-[#1a5c38] bg-[#f0faf4] text-[#1a5c38]'
+                    : 'border-[#e8e0d0] text-[#1c1c1c] hover:border-[#1a5c38]'
+                }`}>
+                ₹{amt}
+              </button>
+            ))}
           </div>
+
+          {/* Custom amount */}
+          <div className="flex gap-2 mb-4">
+            <input
+              type="number"
+              placeholder="Enter custom amount"
+              value={customAmount}
+              min={100}
+              onChange={(e) => { setCustomAmount(e.target.value); setSelectedAmount('custom') }}
+              onClick={() => setSelectedAmount('custom')}
+              className={`flex-1 border-2 rounded-lg px-4 py-3 text-sm focus:outline-none transition ${
+                selectedAmount === 'custom'
+                  ? 'border-[#1a5c38]'
+                  : 'border-[#e8e0d0] focus:border-[#1a5c38]'
+              }`}
+            />
+          </div>
+
+          {message && (
+            <div className={`rounded-lg px-4 py-3 text-sm text-center font-medium mb-4 ${
+              message.startsWith('✅') ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-red-50 text-red-600 border border-red-200'
+            }`}>
+              {message}
+            </div>
+          )}
+
+          <button
+            onClick={handleRecharge}
+            disabled={rechargeLoading || (!selectedAmount)}
+            className="w-full text-white py-3 rounded-lg font-bold text-sm transition shadow-md disabled:opacity-50"
+            style={{background: 'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
+            {rechargeLoading
+              ? 'Opening Payment...'
+              : selectedAmount && selectedAmount !== 'custom'
+                ? `Pay ₹${selectedAmount} via Razorpay`
+                : customAmount
+                  ? `Pay ₹${customAmount} via Razorpay`
+                  : 'Select an amount'}
+          </button>
+          <p className="text-center text-xs text-gray-400 mt-2">Secured by Razorpay · UPI · Cards · Net Banking</p>
         </div>
 
         {/* Wallet Benefits */}

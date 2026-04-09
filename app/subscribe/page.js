@@ -89,6 +89,83 @@ export default function Subscribe() {
 
   const totalPrice = dailyPrice * totalDays + bottleDeposit
 
+  const openRazorpay = async (amountRupees, onSuccess) => {
+    const { data: { session } } = await supabase.auth.getSession()
+
+    const orderRes = await fetch('/api/razorpay/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ amount_rupees: amountRupees }),
+    })
+    const orderData = await orderRes.json()
+    if (!orderRes.ok) {
+      setMessage('❌ Could not initiate payment: ' + (orderData.error || 'Try again.'))
+      setLoading(false)
+      return
+    }
+
+    const rzp = new window.Razorpay({
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      order_id: orderData.order_id,
+      amount: orderData.amount,
+      currency: 'INR',
+      name: 'Sri Krishnaa Dairy',
+      description: 'Subscription Activation',
+      image: '/Logo.jpg',
+      theme: { color: '#1a5c38' },
+      handler: async (response) => {
+        // Verify payment server-side
+        const verifyRes = await fetch('/api/razorpay/verify-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+          body: JSON.stringify({
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+          }),
+        })
+        const verifyData = await verifyRes.json()
+        if (!verifyRes.ok || !verifyData.success) {
+          setMessage('❌ Payment verification failed. Please contact support.')
+          setLoading(false)
+          return
+        }
+        onSuccess(session)
+      },
+      modal: {
+        ondismiss: () => {
+          setMessage('❌ Payment cancelled.')
+          setLoading(false)
+        },
+      },
+    })
+    rzp.open()
+  }
+
+  const activateSubscription = async (session) => {
+    const res = await fetch('/api/subscriptions/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+      body: JSON.stringify({
+        product_id: selectedProduct.id,
+        quantity,
+        start_date: startDate,
+        end_date: endDate || null,
+        delivery_slot: deliverySlot,
+        subscription_type: subscriptionType,
+        delivery_mode: deliveryMode,
+        discount_code: discountCode || null,
+      }),
+    })
+    const result = await res.json()
+    if (!res.ok) {
+      setMessage('❌ Payment received but subscription activation failed: ' + (result.error || 'Contact support.'))
+    } else {
+      router.push('/confirmation?type=subscription')
+    }
+    setLoading(false)
+  }
+
   const handleSubscribe = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -118,47 +195,22 @@ export default function Subscribe() {
       return
     }
 
-// Check if active subscription already exists
-const { data: existingSub } = await supabase
-  .from('subscriptions')
-  .select('id')
-  .eq('user_id', user.id)
-  .eq('is_active', true)
-  .single()
+    // Check if active subscription already exists
+    const { data: existingSub } = await supabase
+      .from('subscriptions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .single()
 
-if (existingSub) {
-  setMessage('You already have an active subscription! Please manage your existing plan first.')
-  setLoading(false)
-  return
-}
-
-    // SECURITY: Subscription created server-side; price/deposit cannot be injected
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/subscriptions/create', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session?.access_token}`,
-      },
-      body: JSON.stringify({
-        product_id: selectedProduct.id,
-        quantity,
-        start_date: startDate,
-        end_date: endDate || null,
-        delivery_slot: deliverySlot,
-        subscription_type: subscriptionType,
-        delivery_mode: deliveryMode,
-        discount_code: discountCode || null,
-      }),
-    })
-    const result = await res.json()
-
-    if (!res.ok) {
-      setMessage('Error: ' + (result.error || 'Could not create subscription.'))
-    } else {
-      router.push('/confirmation?type=subscription')
+    if (existingSub) {
+      setMessage('You already have an active subscription! Please manage your existing plan first.')
+      setLoading(false)
+      return
     }
-    setLoading(false)
+
+    // Open Razorpay; on success activate subscription
+    await openRazorpay(totalPrice, activateSubscription)
   }
 
   return (
@@ -513,9 +565,9 @@ if (existingSub) {
             className="text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition shadow-lg disabled:opacity-50"
             style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
             {loading ? 'Processing...' :
-              subscriptionType === 'oneday' ? 'Book One Day Delivery' :
-              subscriptionType === 'fixed' ? 'Start Fixed Subscription' :
-              'Start Ongoing Subscription'}
+              subscriptionType === 'oneday' ? `Pay ₹${totalPrice} & Book` :
+              subscriptionType === 'fixed' ? `Pay ₹${totalPrice} & Subscribe` :
+              `Pay ₹${totalPrice} & Subscribe`}
           </button>
 
         </form>

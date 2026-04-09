@@ -105,6 +105,7 @@ export default function RootLayout({ children }) {
       _initProtect();
     }
   `}} />
+        <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
