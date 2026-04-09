@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
+import { sendOrderConfirmationEmail } from '../../../lib/email'
 
 /**
  * SECURITY: Server-side order creation.
@@ -153,6 +154,33 @@ export async function POST(request) {
 
     if (insertError) {
       return NextResponse.json({ error: insertError.message }, { status: 500 })
+    }
+
+    // ── 8. Send confirmation email (non-blocking) ────────────────────────────
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single()
+
+      const { data: productDetails } = await supabase
+        .from('products')
+        .select('size')
+        .eq('id', product.id)
+        .single()
+
+      await sendOrderConfirmationEmail({
+        to: user.email,
+        name: profile?.full_name || user.email,
+        product: productDetails?.size || 'Milk',
+        quantity: qty,
+        deliveryDate: delivery_date,
+        deliverySlot: delivery_slot,
+        totalAmount: totalPrice,
+      })
+    } catch {
+      // Email failure must not block order creation
     }
 
     return NextResponse.json({ success: true, order_id: order.id })

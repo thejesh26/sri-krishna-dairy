@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
+import { sendLowBalanceEmail } from '../../../lib/email'
 
 // Called daily by Vercel Cron at 18:30 UTC (midnight IST)
 // GET /api/cron/deduct-subscriptions
@@ -102,9 +103,11 @@ async function runDeductions() {
       continue
     }
 
+    const newBalance = balance - dailyAmount
+
     await supabase
       .from('wallet')
-      .update({ balance: balance - dailyAmount })
+      .update({ balance: newBalance })
       .eq('user_id', sub.user_id)
 
     // Record transaction
@@ -114,6 +117,30 @@ async function runDeductions() {
       type: 'debit',
       description,
     })
+
+    // Send low balance alert if balance drops below Rs.300
+    if (newBalance < 300) {
+      try {
+        const { data: userProfile } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', sub.user_id)
+          .single()
+
+        const { data: authUser } = await supabase.auth.admin.getUserById(sub.user_id)
+        const userEmail = authUser?.user?.email || userProfile?.email
+
+        if (userEmail) {
+          await sendLowBalanceEmail({
+            to: userEmail,
+            name: userProfile?.full_name || userEmail,
+            balance: newBalance,
+          })
+        }
+      } catch {
+        // Email failure must not block deduction
+      }
+    }
 
     // Award loyalty points: 1 point per Rs.100 spent
     const pointsEarned = Math.floor(dailyAmount / 100)

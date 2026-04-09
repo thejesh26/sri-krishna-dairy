@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
+import { sendSubscriptionConfirmationEmail } from '../../../lib/email'
 
 /**
  * SECURITY: Server-side subscription creation.
@@ -109,7 +110,7 @@ export async function POST(request) {
     // ── 3. Verify product exists and is available ────────────────────────────
     const { data: product, error: productError } = await supabase
       .from('products')
-      .select('id, price, is_available')
+      .select('id, price, size, is_available')
       .eq('id', product_id)
       .single()
 
@@ -171,6 +172,29 @@ export async function POST(request) {
 
     if (insertError) {
       return NextResponse.json({ error: insertError.message }, { status: 500 })
+    }
+
+    // ── 8. Send confirmation email (non-blocking) ────────────────────────────
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single()
+
+      const dailyAmount = Math.round(product.price * qty * (1 - discountPercent / 100))
+
+      await sendSubscriptionConfirmationEmail({
+        to: user.email,
+        name: profile?.full_name || user.email,
+        product: product.size,
+        quantity: qty,
+        startDate: start_date,
+        deliverySlot: delivery_slot,
+        dailyAmount,
+      })
+    } catch {
+      // Email failure must not block subscription creation
     }
 
     return NextResponse.json({ success: true, subscription_id: sub.id })
