@@ -474,12 +474,18 @@ export default function Subscribe() {
             )}
             <div className="flex justify-between text-sm mb-2 text-green-200">
               <span>Delivery Slot</span>
-              <span>{deliverySlot === 'morning' ? '🌅 5-8AM' : '🌆 5-7PM'}</span>
+              <span>{deliverySlot === 'morning' ? '🌅 7-9AM' : '🌆 5-7PM'}</span>
             </div>
             <div className="flex justify-between text-sm mb-2 text-green-200">
               <span>Type</span>
               <span>{subscriptionType === 'oneday' ? '1 Day' : subscriptionType === 'fixed' ? 'Fixed Period' : 'Ongoing'}</span>
             </div>
+            {subscriptionType === 'ongoing' && selectedProduct && (
+              <div className="flex justify-between text-sm mb-2 text-green-300">
+                <span>Est. monthly cost</span>
+                <span>~Rs.{Math.round(dailyPrice * 30)}/mo</span>
+              </div>
+            )}
             <div className="border-t border-green-700 mt-4 pt-4">
               <div className="flex justify-between font-bold text-lg">
                 <span>First Day Total</span>

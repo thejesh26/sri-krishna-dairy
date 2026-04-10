@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import DisclaimerPopup from '../components/DisclaimerPopup'
+import PushNotificationPrompt from '../components/PushNotificationPrompt'
 
 const BADGE_INFO = {
   fresh_start:    { emoji: '🥛', label: 'Fresh Start',      days: 7,   color: '#d4a017' },
@@ -27,6 +28,9 @@ export default function Dashboard() {
   const [copyMsg, setCopyMsg] = useState('')
   const [redeemMsg, setRedeemMsg] = useState('')
   const [redeemLoading, setRedeemLoading] = useState(false)
+  const [inactiveSubs, setInactiveSubs] = useState([])
+  const [reactivatingId, setReactivatingId] = useState(null)
+  const [reactivateMsg, setReactivateMsg] = useState('')
 
   useEffect(() => { getUser() }, [])
 
@@ -58,6 +62,10 @@ export default function Dashboard() {
       .eq('user_id', u.id).eq('is_active', true)
     setSubscriptions(subs || [])
 
+    const { data: inactiveSubs } = await supabase.from('subscriptions').select('*, products(*)')
+      .eq('user_id', u.id).eq('is_active', false).order('created_at', { ascending: false }).limit(5)
+    setInactiveSubs(inactiveSubs || [])
+
     const { data: walletData } = await supabase.from('wallet').select('*').eq('user_id', u.id).limit(1)
     setWalletBalance(walletData?.[0]?.balance || 0)
 
@@ -75,6 +83,31 @@ export default function Dashboard() {
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/')
+  }
+
+  const handleReactivate = async (subId) => {
+    setReactivatingId(subId)
+    setReactivateMsg('')
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/subscriptions/reactivate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ subscription_id: subId }),
+    })
+    const result = await res.json()
+    if (!res.ok) {
+      setReactivateMsg('❌ ' + (result.error || 'Could not reactivate.'))
+    } else {
+      // Move sub from inactive to active list
+      const reactivated = inactiveSubs.find(s => s.id === subId)
+      if (reactivated) {
+        setSubscriptions(prev => [...prev, { ...reactivated, is_active: true }])
+        setInactiveSubs(prev => prev.filter(s => s.id !== subId))
+      }
+      setReactivateMsg('✅ Subscription reactivated!')
+    }
+    setReactivatingId(null)
+    setTimeout(() => setReactivateMsg(''), 4000)
   }
 
   const copyReferralCode = () => {
@@ -313,7 +346,13 @@ export default function Dashboard() {
                     style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>Subscribe Now</a>
                 </div>
               ) : (
-                subscriptions.map((sub, index) => (
+                subscriptions.map((sub, index) => {
+                  const fullPrice = sub.products?.price * sub.quantity
+                  const discountedPrice = sub.discount_percent > 0
+                    ? Math.round(fullPrice * (1 - sub.discount_percent / 100))
+                    : fullPrice
+                  const monthlyCost = discountedPrice * 30
+                  return (
                   <div key={sub.id}
                     className={`px-6 py-5 flex items-center gap-5 ${index !== subscriptions.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
                     <div className="w-16 h-16 rounded-2xl bg-[#f5f0e8] flex items-center justify-center text-3xl flex-shrink-0">🥛</div>
@@ -325,17 +364,68 @@ export default function Dashboard() {
                         <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-medium px-3 py-1 rounded-full border border-[#f0dfa0]">
                           {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
                         </span>
+                        {sub.discount_percent > 0 && (
+                          <span className="bg-green-50 text-green-700 text-xs font-medium px-3 py-1 rounded-full border border-green-200">
+                            {sub.discount_percent}% off
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">₹{sub.products?.price * sub.quantity}</p>
-                      <p className="text-xs text-gray-400 mb-2">/day</p>
+                      <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">₹{discountedPrice}</p>
+                      <p className="text-xs text-gray-400 mb-0.5">/day</p>
+                      <p className="text-xs text-gray-400 mb-2">~₹{monthlyCost}/mo</p>
                       <a href="/pause" className="text-xs text-[#d4a017] font-semibold border border-[#f0dfa0] px-3 py-1 rounded-full hover:bg-[#fdf6e3] transition">Manage</a>
                     </div>
                   </div>
-                ))
+                )})
               )}
             </div>
+
+            {/* Inactive Subscriptions */}
+            {inactiveSubs.length > 0 && (
+              <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+                <div className="px-6 py-5 border-b border-[#f5f0e8]">
+                  <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Inactive Subscriptions</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Deactivated due to low wallet balance — top up and reactivate</p>
+                </div>
+                {reactivateMsg && (
+                  <div className={`mx-6 mt-4 px-4 py-2 rounded-lg text-sm font-medium ${reactivateMsg.startsWith('✅') ? 'bg-[#f0faf4] text-[#1a5c38]' : 'bg-red-50 text-red-700'}`}>
+                    {reactivateMsg}
+                  </div>
+                )}
+                {inactiveSubs.map((sub, index) => {
+                  const dailyCost = Math.round(sub.products?.price * sub.quantity * (1 - (sub.discount_percent || 0) / 100))
+                  const canReactivate = walletBalance >= dailyCost
+                  return (
+                    <div key={sub.id}
+                      className={`px-6 py-5 flex items-center gap-5 ${index !== inactiveSubs.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                      <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center text-3xl flex-shrink-0 opacity-60">🥛</div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-[#1c1c1c]">{sub.products?.size} Fresh Cow Milk</p>
+                        <p className="text-sm text-gray-400 mt-1">{sub.quantity} bottle/day • ₹{dailyCost}/day</p>
+                        <span className="inline-block mt-2 bg-red-50 text-red-600 text-xs font-medium px-3 py-1 rounded-full border border-red-200">Inactive</span>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        {canReactivate ? (
+                          <button
+                            onClick={() => handleReactivate(sub.id)}
+                            disabled={reactivatingId === sub.id}
+                            className="bg-[#1a5c38] text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-[#14472c] transition disabled:opacity-50">
+                            {reactivatingId === sub.id ? 'Reactivating...' : 'Reactivate'}
+                          </button>
+                        ) : (
+                          <div className="text-right">
+                            <p className="text-xs text-red-500 font-semibold mb-1">Need ₹{dailyCost} balance</p>
+                            <a href="/wallet" className="text-xs text-[#d4a017] font-semibold border border-[#f0dfa0] px-3 py-1.5 rounded-lg hover:bg-[#fdf6e3] transition">Top Up Wallet</a>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
 
             {/* Recent Orders */}
             <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
@@ -382,12 +472,14 @@ export default function Dashboard() {
               </div>
               <div className="px-6 py-4 flex flex-col gap-2">
                 {[
-                  { q: 'What time is milk delivered?', a: 'Morning slot: 7AM – 9AM. Evening slot: 5PM – 7PM.' },
-                  { q: 'What is the bottle deposit?', a: 'A one-time refundable deposit of ₹100 total (minimum ₹200 for 2 bottles). Returned when bottles are given back.' },
-                  { q: 'What is the minimum wallet balance?', a: 'Your wallet must stay above ₹300 for deliveries to continue. Delivery is auto-paused if balance drops below ₹300 or reaches ₹0.' },
-                  { q: 'Is the milk safe to drink directly?', a: '⚠️ Our milk is raw and not pasteurized. Please boil before consuming, especially for children, elderly, and pregnant women. FSSAI Lic. No: 21225008004544.' },
-                  { q: 'Can I pause my subscription?', a: 'Yes! Go to Manage Plan and select dates to pause. Must be done at least 12 hours in advance.' },
-                  { q: 'How do I add wallet balance?', a: 'Contact us on WhatsApp or call. We add balance manually after receiving payment.' },
+                  { q: 'What time is milk delivered?', a: 'Morning slot: 7AM – 9AM. Evening slot: 5PM – 7PM. We guarantee delivery within your chosen slot.' },
+                  { q: 'What is the bottle deposit?', a: 'A one-time refundable deposit of ₹100 per bottle (minimum ₹200 for 2 bottles). The full deposit is returned when bottles are given back in good condition. Choose Direct Delivery mode to skip the deposit — our agent collects the bottle right after delivery.' },
+                  { q: 'What is the minimum wallet balance?', a: 'Your wallet must have sufficient balance to cover the day\'s delivery cost. If your balance is insufficient, your subscription will be automatically deactivated. We send you an email alert when your balance drops below ₹300 — top up in advance to stay uninterrupted.' },
+                  { q: 'Is the milk safe to drink directly?', a: '⚠️ Our milk is farm-fresh and raw — NOT pasteurized. Always boil before consuming, especially for children, elderly, pregnant women, and immunocompromised individuals. FSSAI Lic. No: 21225008004544.' },
+                  { q: 'Can I pause my subscription?', a: 'Yes! Go to Manage Plan and select a single date or a date range to pause. Must be done at least 12 hours in advance. Great for holidays or travel.' },
+                  { q: 'How do I add wallet balance?', a: 'Go to your Wallet page and use the Add Money section. Pay securely via Razorpay (UPI, card, netbanking) and your balance is credited instantly.' },
+                  { q: 'How do I reactivate a deactivated subscription?', a: 'Go to your Dashboard. Deactivated subscriptions appear in the "Inactive Subscriptions" section. Top up your wallet first, then click Reactivate.' },
+                  { q: 'Can I change my delivery quantity?', a: 'Yes! Go to Manage Plan and use the "Change Quantity" section to increase or decrease your daily bottles. Changes take effect from the next delivery.' },
                 ].map(({ q, a }, i) => (
                   <div key={q} className="border border-[#e8e0d0] rounded-xl overflow-hidden">
                     <button
@@ -793,6 +885,7 @@ export default function Dashboard() {
       </footer>
 
       <DisclaimerPopup />
+      <PushNotificationPrompt />
     </div>
   )
 }

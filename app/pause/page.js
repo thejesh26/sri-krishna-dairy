@@ -9,14 +9,25 @@ export default function PauseSubscription() {
   const [subscriptions, setSubscriptions] = useState([])
   const [selectedSub, setSelectedSub] = useState(null)
   const [pauseDate, setPauseDate] = useState('')
+  const [rangeStart, setRangeStart] = useState('')
+  const [rangeEnd, setRangeEnd] = useState('')
+  const [pauseMode, setPauseMode] = useState('single') // 'single' | 'range'
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [newQuantity, setNewQuantity] = useState('')
+  const [qtyLoading, setQtyLoading] = useState(false)
+  const [qtyMsg, setQtyMsg] = useState('')
 
   useEffect(() => {
     getUser()
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
-    setPauseDate(tomorrow.toISOString().split('T')[0])
+    const tomorrowStr = tomorrow.toISOString().split('T')[0]
+    setPauseDate(tomorrowStr)
+    setRangeStart(tomorrowStr)
+    const dayAfter = new Date()
+    dayAfter.setDate(dayAfter.getDate() + 2)
+    setRangeEnd(dayAfter.toISOString().split('T')[0])
   }, [])
 
   const getUser = async () => {
@@ -66,6 +77,60 @@ export default function PauseSubscription() {
     setLoading(false)
   }
 
+  const handleRangePause = async () => {
+    if (!selectedSub) { setMessage('Please select a subscription!'); return }
+    if (!rangeStart || !rangeEnd) { setMessage('Please select both start and end dates.'); return }
+    if (rangeEnd < rangeStart) { setMessage('End date must be after start date.'); return }
+
+    // Generate all dates in range
+    const dates = []
+    const current = new Date(rangeStart)
+    const end = new Date(rangeEnd)
+    while (current <= end) {
+      dates.push(current.toISOString().split('T')[0])
+      current.setDate(current.getDate() + 1)
+    }
+    if (dates.length > 30) { setMessage('Range cannot exceed 30 days.'); return }
+
+    // Validate first date is 12h in advance
+    if ((new Date(rangeStart) - new Date()) / (1000 * 60 * 60) < 12) {
+      setMessage('Start date must be at least 12 hours from now!')
+      return
+    }
+
+    setLoading(true)
+    setMessage('')
+    const { data: { session } } = await supabase.auth.getSession()
+
+    // Pause each date sequentially using the existing API
+    let updatedDates = selectedSub.paused_dates || []
+    let errorOccurred = false
+    for (const date of dates) {
+      if (updatedDates.includes(date)) continue
+      const res = await fetch('/api/subscriptions/pause', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ subscription_id: selectedSub.id, pause_date: date }),
+      })
+      const result = await res.json()
+      if (res.ok) {
+        updatedDates = result.paused_dates
+      } else if (result.error !== 'This date is already paused.') {
+        setMessage('Error on ' + date + ': ' + result.error)
+        errorOccurred = true
+        break
+      }
+    }
+
+    if (!errorOccurred) {
+      setMessage(`✅ Paused ${dates.length} day(s): ${rangeStart} to ${rangeEnd}`)
+      const updated = { ...selectedSub, paused_dates: updatedDates }
+      setSelectedSub(updated)
+      setSubscriptions(subscriptions.map(s => s.id === selectedSub.id ? updated : s))
+    }
+    setLoading(false)
+  }
+
   const handleRemovePause = async (dateToRemove) => {
     setLoading(true)
     setMessage('')
@@ -84,6 +149,31 @@ export default function PauseSubscription() {
       setSubscriptions(subscriptions.map(s => s.id === selectedSub.id ? { ...s, paused_dates: updatedPaused } : s))
     }
     setLoading(false)
+  }
+
+  const handleQuantityChange = async () => {
+    const qty = Number(newQuantity)
+    if (!qty || qty < 1 || qty > 20) { setQtyMsg('Enter a quantity between 1 and 20.'); return }
+    if (qty === selectedSub.quantity) { setQtyMsg('Same quantity as current.'); return }
+    setQtyLoading(true)
+    setQtyMsg('')
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/subscriptions/update-quantity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ subscription_id: selectedSub.id, quantity: qty }),
+    })
+    const result = await res.json()
+    if (!res.ok) {
+      setQtyMsg('❌ ' + (result.error || 'Could not update quantity.'))
+    } else {
+      setQtyMsg(`✅ Updated to ${qty} bottle(s)/day — ₹${result.new_daily_cost}/day`)
+      const updated = { ...selectedSub, quantity: qty }
+      setSelectedSub(updated)
+      setSubscriptions(subscriptions.map(s => s.id === selectedSub.id ? updated : s))
+      setNewQuantity('')
+    }
+    setQtyLoading(false)
   }
 
   const handleCancelSubscription = async () => {
@@ -200,19 +290,87 @@ export default function PauseSubscription() {
               </div>
             )}
 
+            {/* Change Quantity */}
+            {selectedSub && (
+              <div className="bg-white rounded-xl p-5 shadow-sm border border-[#e8e0d0]">
+                <p className="text-sm font-bold text-[#1c1c1c] mb-1 font-[family-name:var(--font-playfair)]">Change Quantity</p>
+                <p className="text-xs text-gray-400 mb-4">Currently: {selectedSub.quantity} bottle(s)/day</p>
+                <div className="flex gap-2">
+                  <div className="flex items-center border border-[#e8e0d0] rounded-lg overflow-hidden flex-1">
+                    <button onClick={() => setNewQuantity(q => String(Math.max(1, Number(q || selectedSub.quantity) - 1)))}
+                      className="px-4 py-3 text-[#1a5c38] font-bold text-lg hover:bg-[#f0faf4] transition">−</button>
+                    <input type="number" min="1" max="20"
+                      value={newQuantity || selectedSub.quantity}
+                      onChange={e => setNewQuantity(e.target.value)}
+                      className="flex-1 text-center text-sm font-semibold border-0 focus:outline-none bg-transparent" />
+                    <button onClick={() => setNewQuantity(q => String(Math.min(20, Number(q || selectedSub.quantity) + 1)))}
+                      className="px-4 py-3 text-[#1a5c38] font-bold text-lg hover:bg-[#f0faf4] transition">+</button>
+                  </div>
+                  <button onClick={handleQuantityChange} disabled={qtyLoading}
+                    className="bg-[#1a5c38] text-white font-bold px-5 py-2 rounded-lg hover:bg-[#14472c] transition text-sm disabled:opacity-50">
+                    {qtyLoading ? '...' : 'Update'}
+                  </button>
+                </div>
+                {qtyMsg && <p className={`text-xs mt-2 font-medium ${qtyMsg.startsWith('✅') ? 'text-[#1a5c38]' : 'text-red-600'}`}>{qtyMsg}</p>}
+              </div>
+            )}
+
             {/* Pause a Date */}
             <div className="bg-white rounded-xl p-5 shadow-sm border border-[#e8e0d0]">
-              <p className="text-sm font-bold text-[#1c1c1c] mb-4 font-[family-name:var(--font-playfair)]">Pause a Delivery Date</p>
-              <div className="flex gap-2">
-                <input type="date" value={pauseDate}
-                  onChange={(e) => setPauseDate(e.target.value)}
-                  min={new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString().split('T')[0]}
-                  className="flex-1 border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
-                <button type="button" onClick={handlePause} disabled={loading}
-                  className="bg-[#d4a017] text-white font-bold px-5 py-2 rounded-lg hover:bg-[#b8860b] transition text-sm">
-                  Pause
-                </button>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-bold text-[#1c1c1c] font-[family-name:var(--font-playfair)]">Pause Delivery</p>
+                <div className="flex rounded-lg overflow-hidden border border-[#e8e0d0] text-xs font-semibold">
+                  <button onClick={() => setPauseMode('single')}
+                    className={`px-4 py-1.5 transition ${pauseMode === 'single' ? 'bg-[#1a5c38] text-white' : 'bg-white text-gray-500 hover:bg-[#f5f0e8]'}`}>
+                    Single Day
+                  </button>
+                  <button onClick={() => setPauseMode('range')}
+                    className={`px-4 py-1.5 transition ${pauseMode === 'range' ? 'bg-[#1a5c38] text-white' : 'bg-white text-gray-500 hover:bg-[#f5f0e8]'}`}>
+                    Date Range
+                  </button>
+                </div>
               </div>
+              {pauseMode === 'single' ? (
+                <div className="flex gap-2">
+                  <input type="date" value={pauseDate}
+                    onChange={(e) => setPauseDate(e.target.value)}
+                    min={new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                    className="flex-1 border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+                  <button type="button" onClick={handlePause} disabled={loading}
+                    className="bg-[#d4a017] text-white font-bold px-5 py-2 rounded-lg hover:bg-[#b8860b] transition text-sm">
+                    Pause
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">From</label>
+                      <input type="date" value={rangeStart}
+                        onChange={(e) => setRangeStart(e.target.value)}
+                        min={new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                        className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">To</label>
+                      <input type="date" value={rangeEnd}
+                        onChange={(e) => setRangeEnd(e.target.value)}
+                        min={rangeStart}
+                        className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+                    </div>
+                  </div>
+                  {rangeStart && rangeEnd && rangeEnd >= rangeStart && (
+                    <p className="text-xs text-[#1a5c38] font-medium">
+                      {Math.min(30, Math.round((new Date(rangeEnd) - new Date(rangeStart)) / 86400000) + 1)} day(s) will be paused
+                    </p>
+                  )}
+                  <button type="button" onClick={handleRangePause} disabled={loading}
+                    className="w-full bg-[#d4a017] text-white font-bold py-3 rounded-lg hover:bg-[#b8860b] transition text-sm">
+                    {loading ? 'Pausing...' : 'Pause Date Range'}
+                  </button>
+                  <p className="text-xs text-gray-400">Maximum 30 days. Great for holidays or travel!</p>
+                </div>
+              )}
             </div>
 
             {/* Paused Dates List */}

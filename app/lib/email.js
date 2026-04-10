@@ -436,3 +436,62 @@ ${TEXT_FOOTER}`
     text,
   })
 }
+
+// ── 8. Cron Failure Alert (admin-only) ───────────────────────────────────────
+export async function sendCronFailureAlert({ date, failed, skipped, deducted }) {
+  const adminEmail = process.env.ADMIN_ALERT_EMAIL || 'hello@srikrishnaadairy.in'
+
+  const rows = failed.map(f => `
+    <tr>
+      <td style="padding:6px 10px;border-bottom:1px solid #e8e0d0;font-size:12px;">${f.subscriptionId}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e8e0d0;font-size:12px;">${f.product || ''}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e8e0d0;font-size:12px;color:#b91c1c;">Rs.${f.balance}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e8e0d0;font-size:12px;">Rs.${f.required}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e8e0d0;font-size:12px;color:#92400e;">${f.reason}</td>
+    </tr>`).join('')
+
+  const html = wrapLayout('Cron Alert: Subscription Deductions', `
+    <p style="margin:0 0 6px;font-size:13px;color:#b91c1c;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Daily Cron Report — ${date}</p>
+    <h2 style="margin:0 0 16px;font-size:22px;color:#1c1c1c;">⚠️ ${failed.length} Deduction${failed.length !== 1 ? 's' : ''} Failed</h2>
+
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;background:#fdf6e3;border:1px solid #f0dfa0;border-radius:8px;overflow:hidden;">
+      <tr>
+        <td style="padding:8px 12px;font-size:13px;color:#1c1c1c;">✅ Deducted</td><td style="padding:8px 12px;font-size:14px;font-weight:bold;color:#1a5c38;">${deducted}</td>
+        <td style="padding:8px 12px;font-size:13px;color:#1c1c1c;">⏭ Skipped</td><td style="padding:8px 12px;font-size:14px;font-weight:bold;color:#92400e;">${skipped}</td>
+        <td style="padding:8px 12px;font-size:13px;color:#1c1c1c;">❌ Failed</td><td style="padding:8px 12px;font-size:14px;font-weight:bold;color:#b91c1c;">${failed.length}</td>
+      </tr>
+    </table>
+
+    <table style="width:100%;border-collapse:collapse;border:1px solid #e8e0d0;border-radius:8px;overflow:hidden;">
+      <thead>
+        <tr style="background:#f5f0e8;">
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#6b7280;text-transform:uppercase;">Sub ID</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#6b7280;text-transform:uppercase;">Product</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#6b7280;text-transform:uppercase;">Balance</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#6b7280;text-transform:uppercase;">Required</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#6b7280;text-transform:uppercase;">Reason</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <div style="margin-top:20px;text-align:center;">
+      <a href="https://srikrishnaadairy.in/admin" style="display:inline-block;background:linear-gradient(135deg,#1a5c38,#2d7a50);color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:8px;">Open Admin Panel</a>
+    </div>`)
+
+  const text = `CRON ALERT — ${date}
+${failed.length} deduction(s) failed.
+Deducted: ${deducted} | Skipped: ${skipped} | Failed: ${failed.length}
+
+Failed subscriptions:
+${failed.map(f => `- Sub ${f.subscriptionId}: ${f.reason} (balance Rs.${f.balance}, need Rs.${f.required})`).join('\n')}
+
+Open admin panel: https://srikrishnaadairy.in/admin`
+
+  return sendEmail({
+    to: adminEmail,
+    subject: `[Action Required] ${failed.length} subscription deduction(s) failed — ${date}`,
+    html,
+    text,
+  })
+}

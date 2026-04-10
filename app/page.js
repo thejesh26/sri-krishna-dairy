@@ -253,6 +253,54 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Testimonials */}
+      <section className="bg-[#f5f0e8] px-6 py-12">
+        <div className="max-w-4xl mx-auto">
+          <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">Happy Customers</p>
+          <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-8">What Our Customers Say</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {[
+              {
+                name: 'Priya Sharma',
+                area: 'Yelahanka',
+                text: 'Been getting milk from Sri Krishnaa for 6 months now. Genuinely the freshest I have had in Bangalore. My kids love it and I feel good knowing exactly where it comes from.',
+                rating: 5,
+              },
+              {
+                name: 'Rajesh Kumar',
+                area: 'Hebbal',
+                text: 'The subscription model is super convenient. Wallet top-up once, milk delivered daily without any hassle. Customer service is responsive and very helpful.',
+                rating: 5,
+              },
+              {
+                name: 'Anitha Reddy',
+                area: 'Kattigenahalli',
+                text: 'Switched from packet milk to Sri Krishnaa and the difference in taste is night and day. Love the pause feature — used it during our holiday trip to Mysore.',
+                rating: 5,
+              },
+            ].map(({ name, area, text, rating }) => (
+              <div key={name} className="bg-white rounded-xl p-6 shadow-sm border border-[#e8e0d0]">
+                <div className="flex gap-0.5 mb-3">
+                  {Array.from({ length: rating }).map((_, i) => (
+                    <span key={i} className="text-[#d4a017] text-lg">★</span>
+                  ))}
+                </div>
+                <p className="text-gray-600 text-sm leading-relaxed mb-4">"{text}"</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-[#1a5c38] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    {name[0]}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-[#1c1c1c] text-sm">{name}</p>
+                    <p className="text-xs text-gray-400">{area}, Bangalore</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Our Guarantee */}
       <section className="bg-[#1a5c38] px-6 py-12 text-white text-center">
         <div className="max-w-3xl mx-auto">

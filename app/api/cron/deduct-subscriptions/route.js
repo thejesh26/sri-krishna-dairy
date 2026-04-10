@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
-import { sendLowBalanceEmail } from '../../../lib/email'
+import { sendLowBalanceEmail, sendCronFailureAlert } from '../../../lib/email'
 
 // Called daily by Vercel Cron at 18:30 UTC (midnight IST)
 // GET /api/cron/deduct-subscriptions
@@ -185,6 +185,20 @@ async function runDeductions() {
       userId: sub.user_id,
       amount: dailyAmount,
     })
+  }
+
+  // Send admin alert if any deductions failed
+  if (failed.length > 0) {
+    try {
+      await sendCronFailureAlert({
+        date: today,
+        failed,
+        skipped,
+        deducted: deducted.length,
+      })
+    } catch {
+      // Alert failure must not block the cron response
+    }
   }
 
   return NextResponse.json({
