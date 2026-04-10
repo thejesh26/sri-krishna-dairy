@@ -2,9 +2,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
+import { useToast } from '../components/ToastContext'
+import { SkeletonStatCard } from '../components/Skeleton'
 
 export default function AdminDashboard() {
   const router = useRouter()
+  const { showSuccess } = useToast()
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -28,6 +31,8 @@ const [assigningOrder, setAssigningOrder] = useState(null)
   const [products, setProducts] = useState([])
   const [editingProduct, setEditingProduct] = useState(null)
   const [productSaving, setProductSaving] = useState(false)
+  const [reviews, setReviews] = useState([])
+  const [reviewsLoading, setReviewsLoading] = useState(false)
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalSubscriptions: 0,
@@ -122,6 +127,13 @@ const [assigningOrder, setAssigningOrder] = useState(null)
     // Load products
     const { data: allProducts } = await supabase.from('products').select('*').order('size')
     setProducts(allProducts || [])
+
+    // Load reviews
+    const { data: allReviews } = await supabase
+      .from('reviews')
+      .select('*, profiles(full_name, phone)')
+      .order('created_at', { ascending: false })
+    setReviews(allReviews || [])
 
     // Load all customers
     const { data: allCustomers } = await supabase
@@ -222,11 +234,14 @@ setWallets(allWallets || [])
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-[#fdfbf7] flex items-center justify-center">
-      <div className="text-center">
-        <img src="/Logo.jpg" alt="Sri Krishnaa Dairy"
-          className="h-20 w-20 rounded-full mx-auto border-4 border-[#d4a017] object-cover shadow-lg mb-4" />
-        <p className="text-[#1a5c38] font-semibold font-[family-name:var(--font-playfair)]">Loading Admin Panel...</p>
+    <div className="min-h-screen bg-[#fdfbf7] px-4 py-8 max-w-5xl mx-auto">
+      <style>{`@keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }`}</style>
+      <div style={{ height: 32, borderRadius: 8, width: '30%', marginBottom: 24, background: 'linear-gradient(90deg, #f5f0e8 25%, #e8e0d0 50%, #f5f0e8 75%)', backgroundSize: '800px 100%', animation: 'shimmer 1.4s infinite linear' }} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+        <SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        <SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard />
       </div>
     </div>
   )
@@ -329,6 +344,7 @@ setWallets(allWallets || [])
     { id: 'wallet', label: 'Wallet', icon: '💰' },
     { id: 'delivery', label: 'Delivery Agents', icon: '🚴' },
     { id: 'products', label: 'Products & Pricing', icon: '🥛' },
+    { id: 'reviews', label: 'Reviews', icon: '⭐' },
   ].map(({ id, label, icon }) => (
             <button key={id} onClick={() => setActiveTab(id)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition whitespace-nowrap ${
@@ -440,9 +456,33 @@ setWallets(allWallets || [])
         {/* All Orders Tab */}
         {activeTab === 'orders' && (
           <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
-            <div className="px-6 py-5 border-b border-[#f5f0e8]">
-              <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">All Orders</h3>
-              <p className="text-xs text-gray-400 mt-0.5">{orders.length} total orders</p>
+            <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between">
+              <div>
+                <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">All Orders</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{orders.length} total orders</p>
+              </div>
+              <button onClick={() => {
+                const headers = ['Customer Name','Phone','Product','Quantity','Delivery Date','Slot','Amount','Status','Payment Method','Delivery Mode']
+                const rows = orders.map(o => [
+                  o.profiles?.full_name || '',
+                  o.profiles?.phone || '',
+                  o.products?.name || o.products?.size || '',
+                  o.quantity,
+                  o.delivery_date,
+                  o.delivery_slot,
+                  o.total_price || o.total_amount || '',
+                  o.status,
+                  o.payment_method || 'COD',
+                  o.delivery_mode || '',
+                ])
+                const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
+                const blob = new Blob([csv], { type: 'text/csv' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a'); a.href = url; a.download = `orders_${new Date().toISOString().split('T')[0]}.csv`; a.click()
+                setTimeout(() => URL.revokeObjectURL(url), 5000)
+              }} className="text-sm bg-[#1a5c38] text-white px-4 py-2 rounded-lg hover:bg-[#14472c] transition font-semibold flex-shrink-0">
+                Export CSV
+              </button>
             </div>
             {orders.length === 0 ? (
               <div className="px-6 py-12 text-center">
@@ -460,6 +500,7 @@ setWallets(allWallets || [])
                       <th className="px-6 py-3 text-left">Slot</th>
                       <th className="px-6 py-3 text-left">Amount</th>
                       <th className="px-6 py-3 text-left">Status</th>
+                      <th className="px-6 py-3 text-left">Invoice</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -497,6 +538,17 @@ setWallets(allWallets || [])
                             <option value="delivered">Delivered</option>
                             <option value="cancelled">Cancelled</option>
                           </select>
+                        </td>
+                        <td className="px-6 py-4">
+                          <button onClick={async () => {
+                            const { data: { session } } = await supabase.auth.getSession()
+                            const res = await fetch(`/api/invoice/${order.id}`, { headers: { Authorization: `Bearer ${session?.access_token}` } })
+                            const html = await res.text()
+                            const blob = new Blob([html], { type: 'text/html' })
+                            const url = URL.createObjectURL(blob)
+                            const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.click()
+                            setTimeout(() => URL.revokeObjectURL(url), 5000)
+                          }} className="text-xs text-[#1a5c38] underline hover:text-[#14472c]">Invoice</button>
                         </td>
                       </tr>
                     ))}
@@ -598,9 +650,31 @@ setWallets(allWallets || [])
         {/* Customers Tab */}
         {activeTab === 'customers' && (
           <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
-            <div className="px-6 py-5 border-b border-[#f5f0e8]">
-              <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">All Customers</h3>
-              <p className="text-xs text-gray-400 mt-0.5">{customers.length} registered customers</p>
+            <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between">
+              <div>
+                <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">All Customers</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{customers.length} registered customers</p>
+              </div>
+              <button onClick={() => {
+                const headers = ['Name','Phone','Email','Area','Building','Flat Number','Landmark','Joined Date']
+                const rows = customers.map(c => [
+                  c.full_name || '',
+                  c.phone || '',
+                  c.email || '',
+                  c.area || '',
+                  c.apartment_name || '',
+                  c.flat_number || '',
+                  c.landmark || '',
+                  c.created_at ? new Date(c.created_at).toLocaleDateString('en-IN') : '',
+                ])
+                const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
+                const blob = new Blob([csv], { type: 'text/csv' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a'); a.href = url; a.download = `customers_${new Date().toISOString().split('T')[0]}.csv`; a.click()
+                setTimeout(() => URL.revokeObjectURL(url), 5000)
+              }} className="text-sm bg-[#1a5c38] text-white px-4 py-2 rounded-lg hover:bg-[#14472c] transition font-semibold flex-shrink-0">
+                Export CSV
+              </button>
             </div>
             {customers.length === 0 ? (
               <div className="px-6 py-12 text-center">
@@ -993,7 +1067,7 @@ setWallets(allWallets || [])
                   .update({ is_delivery: true })
                   .eq('id', customer.id)
                 setDeliveryAgents([...deliveryAgents, { ...customer, is_delivery: true }])
-                alert(customer.full_name + ' is now a delivery agent!')
+                showSuccess(customer.full_name + ' is now a delivery agent!')
               }}
               className="text-xs bg-[#1a5c38] text-white px-3 py-1.5 rounded-lg hover:bg-[#14472c] transition font-semibold">
               Make Agent
@@ -1080,6 +1154,67 @@ setWallets(allWallets || [])
     <div className="px-6 py-4 bg-[#fdf6e3] border-t border-[#f0dfa0]">
       <p className="text-xs text-[#8a6e0a]">⚠️ Changing a price here immediately affects all future wallet deductions for active subscriptions.</p>
     </div>
+  </div>
+)}
+
+{activeTab === 'reviews' && (
+  <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+    <div className="px-6 py-5 border-b border-[#f5f0e8]">
+      <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Customer Reviews</h3>
+      <p className="text-xs text-gray-400 mt-0.5">{reviews.length} total · {reviews.filter(r => r.is_approved).length} approved</p>
+    </div>
+    {reviews.length === 0 ? (
+      <div className="px-6 py-12 text-center text-gray-400 text-sm">No reviews yet.</div>
+    ) : (
+      <div className="divide-y divide-[#f5f0e8]">
+        {reviews.map((r) => (
+          <div key={r.id} className="px-6 py-4 flex items-start gap-4">
+            <div className="w-10 h-10 rounded-full bg-[#1a5c38] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+              {r.profiles?.full_name?.[0] || '?'}
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-semibold text-sm text-[#1c1c1c]">{r.profiles?.full_name || 'Customer'}</span>
+                <span className="text-[#d4a017] text-sm">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
+                <span className="text-xs text-gray-400">{new Date(r.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+              </div>
+              {r.review && <p className="text-sm text-gray-600">{r.review}</p>}
+              <span className={`inline-block mt-1 text-xs font-semibold px-2 py-0.5 rounded-full ${r.is_approved ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-[#fdf6e3] text-[#92400e] border border-[#f0dfa0]'}`}>
+                {r.is_approved ? 'Approved' : 'Pending'}
+              </span>
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              {!r.is_approved && (
+                <button onClick={async () => {
+                  const { data: { session } } = await supabase.auth.getSession()
+                  const res = await fetch('/api/reviews/approve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+                    body: JSON.stringify({ reviewId: r.id, approved: true }),
+                  })
+                  if (res.ok) setReviews(reviews.map(x => x.id === r.id ? { ...x, is_approved: true } : x))
+                }} className="text-xs bg-[#1a5c38] text-white px-3 py-1.5 rounded-lg hover:bg-[#14472c] transition font-semibold">
+                  Approve
+                </button>
+              )}
+              {r.is_approved && (
+                <button onClick={async () => {
+                  const { data: { session } } = await supabase.auth.getSession()
+                  const res = await fetch('/api/reviews/approve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+                    body: JSON.stringify({ reviewId: r.id, approved: false }),
+                  })
+                  if (res.ok) setReviews(reviews.map(x => x.id === r.id ? { ...x, is_approved: false } : x))
+                }} className="text-xs bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-100 transition font-semibold">
+                  Reject
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
   </div>
 )}
 

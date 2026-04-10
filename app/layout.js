@@ -1,6 +1,7 @@
 import { Playfair_Display, Inter } from 'next/font/google'
 import './globals.css'
 import PWAInstallBanner from './components/PWAInstallBanner'
+import { ToastProvider } from './components/ToastContext'
 
 const playfair = Playfair_Display({
   subsets: ['latin'],
@@ -130,8 +131,10 @@ export default function RootLayout({ children }) {
   `}} />
       </head>
       <body className={`${playfair.variable} ${inter.variable} antialiased`}>
-        {children}
-        <PWAInstallBanner />
+        <ToastProvider>
+          {children}
+          <PWAInstallBanner />
+        </ToastProvider>
       </body>
     </html>
   )

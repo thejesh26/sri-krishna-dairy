@@ -9,6 +9,7 @@ export default function Home() {
   const [authChecked, setAuthChecked] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [products, setProducts] = useState([])
+  const [dbReviews, setDbReviews] = useState([])
 
   useEffect(() => {
     const checkUser = async () => {
@@ -35,8 +36,18 @@ export default function Home() {
       const { data } = await supabase.from('products').select('*').eq('is_available', true).order('price')
       setProducts(data || [])
     }
+    const loadReviews = async () => {
+      const { data } = await supabase
+        .from('reviews')
+        .select('rating, review, profiles(full_name, area)')
+        .eq('is_approved', true)
+        .order('created_at', { ascending: false })
+        .limit(6)
+      if (data && data.length > 0) setDbReviews(data)
+    }
     checkUser()
     loadProducts()
+    loadReviews()
   }, [])
 
   return (
@@ -259,7 +270,12 @@ export default function Home() {
           <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">Happy Customers</p>
           <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-8">What Our Customers Say</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {[
+            {(dbReviews.length > 0 ? dbReviews.map(r => ({
+              name: r.profiles?.full_name || 'Customer',
+              area: r.profiles?.area || 'Bangalore',
+              text: r.review || 'Great fresh milk, highly recommended!',
+              rating: r.rating,
+            })) : [
               {
                 name: 'Priya Sharma',
                 area: 'Yelahanka',
@@ -278,8 +294,8 @@ export default function Home() {
                 text: 'Switched from packet milk to Sri Krishnaa and the difference in taste is night and day. Love the pause feature — used it during our holiday trip to Mysore.',
                 rating: 5,
               },
-            ].map(({ name, area, text, rating }) => (
-              <div key={name} className="bg-white rounded-xl p-6 shadow-sm border border-[#e8e0d0]">
+            ]).map(({ name, area, text, rating }, idx) => (
+              <div key={idx} className="bg-white rounded-xl p-6 shadow-sm border border-[#e8e0d0]">
                 <div className="flex gap-0.5 mb-3">
                   {Array.from({ length: rating }).map((_, i) => (
                     <span key={i} className="text-[#d4a017] text-lg">★</span>

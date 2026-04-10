@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
+import { useToast } from '../components/ToastContext'
+import { SkeletonProductCard } from '../components/Skeleton'
 
 export default function Order() {
   const router = useRouter()
@@ -17,8 +19,8 @@ export default function Order() {
   const [discountCode, setDiscountCode] = useState('')
   const [discount, setDiscount] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
   const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const { showSuccess, showError, showInfo } = useToast()
 
   const BOTTLE_DEPOSIT = 100
 
@@ -60,9 +62,9 @@ export default function Order() {
       })
       const result = await res.json()
       setDiscount(result.valid ? result.percent : 0)
-      setMessage(result.valid ? '✅ ' + result.message : '❌ ' + result.message)
+      result.valid ? showSuccess(result.message) : showError(result.message)
     } catch {
-      setMessage('❌ Could not validate discount code. Please try again.')
+      showError('Could not validate discount code. Please try again.')
     }
   }
 
@@ -80,16 +82,15 @@ export default function Order() {
   const handleOrder = async (e) => {
     e.preventDefault()
     setLoading(true)
-    setMessage('')
 
     if (!agreedToTerms) {
-      setMessage('❌ Please accept the terms and conditions to proceed.')
+      showError('Please accept the terms and conditions to proceed.')
       setLoading(false)
       return
     }
 
     if (!isValidBooking()) {
-      setMessage('❌ Please book at least 12 hours in advance!')
+      showError('Please book at least 12 hours in advance!')
       setLoading(false)
       return
     }
@@ -103,7 +104,7 @@ const { data: existingOrder } = await supabase
   .single()
 
 if (existingOrder) {
-  setMessage('🥛 You\'ve already placed an order for this date! You can place only one order per day. Please choose a different delivery date.')
+  showInfo('You\'ve already placed an order for this date! You can place only one order per day. Please choose a different delivery date.')
   setLoading(false)
   return
 }
@@ -128,7 +129,7 @@ if (existingOrder) {
     const result = await res.json()
 
     if (!res.ok) {
-      setMessage('❌ ' + (result.error || 'Could not place order.'))
+      showError(result.error || 'Could not place order.')
     } else {
       router.push('/confirmation?type=order')
       setQuantity(1)
@@ -189,6 +190,7 @@ if (existingOrder) {
           <div className="bg-white rounded-lg p-5 shadow-sm border border-[#e8e0d0]">
             <p className="text-sm font-bold text-[#1c1c1c] mb-3">Select Product</p>
             <div className="grid grid-cols-2 gap-3">
+              {products.length === 0 && [1,2].map(i => <SkeletonProductCard key={i} />)}
               {products.map((product) => (
                 <button type="button" key={product.id}
                   onClick={() => setSelectedProduct(product)}
@@ -339,14 +341,6 @@ if (existingOrder) {
               <span>₹{totalPrice}</span>
             </div>
           </div>
-
-          {message && (
-            <div className={`rounded-lg px-4 py-3 text-sm text-center font-medium ${
-              message.startsWith('✅') ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-red-50 text-red-600 border border-red-200'
-            }`}>
-              {message}
-            </div>
-          )}
 
           {/* Disclaimer */}
           <div className="bg-[#fdfbf7] border border-[#e8e0d0] rounded-lg p-5">

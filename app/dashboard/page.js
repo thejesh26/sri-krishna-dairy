@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import DisclaimerPopup from '../components/DisclaimerPopup'
 import PushNotificationPrompt from '../components/PushNotificationPrompt'
+import { SkeletonCard, SkeletonStatCard } from '../components/Skeleton'
+import ReviewForm from '../components/ReviewForm'
 
 const BADGE_INFO = {
   fresh_start:    { emoji: '🥛', label: 'Fresh Start',      days: 7,   color: '#d4a017' },
@@ -155,12 +157,20 @@ export default function Dashboard() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-[#fdfbf7] flex items-center justify-center">
-      <div className="text-center">
-        <img src="/Logo.jpg" alt="Sri Krishnaa Dairy"
-          className="h-20 w-20 rounded-full mx-auto border-4 border-[#d4a017] object-cover shadow-lg mb-4" />
-        <p className="text-[#1a5c38] font-semibold font-[family-name:var(--font-playfair)]">Loading your dashboard...</p>
+    <div className="min-h-screen bg-[#fdfbf7] px-4 py-8 max-w-lg mx-auto">
+      <div className="flex items-center gap-3 mb-6">
+        <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'linear-gradient(90deg, #f5f0e8 25%, #e8e0d0 50%, #f5f0e8 75%)', backgroundSize: '800px 100%', animation: 'shimmer 1.4s infinite linear' }} />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ height: 14, borderRadius: 6, width: '40%', background: 'linear-gradient(90deg, #f5f0e8 25%, #e8e0d0 50%, #f5f0e8 75%)', backgroundSize: '800px 100%', animation: 'shimmer 1.4s infinite linear' }} />
+          <div style={{ height: 12, borderRadius: 6, width: '25%', background: 'linear-gradient(90deg, #f5f0e8 25%, #e8e0d0 50%, #f5f0e8 75%)', backgroundSize: '800px 100%', animation: 'shimmer 1.4s infinite linear' }} />
+        </div>
       </div>
+      <style>{`@keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }`}</style>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+        <SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard />
+      </div>
+      <SkeletonCard style={{ marginBottom: 12 }} />
+      <SkeletonCard />
     </div>
   )
 
@@ -452,13 +462,24 @@ export default function Dashboard() {
                       <p className="font-semibold text-[#1c1c1c] text-sm">{order.products?.size} Fresh Cow Milk</p>
                       <p className="text-xs text-gray-400 mt-1">{new Date(order.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex flex-col items-end gap-1">
                       <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
                         order.status === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' :
                         order.status === 'pending'   ? 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]' :
                         'bg-gray-50 text-gray-500 border border-gray-200'
                       }`}>{order.status}</span>
-                      <p className="font-bold text-[#1a5c38] text-base mt-1">₹{order.total_price}</p>
+                      <p className="font-bold text-[#1a5c38] text-base">₹{order.total_price}</p>
+                      <button onClick={async () => {
+                        const { data: { session } } = await supabase.auth.getSession()
+                        const res = await fetch(`/api/invoice/${order.id}`, { headers: { Authorization: `Bearer ${session?.access_token}` } })
+                        const html = await res.text()
+                        const blob = new Blob([html], { type: 'text/html' })
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.click()
+                        setTimeout(() => URL.revokeObjectURL(url), 5000)
+                      }} className="text-[10px] text-[#1a5c38] underline underline-offset-2 hover:text-[#14472c]">
+                        Invoice
+                      </button>
                     </div>
                   </div>
                 ))
@@ -516,6 +537,16 @@ export default function Dashboard() {
                 </a>
               </div>
             </div>
+
+            {/* Review Prompt — show if sub > 7 days old and hasn't reviewed */}
+            {!profile?.has_reviewed && subscriptions.length > 0 && (() => {
+              const subAge = subscriptions[0]?.created_at
+                ? (Date.now() - new Date(subscriptions[0].created_at)) / (1000 * 60 * 60 * 24)
+                : 0
+              return subAge >= 7
+            })() && (
+              <ReviewForm onSubmit={() => setProfile(p => ({ ...p, has_reviewed: true }))} />
+            )}
 
           </div>
         )}

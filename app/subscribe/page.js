@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
+import { useToast } from '../components/ToastContext'
+import { SkeletonProductCard } from '../components/Skeleton'
 
 export default function Subscribe() {
   const router = useRouter()
@@ -20,8 +22,8 @@ export default function Subscribe() {
   const [discountCode, setDiscountCode] = useState('')
   const [discount, setDiscount] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
   const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const { showSuccess, showError, showInfo } = useToast()
 
   const BOTTLE_DEPOSIT = 100
 
@@ -50,7 +52,6 @@ export default function Subscribe() {
 
   const applyDiscount = async () => {
     if (!discountCode.trim()) return
-    setMessage('')
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/validate-discount', {
@@ -63,9 +64,9 @@ export default function Subscribe() {
       })
       const result = await res.json()
       setDiscount(result.valid ? result.percent : 0)
-      setMessage(result.message)
+      result.valid ? showSuccess(result.message) : showError(result.message)
     } catch {
-      setMessage('Could not validate discount code. Please try again.')
+      showError('Could not validate discount code. Please try again.')
     }
   }
 
@@ -99,7 +100,7 @@ export default function Subscribe() {
     })
     const orderData = await orderRes.json()
     if (!orderRes.ok) {
-      setMessage('❌ Could not initiate payment: ' + (orderData.error || 'Try again.'))
+      showError('Could not initiate payment: ' + (orderData.error || 'Try again.'))
       setLoading(false)
       return
     }
@@ -126,7 +127,7 @@ export default function Subscribe() {
         })
         const verifyData = await verifyRes.json()
         if (!verifyRes.ok || !verifyData.success) {
-          setMessage('❌ Payment verification failed. Please contact support.')
+          showError('Payment verification failed. Please contact support.')
           setLoading(false)
           return
         }
@@ -134,7 +135,7 @@ export default function Subscribe() {
       },
       modal: {
         ondismiss: () => {
-          setMessage('❌ Payment cancelled.')
+          showInfo('Payment cancelled.')
           setLoading(false)
         },
       },
@@ -159,7 +160,7 @@ export default function Subscribe() {
     })
     const result = await res.json()
     if (!res.ok) {
-      setMessage('❌ Payment received but subscription activation failed: ' + (result.error || 'Contact support.'))
+      showError('Payment received but subscription activation failed: ' + (result.error || 'Contact support.'))
     } else {
       router.push('/confirmation?type=subscription')
     }
@@ -169,28 +170,27 @@ export default function Subscribe() {
   const handleSubscribe = async (e) => {
     e.preventDefault()
     setLoading(true)
-    setMessage('')
 
     if (!agreedToTerms) {
-      setMessage('Please accept the terms and conditions to proceed.')
+      showError('Please accept the terms and conditions to proceed.')
       setLoading(false)
       return
     }
 
     if (!isValidBooking()) {
-      setMessage('Please book at least 12 hours in advance!')
+      showError('Please book at least 12 hours in advance!')
       setLoading(false)
       return
     }
 
     if (subscriptionType === 'fixed' && !endDate) {
-      setMessage('Please select a duration (1 Week, 2 Weeks, 1 Month, or 3 Months)!')
+      showError('Please select a duration (1 Week, 2 Weeks, 1 Month, or 3 Months)!')
       setLoading(false)
       return
     }
 
     if (subscriptionType === 'fixed' && new Date(endDate) <= new Date(startDate)) {
-      setMessage('End date must be after start date!')
+      showError('End date must be after start date!')
       setLoading(false)
       return
     }
@@ -204,7 +204,7 @@ export default function Subscribe() {
       .single()
 
     if (existingSub) {
-      setMessage('You already have an active subscription! Please manage your existing plan first.')
+      showInfo('You already have an active subscription! Please manage your existing plan first.')
       setLoading(false)
       return
     }
@@ -298,6 +298,7 @@ export default function Subscribe() {
           <div className="bg-white rounded-xl p-5 shadow-sm border border-[#e8e0d0]">
             <p className="text-sm font-bold text-[#1c1c1c] mb-4 font-[family-name:var(--font-playfair)]">Select Product</p>
             <div className="grid grid-cols-2 gap-3">
+              {products.length === 0 && [1,2].map(i => <SkeletonProductCard key={i} />)}
               {products.map((product) => (
                 <button type="button" key={product.id}
                   onClick={() => setSelectedProduct(product)}
@@ -509,16 +510,6 @@ export default function Subscribe() {
               )}
             </div>
           </div>
-
-          {message && (
-            <div className={`rounded-xl px-4 py-3 text-sm text-center font-medium ${
-              message.includes('activated') || message.includes('booked') || message.includes('Discount')
-                ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]'
-                : 'bg-red-50 text-red-600 border border-red-200'
-            }`}>
-              {message}
-            </div>
-          )}
 
           {/* Disclaimer */}
           <div className="bg-[#fdfbf7] border border-[#e8e0d0] rounded-xl p-5">

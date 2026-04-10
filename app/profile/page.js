@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
+import { useToast } from '../components/ToastContext'
 
 export default function Profile() {
   const router = useRouter()
@@ -12,7 +13,7 @@ export default function Profile() {
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState('')
+  const { showSuccess, showError } = useToast()
 
   const serviceAreas = [
     'Kattigenahalli', 'Hunasamaranahalli', 'Chidananda Reddy Layout',
@@ -51,7 +52,6 @@ export default function Profile() {
   const handleSave = async (e) => {
     e.preventDefault()
     setSaving(true)
-    setMessage('')
 
     const fullAddress = form.apartment_name + ', ' + form.flat_number + ', ' + form.area + ', Bangalore'
 
@@ -69,10 +69,9 @@ export default function Profile() {
       .eq('id', user.id)
 
     if (error) {
-      setMessage('Error: ' + error.message)
+      showError(error.message)
     } else {
-      setMessage('Profile updated successfully!')
-      setTimeout(() => setMessage(''), 3000)
+      showSuccess('Profile updated successfully!')
     }
     setSaving(false)
   }
@@ -113,14 +112,6 @@ export default function Profile() {
             </h2>
             <p className="text-sm text-gray-400 mt-1">{user?.email}</p>
           </div>
-
-          {message && (
-            <div className={`rounded-lg px-4 py-3 text-sm mb-5 text-center font-medium ${
-              message.startsWith('Error') ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]'
-            }`}>
-              {message}
-            </div>
-          )}
 
           <form onSubmit={handleSave} className="flex flex-col gap-4">
 

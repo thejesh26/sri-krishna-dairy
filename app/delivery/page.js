@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
+import { useToast } from '../components/ToastContext'
 
 export default function DeliveryDashboard() {
   const router = useRouter()
@@ -24,8 +25,8 @@ export default function DeliveryDashboard() {
   const [walletAction, setWalletAction] = useState('add')
   const [walletAmount, setWalletAmount] = useState('')
   const [walletNote, setWalletNote] = useState('')
-  const [walletMsg, setWalletMsg] = useState('')
   const [walletLoading, setWalletLoading] = useState(false)
+  const { showSuccess, showError, showInfo } = useToast()
   const [deliveringId, setDeliveringId] = useState(null)
   const [deliveredSubs, setDeliveredSubs] = useState(new Set())
 
@@ -146,7 +147,6 @@ export default function DeliveryDashboard() {
 
   const searchWalletCustomer = async () => {
     if (!walletSearch.trim()) return
-    setWalletMsg('')
     setWalletCustomer(null)
     // Search by phone or name
     const { data: profiles } = await supabase
@@ -156,7 +156,7 @@ export default function DeliveryDashboard() {
       .limit(5)
 
     if (!profiles || profiles.length === 0) {
-      setWalletMsg('No customer found.')
+      showInfo('No customer found.')
       return
     }
 
@@ -171,11 +171,10 @@ export default function DeliveryDashboard() {
     if (!walletCustomer) return
     const amt = parseFloat(walletAmount)
     if (!walletAmount || isNaN(amt) || amt < 0) {
-      setWalletMsg('Enter a valid amount.')
+      showError('Enter a valid amount.')
       return
     }
     setWalletLoading(true)
-    setWalletMsg('')
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/admin/wallet-update', {
       method: 'POST',
@@ -189,9 +188,9 @@ export default function DeliveryDashboard() {
     })
     const result = await res.json()
     if (!res.ok) {
-      setWalletMsg('Error: ' + (result.error || 'Could not update wallet.'))
+      showError(result.error || 'Could not update wallet.')
     } else {
-      setWalletMsg(`Done! New balance: Rs.${result.new_balance}`)
+      showSuccess(`Done! New balance: Rs.${result.new_balance}`)
       setWalletCustomer({ ...walletCustomer, balance: result.new_balance })
       setWalletAmount('')
       setWalletNote('')
@@ -497,13 +496,6 @@ export default function DeliveryDashboard() {
                 </div>
               )}
 
-              {walletMsg && (
-                <div className={`mt-3 rounded-lg px-4 py-3 text-sm text-center font-medium ${
-                  walletMsg.startsWith('Done') ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-red-50 text-red-600 border border-red-200'
-                }`}>
-                  {walletMsg}
-                </div>
-              )}
             </div>
           </div>
         )}

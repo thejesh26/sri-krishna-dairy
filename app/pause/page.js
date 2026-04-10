@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
+import { useToast } from '../components/ToastContext'
 
 export default function PauseSubscription() {
   const router = useRouter()
@@ -13,10 +14,9 @@ export default function PauseSubscription() {
   const [rangeEnd, setRangeEnd] = useState('')
   const [pauseMode, setPauseMode] = useState('single') // 'single' | 'range'
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
   const [newQuantity, setNewQuantity] = useState('')
   const [qtyLoading, setQtyLoading] = useState(false)
-  const [qtyMsg, setQtyMsg] = useState('')
+  const { showSuccess, showError, showInfo } = useToast()
 
   useEffect(() => {
     getUser()
@@ -53,13 +53,12 @@ export default function PauseSubscription() {
   }
 
   const handlePause = async () => {
-    if (!selectedSub) { setMessage('Please select a subscription!'); return }
+    if (!selectedSub) { showError('Please select a subscription!'); return }
     if (!isValidPauseDate()) {
-      setMessage('Please pause at least 12 hours in advance!')
+      showError('Please pause at least 12 hours in advance!')
       return
     }
     setLoading(true)
-    setMessage('')
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/subscriptions/pause', {
       method: 'POST',
@@ -68,9 +67,9 @@ export default function PauseSubscription() {
     })
     const result = await res.json()
     if (!res.ok) {
-      setMessage('Error: ' + (result.error || 'Could not pause delivery.'))
+      showError(result.error || 'Could not pause delivery.')
     } else {
-      setMessage('Delivery paused for ' + new Date(pauseDate).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }))
+      showSuccess('Delivery paused for ' + new Date(pauseDate).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }))
       setSelectedSub({ ...selectedSub, paused_dates: result.paused_dates })
       setSubscriptions(subscriptions.map(s => s.id === selectedSub.id ? { ...s, paused_dates: result.paused_dates } : s))
     }
@@ -78,9 +77,9 @@ export default function PauseSubscription() {
   }
 
   const handleRangePause = async () => {
-    if (!selectedSub) { setMessage('Please select a subscription!'); return }
-    if (!rangeStart || !rangeEnd) { setMessage('Please select both start and end dates.'); return }
-    if (rangeEnd < rangeStart) { setMessage('End date must be after start date.'); return }
+    if (!selectedSub) { showError('Please select a subscription!'); return }
+    if (!rangeStart || !rangeEnd) { showError('Please select both start and end dates.'); return }
+    if (rangeEnd < rangeStart) { showError('End date must be after start date.'); return }
 
     // Generate all dates in range
     const dates = []
@@ -90,16 +89,15 @@ export default function PauseSubscription() {
       dates.push(current.toISOString().split('T')[0])
       current.setDate(current.getDate() + 1)
     }
-    if (dates.length > 30) { setMessage('Range cannot exceed 30 days.'); return }
+    if (dates.length > 30) { showError('Range cannot exceed 30 days.'); return }
 
     // Validate first date is 12h in advance
     if ((new Date(rangeStart) - new Date()) / (1000 * 60 * 60) < 12) {
-      setMessage('Start date must be at least 12 hours from now!')
+      showError('Start date must be at least 12 hours from now!')
       return
     }
 
     setLoading(true)
-    setMessage('')
     const { data: { session } } = await supabase.auth.getSession()
 
     // Pause each date sequentially using the existing API
@@ -116,14 +114,14 @@ export default function PauseSubscription() {
       if (res.ok) {
         updatedDates = result.paused_dates
       } else if (result.error !== 'This date is already paused.') {
-        setMessage('Error on ' + date + ': ' + result.error)
+        showError('Error on ' + date + ': ' + result.error)
         errorOccurred = true
         break
       }
     }
 
     if (!errorOccurred) {
-      setMessage(`✅ Paused ${dates.length} day(s): ${rangeStart} to ${rangeEnd}`)
+      showSuccess(`Paused ${dates.length} day(s): ${rangeStart} to ${rangeEnd}`)
       const updated = { ...selectedSub, paused_dates: updatedDates }
       setSelectedSub(updated)
       setSubscriptions(subscriptions.map(s => s.id === selectedSub.id ? updated : s))
@@ -133,7 +131,6 @@ export default function PauseSubscription() {
 
   const handleRemovePause = async (dateToRemove) => {
     setLoading(true)
-    setMessage('')
     const updatedPaused = selectedSub.paused_dates.filter(d => d !== dateToRemove)
     // SECURITY: ownership filter applied here too
     const { error } = await supabase
@@ -142,9 +139,9 @@ export default function PauseSubscription() {
       .eq('id', selectedSub.id)
       .eq('user_id', user.id)
     if (error) {
-      setMessage('Error: ' + error.message)
+      showError(error.message)
     } else {
-      setMessage('Delivery resumed for ' + new Date(dateToRemove).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }))
+      showSuccess('Delivery resumed for ' + new Date(dateToRemove).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }))
       setSelectedSub({ ...selectedSub, paused_dates: updatedPaused })
       setSubscriptions(subscriptions.map(s => s.id === selectedSub.id ? { ...s, paused_dates: updatedPaused } : s))
     }
@@ -153,10 +150,9 @@ export default function PauseSubscription() {
 
   const handleQuantityChange = async () => {
     const qty = Number(newQuantity)
-    if (!qty || qty < 1 || qty > 20) { setQtyMsg('Enter a quantity between 1 and 20.'); return }
-    if (qty === selectedSub.quantity) { setQtyMsg('Same quantity as current.'); return }
+    if (!qty || qty < 1 || qty > 20) { showError('Enter a quantity between 1 and 20.'); return }
+    if (qty === selectedSub.quantity) { showInfo('Same quantity as current.'); return }
     setQtyLoading(true)
-    setQtyMsg('')
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/subscriptions/update-quantity', {
       method: 'POST',
@@ -165,9 +161,9 @@ export default function PauseSubscription() {
     })
     const result = await res.json()
     if (!res.ok) {
-      setQtyMsg('❌ ' + (result.error || 'Could not update quantity.'))
+      showError(result.error || 'Could not update quantity.')
     } else {
-      setQtyMsg(`✅ Updated to ${qty} bottle(s)/day — ₹${result.new_daily_cost}/day`)
+      showSuccess(`Updated to ${qty} bottle(s)/day — ₹${result.new_daily_cost}/day`)
       const updated = { ...selectedSub, quantity: qty }
       setSelectedSub(updated)
       setSubscriptions(subscriptions.map(s => s.id === selectedSub.id ? updated : s))
@@ -187,9 +183,9 @@ export default function PauseSubscription() {
     })
     const result = await res.json()
     if (!res.ok) {
-      setMessage('Error: ' + (result.error || 'Could not cancel subscription.'))
+      showError(result.error || 'Could not cancel subscription.')
     } else {
-      setMessage('Subscription cancelled successfully!')
+      showSuccess('Subscription cancelled successfully!')
       setTimeout(() => { router.push('/dashboard') }, 2000)
     }
     setLoading(false)
@@ -311,7 +307,6 @@ export default function PauseSubscription() {
                     {qtyLoading ? '...' : 'Update'}
                   </button>
                 </div>
-                {qtyMsg && <p className={`text-xs mt-2 font-medium ${qtyMsg.startsWith('✅') ? 'text-[#1a5c38]' : 'text-red-600'}`}>{qtyMsg}</p>}
               </div>
             )}
 
@@ -404,16 +399,6 @@ export default function PauseSubscription() {
             {(!selectedSub?.paused_dates || selectedSub?.paused_dates?.length === 0) && (
               <div className="bg-white rounded-xl p-5 shadow-sm border border-[#e8e0d0] text-center">
                 <p className="text-gray-400 text-sm">No paused dates — delivery is active every day!</p>
-              </div>
-            )}
-
-            {message && (
-              <div className={`rounded-xl px-4 py-3 text-sm text-center font-medium ${
-                message.includes('Error') || message.includes('Please') || message.includes('already')
-                  ? 'bg-red-50 text-red-600 border border-red-200'
-                  : 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]'
-              }`}>
-                {message}
               </div>
             )}
 

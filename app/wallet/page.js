@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
+import { useToast } from '../components/ToastContext'
 
 export default function Wallet() {
   const router = useRouter()
@@ -9,8 +10,8 @@ export default function Wallet() {
   const [wallet, setWallet] = useState(null)
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
-  const [message, setMessage] = useState('')
   const [rechargeLoading, setRechargeLoading] = useState(false)
+  const { showSuccess, showError, showInfo } = useToast()
   const [customAmount, setCustomAmount] = useState('')
   const [selectedAmount, setSelectedAmount] = useState(null)
 
@@ -49,11 +50,10 @@ export default function Wallet() {
   const handleRecharge = async () => {
     const amount = selectedAmount === 'custom' ? parseInt(customAmount, 10) : selectedAmount
     if (!amount || amount < 100 || amount > 50000) {
-      setMessage('❌ Please enter a valid amount (₹100 – ₹50,000).')
+      showError('Please enter a valid amount (₹100 – ₹50,000).')
       return
     }
     setRechargeLoading(true)
-    setMessage('')
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -65,7 +65,7 @@ export default function Wallet() {
       })
       const orderData = await orderRes.json()
       if (!orderRes.ok) {
-        setMessage('❌ Could not initiate payment: ' + (orderData.error || 'Try again.'))
+        showError('Could not initiate payment: ' + (orderData.error || 'Try again.'))
         setRechargeLoading(false)
         return
       }
@@ -92,9 +92,9 @@ export default function Wallet() {
           })
           const rechargeData = await rechargeRes.json()
           if (!rechargeRes.ok || !rechargeData.success) {
-            setMessage('❌ Payment done but wallet credit failed. Contact support with payment ID: ' + response.razorpay_payment_id)
+            showError('Payment done but wallet credit failed. Contact support with payment ID: ' + response.razorpay_payment_id)
           } else {
-            setMessage('✅ Wallet recharged successfully!')
+            showSuccess('Wallet recharged successfully!')
             setSelectedAmount(null)
             setCustomAmount('')
             await loadWallet(user.id)
@@ -103,14 +103,14 @@ export default function Wallet() {
         },
         modal: {
           ondismiss: () => {
-            setMessage('❌ Payment cancelled.')
+            showInfo('Payment cancelled.')
             setRechargeLoading(false)
           },
         },
       })
       rzp.open()
     } catch {
-      setMessage('❌ Something went wrong. Please try again.')
+      showError('Something went wrong. Please try again.')
       setRechargeLoading(false)
     }
   }
@@ -227,14 +227,6 @@ export default function Wallet() {
               }`}
             />
           </div>
-
-          {message && (
-            <div className={`rounded-lg px-4 py-3 text-sm text-center font-medium mb-4 ${
-              message.startsWith('✅') ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-red-50 text-red-600 border border-red-200'
-            }`}>
-              {message}
-            </div>
-          )}
 
           <button
             onClick={handleRecharge}
