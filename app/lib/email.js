@@ -60,7 +60,7 @@ function wrapLayout(title, bodyHtml) {
               <p style="margin:0 0 4px;color:#d4a017;font-size:13px;font-weight:bold;">Sri Krishnaa Dairy Farms</p>
               <p style="margin:0 0 4px;color:#9ca3af;font-size:12px;">Kattigenahalli, Bangalore, Karnataka</p>
               <p style="margin:0 0 8px;color:#9ca3af;font-size:12px;">
-                <a href="tel:8553666002" style="color:#9ca3af;text-decoration:none;">8553666002</a>
+                <a href="tel:9980166221" style="color:#9ca3af;text-decoration:none;">9980166221</a>
                 &nbsp;&bull;&nbsp;
                 <a href="https://srikrishnaadairy.in" style="color:#d4a017;text-decoration:none;">srikrishnaadairy.in</a>
               </p>
@@ -95,7 +95,7 @@ const TEXT_FOOTER = `
 --
 Sri Krishnaa Dairy Farms
 Kattigenahalli, Bangalore, Karnataka
-Phone: 8553666002
+Phone: 9980166221
 Website: https://srikrishnaadairy.in
 FSSAI Lic. No: 21225008004544
 

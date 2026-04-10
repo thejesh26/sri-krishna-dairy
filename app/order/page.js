@@ -68,8 +68,9 @@ export default function Order() {
 
   const isValidBooking = () => {
     const now = new Date()
-    const selected = new Date(deliveryDate)
-    return (selected - now) / (1000 * 60 * 60) >= 12
+    // Treat delivery date as 7AM IST (start of morning slot) to allow booking up to 7PM IST previous day
+    const deliveryStart = new Date(deliveryDate + 'T07:00:00+05:30')
+    return (deliveryStart - now) / (1000 * 60 * 60) >= 12
   }
 
   const bottleDeposit = deliveryMode === 'keep_bottle' ? BOTTLE_DEPOSIT * Math.max(2, quantity) : 0

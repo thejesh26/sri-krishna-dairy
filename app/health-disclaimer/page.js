@@ -232,20 +232,20 @@ export default function HealthDisclaimer() {
               after consumption, please contact us immediately:
             </p>
             <div className="flex flex-col gap-3 text-sm">
-              <a href="https://wa.me/918553666002" target="_blank"
+              <a href="https://wa.me/919980166221" target="_blank"
                 className="flex items-center gap-3 bg-[#f0faf4] border border-[#c8e6d4] rounded-xl px-5 py-3 hover:bg-[#e0f5ea] transition">
                 <span className="text-2xl">💬</span>
                 <div>
                   <p className="font-semibold text-[#1c1c1c]">WhatsApp</p>
-                  <p className="text-[#4a4a4a] text-xs">+91 8553666002 — send photos if possible</p>
+                  <p className="text-[#4a4a4a] text-xs">+91 9980166221 — send photos if possible</p>
                 </div>
               </a>
-              <a href="tel:8553666002"
+              <a href="tel:9980166221"
                 className="flex items-center gap-3 bg-[#fdfbf7] border border-[#e8e0d0] rounded-xl px-5 py-3 hover:bg-[#f5f0e8] transition">
                 <span className="text-2xl">📞</span>
                 <div>
                   <p className="font-semibold text-[#1c1c1c]">Call Us</p>
-                  <p className="text-[#4a4a4a] text-xs">8553666002</p>
+                  <p className="text-[#4a4a4a] text-xs">9980166221</p>
                 </div>
               </a>
             </div>

@@ -219,7 +219,7 @@ export default function TermsOfService() {
               <p className="text-[#4a4a4a]"><span className="font-semibold text-[#1c1c1c]">Business:</span> Sri Krishnaa Dairy Farms</p>
               <p className="text-[#4a4a4a]"><span className="font-semibold text-[#1c1c1c]">Location:</span> Kattigenahalli, Bangalore, Karnataka</p>
               <p><span className="font-semibold text-[#1c1c1c]">Phone / WhatsApp:</span>{' '}
-                <a href="tel:8553666002" className="text-[#1a5c38] hover:underline font-semibold">8553666002</a>
+                <a href="tel:9980166221" className="text-[#1a5c38] hover:underline font-semibold">9980166221</a>
               </p>
             </div>
           </div>
