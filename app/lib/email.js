@@ -311,7 +311,90 @@ ${TEXT_FOOTER}`
   })
 }
 
-// ── 5. Low Wallet Balance ─────────────────────────────────────────────────────
+// ── 5. Subscription Paused ───────────────────────────────────────────────────
+export async function sendSubscriptionPausedEmail({ to, name, pauseDate }) {
+  const formattedDate = new Date(pauseDate).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+
+  const html = wrapLayout('Delivery Paused - Sri Krishnaa Dairy', `
+    <p style="margin:0 0 6px;font-size:13px;color:#d4a017;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Delivery Paused</p>
+    <h1 style="margin:0 0 8px;font-size:22px;color:#1a5c38;">Your delivery is paused 🍼</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#4b5563;">Hi <strong>${name}</strong>, your delivery has been paused for the date below. All other days remain active.</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #f0ebe0;margin-bottom:24px;">
+      ${row('Paused Date', formattedDate)}
+      ${row('All Other Days', '<span style="color:#1a5c38;font-weight:bold;">Active</span>')}
+    </table>
+
+    <div style="background:#fdf6e3;border:1px solid #f0dfa0;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:#92400e;">You can resume this date anytime from your dashboard, or contact us if you need help.</p>
+    </div>
+
+    <div style="text-align:center;">
+      <a href="https://srikrishnaadairy.in/pause" style="display:inline-block;background:linear-gradient(135deg,#1a5c38,#2d7a50);color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:8px;">Manage Subscription</a>
+    </div>`)
+
+  const text = `Hi ${name},
+
+Your milk delivery has been paused for ${formattedDate}. All other days remain active.
+
+You can resume this date anytime from your dashboard at https://srikrishnaadairy.in/pause
+
+Need help? Contact us at hello@srikrishnaadairy.in or call 9980166221.
+${TEXT_FOOTER}`
+
+  return sendEmail({
+    to,
+    subject: 'Delivery paused - Sri Krishnaa Dairy',
+    html,
+    text,
+  })
+}
+
+// ── 6. Subscription Cancelled ─────────────────────────────────────────────────
+export async function sendSubscriptionCancelledEmail({ to, name, product, quantity }) {
+  const html = wrapLayout('Subscription Cancelled - Sri Krishnaa Dairy', `
+    <p style="margin:0 0 6px;font-size:13px;color:#d4a017;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Subscription Cancelled</p>
+    <h1 style="margin:0 0 8px;font-size:22px;color:#1a5c38;">Your subscription has been cancelled</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#4b5563;">Hi <strong>${name}</strong>, your subscription has been cancelled. We are sorry to see you go!</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #f0ebe0;margin-bottom:24px;">
+      ${row('Product', `${product} x ${quantity}`)}
+      ${row('Status', '<span style="color:#991b1b;">Cancelled</span>')}
+    </table>
+
+    <div style="background:#f0faf4;border:1px solid #c8e6d4;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:#1a5c38;font-weight:bold;">Bottle deposit refund</p>
+      <p style="margin:6px 0 0;font-size:13px;color:#1a5c38;">Please return your bottles in good condition to receive your full deposit refund. Contact us to arrange the collection.</p>
+    </div>
+
+    <div style="background:#fdf6e3;border:1px solid #f0dfa0;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:#92400e;">You can start a new subscription anytime from your dashboard. We would love to have you back!</p>
+    </div>
+
+    <div style="text-align:center;">
+      <a href="https://srikrishnaadairy.in/subscribe" style="display:inline-block;background:linear-gradient(135deg,#1a5c38,#2d7a50);color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:8px;">Subscribe Again</a>
+    </div>`)
+
+  const text = `Hi ${name},
+
+Your subscription (${product} x ${quantity}) has been cancelled.
+
+Please return your bottles in good condition to receive your full deposit refund. Contact us to arrange bottle collection.
+
+You can start a new subscription anytime at https://srikrishnaadairy.in/subscribe
+
+Questions? Email hello@srikrishnaadairy.in or call 9980166221.
+${TEXT_FOOTER}`
+
+  return sendEmail({
+    to,
+    subject: 'Subscription cancelled - Sri Krishnaa Dairy',
+    html,
+    text,
+  })
+}
+
+// ── 7. Low Wallet Balance ─────────────────────────────────────────────────────
 export async function sendLowBalanceEmail({ to, name, balance }) {
   const html = wrapLayout('Wallet Balance Needs Attention - Sri Krishnaa Dairy', `
     <p style="margin:0 0 6px;font-size:13px;color:#d4a017;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Wallet Balance</p>

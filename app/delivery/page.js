@@ -19,6 +19,13 @@ export default function DeliveryDashboard() {
   })
   const [historyOrders, setHistoryOrders] = useState([])
   const [historyLoaded, setHistoryLoaded] = useState(false)
+  const [walletSearch, setWalletSearch] = useState('')
+  const [walletCustomer, setWalletCustomer] = useState(null)
+  const [walletAction, setWalletAction] = useState('add')
+  const [walletAmount, setWalletAmount] = useState('')
+  const [walletNote, setWalletNote] = useState('')
+  const [walletMsg, setWalletMsg] = useState('')
+  const [walletLoading, setWalletLoading] = useState(false)
 
   useEffect(() => { checkDelivery() }, [])
 
@@ -125,6 +132,61 @@ export default function DeliveryDashboard() {
   const handleTabChange = (tab) => {
     setActiveTab(tab)
     if (tab === 'history') loadHistory()
+  }
+
+  const searchWalletCustomer = async () => {
+    if (!walletSearch.trim()) return
+    setWalletMsg('')
+    setWalletCustomer(null)
+    // Search by phone or name
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, phone, apartment_name, flat_number')
+      .or(`phone.ilike.%${walletSearch.trim()}%,full_name.ilike.%${walletSearch.trim()}%`)
+      .limit(5)
+
+    if (!profiles || profiles.length === 0) {
+      setWalletMsg('No customer found.')
+      return
+    }
+
+    // Get wallet for first match
+    const profile = profiles[0]
+    const { data: wallet } = await supabase
+      .from('wallet').select('balance').eq('user_id', profile.id).maybeSingle()
+    setWalletCustomer({ ...profile, balance: wallet?.balance || 0 })
+  }
+
+  const handleWalletUpdate = async () => {
+    if (!walletCustomer) return
+    const amt = parseFloat(walletAmount)
+    if (!walletAmount || isNaN(amt) || amt < 0) {
+      setWalletMsg('Enter a valid amount.')
+      return
+    }
+    setWalletLoading(true)
+    setWalletMsg('')
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/wallet-update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+      body: JSON.stringify({
+        target_user_id: walletCustomer.id,
+        action: walletAction,
+        amount: amt,
+        note: walletNote || undefined,
+      }),
+    })
+    const result = await res.json()
+    if (!res.ok) {
+      setWalletMsg('Error: ' + (result.error || 'Could not update wallet.'))
+    } else {
+      setWalletMsg(`Done! New balance: Rs.${result.new_balance}`)
+      setWalletCustomer({ ...walletCustomer, balance: result.new_balance })
+      setWalletAmount('')
+      setWalletNote('')
+    }
+    setWalletLoading(false)
   }
 
   const handleLogout = async () => {
@@ -259,6 +321,7 @@ export default function DeliveryDashboard() {
             { id: 'out',       label: 'Out',        count: stats.out      },
             { id: 'delivered', label: 'Done',       count: stats.delivered },
             { id: 'history',   label: '📋 History', count: null            },
+            ...(profile?.is_admin ? [{ id: 'wallet', label: '💳 Wallet', count: null }] : []),
           ].map(({ id, label, count }) => (
             <button key={id} onClick={() => handleTabChange(id)}
               className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
@@ -329,8 +392,81 @@ export default function DeliveryDashboard() {
           </div>
         )}
 
+        {/* Wallet Management Tab */}
+        {activeTab === 'wallet' && (
+          <div className="flex flex-col gap-4">
+            <div className="bg-white rounded-2xl border border-[#e8e0d0] p-5 shadow-sm">
+              <p className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c] mb-4">Customer Wallet Management</p>
+
+              {/* Search */}
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  placeholder="Search by name or phone..."
+                  value={walletSearch}
+                  onChange={e => setWalletSearch(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && searchWalletCustomer()}
+                  className="flex-1 border border-[#e8e0d0] rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]"
+                />
+                <button onClick={searchWalletCustomer}
+                  className="bg-[#1a5c38] text-white font-bold px-4 py-2 rounded-lg text-sm hover:bg-[#14472c] transition">
+                  Search
+                </button>
+              </div>
+
+              {/* Customer found */}
+              {walletCustomer && (
+                <div>
+                  <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-xl p-4 mb-4">
+                    <p className="font-bold text-[#1a5c38] text-sm">{walletCustomer.full_name}</p>
+                    <p className="text-xs text-gray-500">{walletCustomer.apartment_name}, Flat {walletCustomer.flat_number} · {walletCustomer.phone}</p>
+                    <p className="text-lg font-bold text-[#1a5c38] mt-2">Balance: Rs.{walletCustomer.balance}</p>
+                  </div>
+
+                  {/* Action selector */}
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    {[['add', '+ Add'], ['deduct', '- Deduct'], ['set', '= Set to']].map(([val, label]) => (
+                      <button key={val} onClick={() => setWalletAction(val)}
+                        className={`py-2 rounded-lg text-sm font-bold border-2 transition ${
+                          walletAction === val
+                            ? val === 'deduct' ? 'border-red-400 bg-red-50 text-red-600' : 'border-[#1a5c38] bg-[#f0faf4] text-[#1a5c38]'
+                            : 'border-[#e8e0d0] text-gray-500'
+                        }`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <input type="number" placeholder="Amount (Rs.)" value={walletAmount}
+                    onChange={e => setWalletAmount(e.target.value)}
+                    className="w-full border border-[#e8e0d0] rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38] mb-2" />
+                  <input type="text" placeholder="Note (optional)" value={walletNote}
+                    onChange={e => setWalletNote(e.target.value)}
+                    className="w-full border border-[#e8e0d0] rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38] mb-3" />
+
+                  <button onClick={handleWalletUpdate} disabled={walletLoading}
+                    className={`w-full text-white font-bold py-3 rounded-xl text-sm transition disabled:opacity-50 ${
+                      walletAction === 'deduct' ? 'bg-red-500 hover:bg-red-600' : 'hover:opacity-90'
+                    }`}
+                    style={walletAction !== 'deduct' ? {background:'linear-gradient(135deg,#1a5c38,#2d7a50)'} : {}}>
+                    {walletLoading ? 'Updating...' : walletAction === 'add' ? 'Add Balance' : walletAction === 'deduct' ? 'Deduct Balance' : 'Set Balance'}
+                  </button>
+                </div>
+              )}
+
+              {walletMsg && (
+                <div className={`mt-3 rounded-lg px-4 py-3 text-sm text-center font-medium ${
+                  walletMsg.startsWith('Done') ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-red-50 text-red-600 border border-red-200'
+                }`}>
+                  {walletMsg}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Today's Orders List */}
-        {activeTab !== 'history' && (
+        {activeTab !== 'history' && activeTab !== 'wallet' && (
         <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
           {filteredOrders.length === 0 ? (
             <div className="px-5 py-12 text-center">

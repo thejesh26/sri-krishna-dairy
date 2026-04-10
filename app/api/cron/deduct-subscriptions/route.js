@@ -80,12 +80,19 @@ async function runDeductions() {
     const balance = wallet?.balance || 0
 
     if (balance < dailyAmount) {
+      // Auto-deactivate subscription — balance cannot cover today's delivery
+      await supabase
+        .from('subscriptions')
+        .update({ is_active: false })
+        .eq('id', sub.id)
+
       failed.push({
         subscriptionId: sub.id,
         userId: sub.user_id,
         product: `${sub.products.size} x${sub.quantity}`,
         balance,
         required: dailyAmount,
+        reason: 'Insufficient balance — subscription deactivated',
       })
       continue
     }

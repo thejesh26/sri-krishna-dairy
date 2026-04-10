@@ -81,39 +81,45 @@ export default function Home() {
         <div className="absolute top-[40%] right-[10%] w-3 h-3 rounded-full bg-[#d4a017] opacity-30"></div>
         <div className="absolute bottom-[30%] left-[15%] w-2 h-2 rounded-full bg-white opacity-20"></div>
 
-        <div className="relative z-10 max-w-6xl mx-auto px-6 py-24 grid grid-cols-1 sm:grid-cols-2 gap-12 items-center">
+        <div className="relative z-10 max-w-6xl mx-auto px-6 py-16 sm:py-24 grid grid-cols-1 sm:grid-cols-2 gap-12 items-center">
           <div>
-            <div style={{display:'inline-flex', alignItems:'center', gap:'8px', background:'rgba(212,160,23,0.15)', border:'1px solid rgba(212,160,23,0.5)', borderRadius:'999px', padding:'8px 16px', marginBottom:'24px'}}>
+            <div style={{display:'inline-flex', alignItems:'center', gap:'8px', background:'rgba(212,160,23,0.15)', border:'1px solid rgba(212,160,23,0.5)', borderRadius:'999px', padding:'8px 16px', marginBottom:'16px'}}>
               <span style={{width:'8px', height:'8px', borderRadius:'50%', background:'#d4a017', display:'inline-block'}}></span>
-              <span style={{color:'#d4a017', fontWeight:'600', fontSize:'12px', letterSpacing:'2px', textTransform:'uppercase'}}>Farm Fresh Daily Delivery</span>
+              <span style={{color:'#d4a017', fontWeight:'600', fontSize:'12px', letterSpacing:'2px', textTransform:'uppercase'}}>Pure. Fresh. Delivered.</span>
+            </div>
+            <div style={{display:'inline-flex', alignItems:'center', gap:'6px', background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:'999px', padding:'6px 14px', marginBottom:'20px'}}>
+              <span style={{fontSize:'14px'}}>🎉</span>
+              <span style={{color:'#ffffff', fontWeight:'700', fontSize:'13px'}}>First Delivery Free!</span>
             </div>
             <h2 className="font-[family-name:var(--font-playfair)] text-5xl sm:text-6xl font-bold text-white mb-6 leading-tight">
-              Pure Milk,<br />
-              <span className="text-[#d4a017]">Straight From</span><br />
-              Our Farm
+              Bringing Farm-Fresh<br />
+              <span className="text-[#d4a017]">Milk Directly</span><br />
+              to Your Doorstep
             </h2>
-            <p className="text-green-100 text-lg mb-4 leading-relaxed max-w-md">
-              No middlemen. No preservatives. Just pure, fresh cow milk delivered to your doorstep every morning.
+            <p className="text-green-100 text-base mb-2 leading-relaxed max-w-md">
+              No middlemen. No preservatives. Pure, fresh cow milk delivered to your doorstep every morning and evening.
             </p>
-            <p className="text-green-300 text-sm font-medium mb-10">
-              📍 Serving homes & apartments in & around Kattigenahalli, Bangalore
+            <p className="text-[#d4a017] font-bold text-sm mb-4">🍼 Delivered by 8AM to your doorstep</p>
+            <p className="text-green-300 text-sm font-medium mb-8">
+              📍 Serving homes & apartments in North &amp; East Bangalore
             </p>
             <div className="flex gap-4 flex-wrap">
               <Link href="/order" className="bg-[#d4a017] text-white px-8 py-4 rounded font-bold text-base hover:bg-[#b8860b] transition shadow-lg">
                 Order Now →
               </Link>
               <Link href="/subscribe" className="border-2 border-white text-white px-8 py-4 rounded font-bold text-base hover:bg-white hover:text-[#1a5c38] transition">
-                Subscribe Daily
+                Start Daily Delivery
               </Link>
             </div>
-            <div className="flex gap-8 mt-12 pt-8 border-t border-white border-opacity-20">
-              <div>
-                <p className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#d4a017]">5+</p>
-                <p className="text-green-300 text-xs mt-1">Years Farming</p>
-              </div>
+            <p className="text-green-300 text-xs mt-3">No contract &bull; Cancel anytime &bull; Free first delivery</p>
+            <div className="flex gap-8 mt-10 pt-8 border-t border-white border-opacity-20">
               <div>
                 <p className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#d4a017]">100%</p>
-                <p className="text-green-300 text-xs mt-1">Pure & Natural</p>
+                <p className="text-green-300 text-xs mt-1">Pure &amp; Natural</p>
+              </div>
+              <div>
+                <p className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#d4a017]">2hrs</p>
+                <p className="text-green-300 text-xs mt-1">Farm to Door</p>
               </div>
               <div>
                 <p className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#d4a017]">Daily</p>
@@ -129,11 +135,11 @@ export default function Home() {
                 <img src="/Logo.jpg" alt="Sri Krishnaa Dairy" className="w-72 h-72 rounded-full object-cover" />
               </div>
               <div style={{position:'absolute', top:'8px', right:'-16px', background:'#d4a017', borderRadius:'999px', padding:'8px 20px', fontSize:'14px', fontWeight:'700', color:'white', boxShadow:'0 4px 12px rgba(0,0,0,0.3)'}}>
-                Est. 2019
+                Fresh Daily
               </div>
             </div>
             <div className="flex flex-wrap gap-3 justify-center mt-4">
-              {['🌿 No Preservatives', '🐄 Farm Direct', '⏰ Morning Delivery', '💵 Cash on Delivery'].map((item) => (
+              {['🌿 No Preservatives', '🐄 Farm Direct', '🍼 By 8AM', '💳 Flexible Payment'].map((item) => (
                 <span key={item}
                   style={{background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'white', fontSize:'15px', fontWeight:'600', padding:'12px 22px', borderRadius:'999px', whiteSpace:'nowrap'}}>
                   {item}
@@ -162,12 +168,12 @@ export default function Home() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
           {products.length > 0 ? products.map((product) => (
             <div key={product.id} className="border border-[#e8e0d0] rounded-lg p-8 hover:shadow-lg transition bg-white">
-              <div className="text-5xl mb-5 text-center">🥛</div>
+              <div className="text-5xl mb-5 text-center">🍼</div>
               <h4 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c] text-center mb-1">Fresh Cow Milk</h4>
               <p className="text-center text-[#d4a017] font-semibold text-sm mb-3">{product.size} Bottle</p>
               <p className="text-gray-400 text-center text-sm mb-5">{product.size === '500ml' ? 'Pure, fresh & delivered every morning' : 'Best value for families'}</p>
               <p className="text-3xl font-bold text-center text-[#1a5c38] mb-6">₹{product.price} <span className="text-sm font-normal text-gray-400">/ bottle</span></p>
-              <Link href={`/order`} className="block bg-[#1a5c38] text-white text-center py-3 rounded font-semibold hover:bg-[#14472c] transition">Order Now (COD)</Link>
+              <Link href={`/order`} className="block bg-[#1a5c38] text-white text-center py-3 rounded font-semibold hover:bg-[#14472c] transition">Order Now</Link>
               <Link href={`/subscribe`} className="block mt-2 border border-[#d4a017] text-[#d4a017] text-center py-2 rounded font-semibold hover:bg-[#d4a017] hover:text-white transition text-sm">Subscribe (Prepaid)</Link>
             </div>
           )) : (
@@ -224,10 +230,10 @@ export default function Home() {
               { icon: '🐄', step: '01', title: 'Milking', desc: 'Cows milked hygienically at 4–6 AM with sanitized equipment at our farm in Kammasandra, Bangalore Rural.' },
               { icon: '🧪', step: '02', title: 'Quality Check', desc: 'Each batch inspected and tested for freshness, purity, and fat content before bottling.' },
               { icon: '🫧', step: '03', title: 'Bottle Cleaning', desc: 'All returned bottles thoroughly washed with food-grade agents, rinsed, and sterilized.' },
-              { icon: '🥛', step: '04', title: 'Filling & Sealing', desc: 'Measured quantities poured into sterilized bottles and hygienically sealed.' },
+              { icon: '🍼', step: '04', title: 'Filling & Sealing', desc: 'Measured quantities poured into sterilized bottles and hygienically sealed.' },
               { icon: '📦', step: '05', title: 'Packing', desc: 'Labelled with customer details and packed in insulated bags to retain freshness during transit.' },
-              { icon: '🛵', step: '06', title: 'Route Dispatch', desc: 'Delivery agents dispatched by 5 AM with pre-planned routes for your area.' },
-              { icon: '🏠', step: '07', title: 'Door Delivery', desc: 'Fresh milk at your doorstep by your chosen slot — 5–8 AM morning or 5–7 PM evening.' },
+              { icon: '🛵', step: '06', title: 'Farm Dispatch at 6AM', desc: 'Delivery agents dispatched by 6 AM with pre-planned routes for your area.' },
+              { icon: '🏠', step: '07', title: 'Door Delivery', desc: 'Fresh milk at your doorstep by your chosen slot — 7–9 AM morning or 5–7 PM evening.' },
             ].map(({ icon, step, title, desc }) => (
               <div key={step} className="flex items-start gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-[#f0faf4] border-2 border-[#c8e6d4] flex items-center justify-center text-2xl flex-shrink-0">
@@ -252,11 +258,11 @@ export default function Home() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
           {[
             { icon: '🌿', title: '100% Pure', desc: 'No additives or preservatives' },
-            { icon: '🚴', title: 'Daily Delivery', desc: 'Fresh every morning' },
-            { icon: '🐄', title: 'Farm Direct', desc: 'Straight from our farm' },
+            { icon: '🍼', title: 'Delivered by 8AM', desc: 'Fresh at your door every morning' },
+            { icon: '🐄', title: 'Farm to Door in 2hrs', desc: 'Straight from our farm' },
             { icon: '📅', title: 'Pause Anytime', desc: 'Flexible subscriptions' },
-            { icon: '💵', title: 'COD Available', desc: 'Pay on one-time orders' },
-            { icon: '💳', title: 'Prepaid Subscription', desc: 'Save more, worry less' },
+            { icon: '💳', title: 'Flexible Payment', desc: 'First order COD, then easy wallet top-ups' },
+            { icon: '🎉', title: 'First Delivery Free', desc: 'Try us with zero risk' },
             { icon: '🧪', title: 'Quality Tested', desc: 'Every batch checked' },
             { icon: '💚', title: 'Ethical Farming', desc: 'Cows treated with love' },
           ].map(({ icon, title, desc }) => (
@@ -282,7 +288,7 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
             {[
               { icon: '✅', title: 'Quality Guarantee', desc: 'Report within 2 hours — we replace it next delivery' },
-              { icon: '⏰', title: 'On-Time Guarantee', desc: 'Delivered within your chosen slot, every day' },
+              { icon: '⏰', title: 'On-Time Guarantee', desc: 'Delivered between 7AM–9AM every morning, guaranteed' },
               { icon: '🔄', title: 'Flexibility Guarantee', desc: 'Pause or cancel anytime with 12 hours notice' },
             ].map(({ icon, title, desc }) => (
               <div key={title} className="bg-[#14472c] rounded-lg p-6">
@@ -302,9 +308,9 @@ export default function Home() {
             <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase mb-3">Our Story</p>
             <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#1c1c1c] mb-5">More Than Just Milk</h3>
             <p className="text-gray-500 leading-relaxed mb-4">
-              Sri Krishnaa Dairy Farms has been nurturing cows with love and care for over 5 years.
-              What started as a passion for pure, natural milk is now a movement — bringing
-              farm-fresh goodness directly to families in Bangalore, cutting out the middleman completely.
+              Sri Krishnaa Dairy Farms is a modern farm-to-home dairy service, bringing
+              farm-fresh goodness directly to families in Bangalore — cutting out the middleman completely.
+              Pure milk for modern families.
             </p>
             <p className="text-gray-500 leading-relaxed mb-4">
               We believe you deserve to know exactly where your milk comes from. No processing units,
@@ -318,11 +324,11 @@ export default function Home() {
           <div className="bg-[#f5f0e8] rounded-lg p-8 text-center">
             <img src="/Logo.jpg" alt="Sri Krishnaa Dairy" className="h-40 w-40 rounded-full mx-auto border-4 border-[#d4a017] object-cover shadow-lg mb-5" />
             <p className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c]">Sri Krishnaa Dairy Farms</p>
-            <p className="text-[#d4a017] text-sm font-medium mt-1">Est. 2019 • Bangalore</p>
+            <p className="text-[#d4a017] text-sm font-medium mt-1">Farm Fresh • Bangalore</p>
             <div className="flex justify-center gap-6 mt-5">
               <div>
-                <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">5+</p>
-                <p className="text-xs text-gray-400 font-[family-name:var(--font-playfair)]">Years of Farming</p>
+                <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">2hrs</p>
+                <p className="text-xs text-gray-400 font-[family-name:var(--font-playfair)]">Farm to Door</p>
               </div>
               <div>
                 <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">100%</p>
@@ -392,7 +398,7 @@ export default function Home() {
         Interested in bulk orders? Contact us for a custom quote!
       </p>
       <div className="flex justify-center gap-4 flex-wrap">
-        <a href="https://wa.me/918553666002?text=Hi, I am interested in bulk milk orders for my institution"
+        <a href="https://wa.me/919980166221?text=Hi, I am interested in bulk milk orders for my institution"
           target="_blank"
           className="flex items-center gap-2 text-white px-8 py-3 rounded-lg font-bold hover:opacity-90 transition shadow"
           style={{background:'#25D366'}}>
@@ -401,7 +407,7 @@ export default function Home() {
           </svg>
           WhatsApp for Bulk Orders
         </a>
-        <a href="tel:8553666002"
+        <a href="tel:9980166221"
           className="flex items-center gap-2 border-2 border-[#1a5c38] text-[#1a5c38] px-8 py-3 rounded-lg font-bold hover:bg-[#1a5c38] hover:text-white transition">
           📞 Call Us
         </a>
@@ -417,11 +423,11 @@ export default function Home() {
     <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-12">Frequently Asked Questions</h3>
     <div className="flex flex-col gap-3">
       {[
-        { q: 'Where do you deliver?', a: 'We deliver to homes, apartments, gated communities, and housing societies in and around Kattigenahalli, Bangalore. We also accept bulk orders for schools, hotels, resorts, offices and other institutions — on separate bulk delivery timings. Contact us for bulk enquiries.' },
-        { q: 'What time is milk delivered?', a: 'Morning slot: 5AM – 8AM. Evening slot: 5PM – 7PM. We always aim to deliver within your chosen slot. Bulk institutional orders may have different delivery timings.' },
+        { q: 'Where do you deliver?', a: 'We deliver to homes, apartments, gated communities, and housing societies across North & East Bangalore. We also accept bulk orders for schools, hotels, resorts, offices and other institutions — on separate bulk delivery timings. Contact us for bulk enquiries.' },
+        { q: 'What time is milk delivered?', a: 'Morning slot: 7AM – 9AM. Evening slot: 5PM – 7PM. We always aim to deliver within your chosen slot. Bulk institutional orders may have different delivery timings.' },
         { q: 'Can I pause my subscription?', a: 'Yes! You can pause delivery for any specific date directly from your dashboard, at least 12 hours in advance. You can also resume anytime.' },
         { q: 'What is the bottle deposit?', a: 'We charge a one-time refundable bottle deposit of ₹100 total (not per bottle per order). A minimum deposit of ₹200 is collected (covers 2 bottles). The full deposit is returned when bottles are given back in good condition. Choose Direct Delivery mode if you prefer no deposit — our person collects the bottle right after delivery.' },
-        { q: 'How do I pay?', a: 'For one-time orders: Cash on Delivery (COD) — pay when you receive your milk. For subscriptions: Prepaid wallet — add balance to your wallet and daily amounts are auto-deducted. Minimum wallet balance required is ₹300. Deliveries are automatically paused if your balance falls below ₹300.' },
+        { q: 'How do I pay?', a: 'Your first order can be paid via Cash on Delivery (COD). For subscriptions and subsequent orders, we use a prepaid wallet system — add balance once and enjoy uninterrupted daily delivery without cash hassles!' },
         { q: 'What is the minimum wallet balance?', a: 'Your wallet must maintain a minimum balance of ₹300 for subscriptions to remain active. If the balance drops below ₹300, deliveries will be automatically paused. Please top up your wallet in advance to avoid interruptions.' },
         { q: 'Is the milk safe to drink directly?', a: '⚠️ Health Advisory: Our milk is farm-fresh and raw — it is NOT pasteurized or homogenized. We strongly recommend boiling the milk before consumption, especially for children, elderly, pregnant women, and immunocompromised individuals. We comply with FSSAI guidelines (Lic. No: 21225008004544) and follow strict hygiene at every step of the process.' },
         { q: 'Is the milk pasteurized?', a: 'Our milk is farm-fresh and pure — it is NOT pasteurized. It comes straight from our farm. We follow strict hygiene and quality standards, but please boil before drinking as a precaution. Compliant with FSSAI Lic. No: 21225008004544.' },
@@ -449,11 +455,11 @@ export default function Home() {
         <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase mb-3">Get In Touch</p>
         <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#1c1c1c] mb-5">Contact Us</h3>
         <p className="text-gray-500 mb-10">Have questions? We're always happy to help!</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-white border border-[#e8e0d0] rounded-lg p-6 hover:shadow-md transition">
             <div className="text-3xl mb-3">📞</div>
             <p className="font-semibold text-[#1c1c1c] mb-1">Call Us</p>
-            <a href="tel:8553666002" className="text-[#1a5c38] font-bold hover:underline">8553666002</a>
+            <a href="tel:9980166221" className="text-[#1a5c38] font-bold hover:underline">9980166221</a>
             <p className="text-gray-400 text-xs mt-1">Mon–Sun, 6AM–8PM</p>
           </div>
           <div className="bg-white border border-[#e8e0d0] rounded-lg p-6 hover:shadow-md transition">
@@ -463,14 +469,20 @@ export default function Home() {
               </svg>
             </div>
             <p className="font-semibold text-[#1c1c1c] mb-1">WhatsApp</p>
-            <a href="https://wa.me/918553666002" target="_blank" className="text-[#1a5c38] font-bold hover:underline">Chat with us</a>
+            <a href="https://wa.me/919980166221" target="_blank" className="text-[#1a5c38] font-bold hover:underline">Chat with us</a>
             <p className="text-gray-400 text-xs mt-1">Quick replies guaranteed</p>
+          </div>
+          <div className="bg-white border border-[#e8e0d0] rounded-lg p-6 hover:shadow-md transition">
+            <div className="text-3xl mb-3">✉️</div>
+            <p className="font-semibold text-[#1c1c1c] mb-1">Email Us</p>
+            <a href="mailto:hello@srikrishnaadairy.in" className="text-[#1a5c38] font-bold hover:underline text-sm block">hello@srikrishnaadairy.in</a>
+            <a href="mailto:support@srikrishnaadairy.in" className="text-gray-400 text-xs hover:text-[#1a5c38] transition mt-1 block">support@srikrishnaadairy.in</a>
           </div>
           <div className="bg-white border border-[#e8e0d0] rounded-lg p-6 hover:shadow-md transition">
             <div className="text-3xl mb-3">📍</div>
             <p className="font-semibold text-[#1c1c1c] mb-1">Location</p>
             <p className="text-gray-500 text-sm">Kattigenahalli,<br />Bangalore, Karnataka</p>
-            <p className="text-gray-400 text-xs mt-1">Delivery: 5AM–8AM & 5PM–7PM</p>
+            <p className="text-gray-400 text-xs mt-1">Delivery: 7AM–9AM & 5PM–7PM</p>
           </div>
         </div>
       </div>
@@ -517,14 +529,14 @@ export default function Home() {
                 Pure, fresh cow milk delivered straight from our farm to your doorstep every morning.
               </p>
               <div className="flex gap-3">
-                <a href="https://wa.me/918553666002" target="_blank"
+                <a href="https://wa.me/919980166221" target="_blank"
                   className="flex items-center gap-2 bg-[#25D366] hover:bg-[#1da851] text-white text-xs font-semibold px-4 py-2 rounded transition">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4" fill="white">
                     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
                   </svg>
                   WhatsApp
                 </a>
-                <a href="tel:8553666002"
+                <a href="tel:9980166221"
                   className="bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold px-4 py-2 rounded transition">
                   📞 Call Us
                 </a>
@@ -554,14 +566,14 @@ export default function Home() {
                 </li>
                 <li className="flex justify-between">
                   <span>Fresh Cow Milk 1000ml</span>
-                  <span className="text-[#d4a017] font-semibold">₹60</span>
+                  <span className="text-[#d4a017] font-semibold">₹65</span>
                 </li>
                 <li className="border-t border-gray-800 pt-3 mt-1">
                   <p className="text-gray-500 text-xs uppercase tracking-widest mb-2">Coming Soon</p>
                 </li>
                 <li className="text-green-500 text-xs flex items-center gap-2">🐄 A2 Desi Cow Milk</li>
                 <li className="text-green-500 text-xs flex items-center gap-2">🧈 Pure Desi Ghee</li>
-                <li className="text-green-500 text-xs flex items-center gap-2">🥛 Fresh Curd</li>
+                <li className="text-green-500 text-xs flex items-center gap-2">🍼 Fresh Curd</li>
                 <li className="text-green-500 text-xs flex items-center gap-2">🧀 Homemade Paneer</li>
                 <li className="text-green-500 text-xs flex items-center gap-2">🍦 Fresh Butter</li>
               </ul>
@@ -573,13 +585,13 @@ export default function Home() {
               <ul className="flex flex-col gap-4 text-sm text-gray-400">
                 <li className="flex items-start gap-3">
                   <span className="text-[#d4a017] mt-0.5">📞</span>
-                  <a href="tel:8553666002" className="hover:text-white transition">8553666002</a>
+                  <a href="tel:9980166221" className="hover:text-white transition">9980166221</a>
                 </li>
                 <li className="flex items-start gap-3">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4 mt-0.5 flex-shrink-0" fill="#25D366">
                     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
                   </svg>
-                  <a href="https://wa.me/918553666002" target="_blank" className="hover:text-white transition">WhatsApp Us</a>
+                  <a href="https://wa.me/919980166221" target="_blank" className="hover:text-white transition">WhatsApp Us</a>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="text-[#d4a017] mt-0.5">📍</span>
@@ -587,7 +599,7 @@ export default function Home() {
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="text-[#d4a017] mt-0.5">🕐</span>
-                  <span>Morning: 5AM – 8AM<br />Evening: 5PM – 7PM</span>
+                  <span>Morning: 7AM – 9AM<br />Evening: 5PM – 7PM</span>
                 </li>
               </ul>
             </div>

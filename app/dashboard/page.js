@@ -262,7 +262,7 @@ export default function Dashboard() {
                     <p className="text-gray-400 text-sm mt-1">{nextDelivery.quantity} bottle(s) per day</p>
                     <div className="flex items-center gap-3 mt-2">
                       <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-semibold px-3 py-1 rounded-full">
-                        {nextDelivery.delivery_slot === 'morning' ? '🌅 5AM - 8AM' : '🌆 5PM - 7PM'}
+                        {nextDelivery.delivery_slot === 'morning' ? '🌅 7AM - 9AM' : '🌆 5PM - 7PM'}
                       </span>
                     </div>
                   </div>
@@ -382,7 +382,7 @@ export default function Dashboard() {
               </div>
               <div className="px-6 py-4 flex flex-col gap-2">
                 {[
-                  { q: 'What time is milk delivered?', a: 'Morning slot: 5AM – 8AM. Evening slot: 5PM – 7PM.' },
+                  { q: 'What time is milk delivered?', a: 'Morning slot: 7AM – 9AM. Evening slot: 5PM – 7PM.' },
                   { q: 'What is the bottle deposit?', a: 'A one-time refundable deposit of ₹100 total (minimum ₹200 for 2 bottles). Returned when bottles are given back.' },
                   { q: 'What is the minimum wallet balance?', a: 'Your wallet must stay above ₹300 for deliveries to continue. Delivery is auto-paused if balance drops below ₹300 or reaches ₹0.' },
                   { q: 'Is the milk safe to drink directly?', a: '⚠️ Our milk is raw and not pasteurized. Please boil before consuming, especially for children, elderly, and pregnant women. FSSAI Lic. No: 21225008004544.' },
@@ -410,11 +410,11 @@ export default function Dashboard() {
             <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
               <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-4">Need Help?</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <a href="tel:8553666002" className="flex items-center gap-4 border border-[#e8e0d0] rounded-xl p-4 hover:border-[#1a5c38] transition">
+                <a href="tel:9980166221" className="flex items-center gap-4 border border-[#e8e0d0] rounded-xl p-4 hover:border-[#1a5c38] transition">
                   <div className="w-12 h-12 rounded-xl bg-[#f0faf4] flex items-center justify-center text-2xl">📞</div>
-                  <div><p className="font-semibold text-[#1c1c1c]">Call Us</p><p className="text-sm text-gray-400">8553666002</p></div>
+                  <div><p className="font-semibold text-[#1c1c1c]">Call Us</p><p className="text-sm text-gray-400">9980166221</p></div>
                 </a>
-                <a href="https://wa.me/918553666002" target="_blank" className="flex items-center gap-4 border border-[#e8e0d0] rounded-xl p-4 hover:border-[#25D366] transition">
+                <a href="https://wa.me/919980166221" target="_blank" className="flex items-center gap-4 border border-[#e8e0d0] rounded-xl p-4 hover:border-[#25D366] transition">
                   <div className="w-12 h-12 rounded-xl bg-[#f0faf4] flex items-center justify-center text-2xl">💬</div>
                   <div><p className="font-semibold text-[#1c1c1c]">WhatsApp</p><p className="text-sm text-gray-400">Chat with us</p></div>
                 </a>
@@ -737,9 +737,9 @@ export default function Dashboard() {
               </div>
               <p className="text-gray-400 text-sm leading-relaxed mb-4">Pure, fresh cow milk from our farm to your doorstep.</p>
               <div className="flex gap-3">
-                <a href="https://wa.me/918553666002" target="_blank"
+                <a href="https://wa.me/919980166221" target="_blank"
                   className="bg-[#25D366] hover:bg-[#1da851] text-white text-xs font-semibold px-4 py-2 rounded transition">WhatsApp</a>
-                <a href="tel:8553666002" className="bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold px-4 py-2 rounded transition">📞 Call</a>
+                <a href="tel:9980166221" className="bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold px-4 py-2 rounded transition">📞 Call</a>
               </div>
             </div>
             <div>
@@ -763,9 +763,9 @@ export default function Dashboard() {
             <div>
               <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Contact</p>
               <ul className="flex flex-col gap-4 text-sm text-gray-400">
-                <li className="flex items-start gap-3"><span className="text-[#d4a017]">📞</span><a href="tel:8553666002" className="hover:text-white">8553666002</a></li>
+                <li className="flex items-start gap-3"><span className="text-[#d4a017]">📞</span><a href="tel:9980166221" className="hover:text-white">9980166221</a></li>
                 <li className="flex items-start gap-3"><span className="text-[#d4a017]">📍</span><span>Kattigenahalli, Bangalore</span></li>
-                <li className="flex items-start gap-3"><span className="text-[#d4a017]">🕐</span><span>5AM–8AM & 5PM–7PM</span></li>
+                <li className="flex items-start gap-3"><span className="text-[#d4a017]">🕐</span><span>7AM–9AM & 5PM–7PM</span></li>
               </ul>
             </div>
           </div>
