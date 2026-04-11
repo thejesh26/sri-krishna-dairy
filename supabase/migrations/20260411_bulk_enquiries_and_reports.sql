@@ -9,10 +9,12 @@ create table if not exists quality_feedback (
 
 alter table quality_feedback enable row level security;
 
+drop policy if exists "Customers can submit quality feedback" on quality_feedback;
 create policy "Customers can submit quality feedback"
   on quality_feedback for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "Customers can view own feedback; admins can view all" on quality_feedback;
 create policy "Customers can view own feedback; admins can view all"
   on quality_feedback for select
   using (
@@ -37,12 +39,12 @@ create table if not exists discount_codes (
 
 alter table discount_codes enable row level security;
 
--- All authenticated users can read active codes (needed for validation)
+drop policy if exists "Authenticated users can read active discount codes" on discount_codes;
 create policy "Authenticated users can read active discount codes"
   on discount_codes for select
   using (auth.role() = 'authenticated');
 
--- Only admins can insert/update/delete
+drop policy if exists "Admins can manage discount codes" on discount_codes;
 create policy "Admins can manage discount codes"
   on discount_codes for all
   using (
@@ -64,13 +66,14 @@ create table if not exists bulk_enquiries (
   created_at timestamptz default now()
 );
 
--- Enable RLS — only admins can read; anyone can insert (public form)
 alter table bulk_enquiries enable row level security;
 
+drop policy if exists "Public insert bulk enquiries" on bulk_enquiries;
 create policy "Public insert bulk enquiries"
   on bulk_enquiries for insert
   with check (true);
 
+drop policy if exists "Admins can view bulk enquiries" on bulk_enquiries;
 create policy "Admins can view bulk enquiries"
   on bulk_enquiries for select
   using (
@@ -92,12 +95,12 @@ create table if not exists missed_delivery_reports (
 
 alter table missed_delivery_reports enable row level security;
 
--- Customers can insert their own reports
+drop policy if exists "Customers can report their own orders" on missed_delivery_reports;
 create policy "Customers can report their own orders"
   on missed_delivery_reports for insert
   with check (auth.uid() = user_id);
 
--- Customers can view their own reports; admins can view all
+drop policy if exists "Customers can view own reports" on missed_delivery_reports;
 create policy "Customers can view own reports"
   on missed_delivery_reports for select
   using (

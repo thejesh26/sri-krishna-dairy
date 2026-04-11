@@ -516,7 +516,7 @@ export default function Dashboard() {
                         <span className="text-[10px] text-gray-400">Feedback sent ✓</span>
                       )}
                     </div>
-                    </div>{/* closes inner flex row */}
+                    </div>
                   {qualityFeedbackOpen === order.id && (
                     <div className="mx-6 mb-4 bg-orange-50 border border-orange-200 rounded-xl p-3 flex flex-col gap-2">
                       <p className="text-xs font-semibold text-orange-700">Describe the quality issue</p>
@@ -544,7 +544,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                   )}
-                  </div>{/* closes outer order wrapper */}
+                  </div>
                 ))
               )}
             </div>
