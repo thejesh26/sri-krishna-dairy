@@ -124,6 +124,7 @@ export default function Subscribe() {
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
+            bottle_deposit: bottleDeposit,
           }),
         })
         const verifyData = await verifyRes.json()

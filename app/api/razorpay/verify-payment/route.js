@@ -17,11 +17,13 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = await request.json()
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, bottle_deposit } = await request.json()
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json({ error: 'Missing payment details.' }, { status: 400 })
     }
+
+    const depositAmount = Math.max(0, Number(bottle_deposit) || 0)
 
     // Verify signature: HMAC-SHA256 of "order_id|payment_id" using key_secret
     const expectedSignature = crypto
@@ -52,7 +54,7 @@ export async function POST(request) {
       // Get or create wallet
       let { data: wallet } = await supabase
         .from('wallet')
-        .select('id, balance')
+        .select('id, balance, deposit_balance')
         .eq('user_id', user.id)
         .maybeSingle()
 
@@ -65,16 +67,25 @@ export async function POST(request) {
         wallet = newWallet
       }
 
-      // Credit wallet with the paid amount
+      // Credit spendable balance (excluding bottle deposit)
+      const spendableAmount = amountPaid - depositAmount
       await supabase
         .from('wallet')
-        .update({ balance: (wallet.balance || 0) + amountPaid })
+        .update({ balance: (wallet.balance || 0) + spendableAmount })
         .eq('user_id', user.id)
 
-      // Record transaction
+      // Credit deposit balance separately (never mixed with spendable balance)
+      if (depositAmount > 0) {
+        await supabase
+          .from('wallet')
+          .update({ deposit_balance: (wallet.deposit_balance || 0) + depositAmount })
+          .eq('user_id', user.id)
+      }
+
+      // Record transaction for the spendable portion
       await supabase.from('wallet_transactions').insert({
         user_id: user.id,
-        amount: amountPaid,
+        amount: spendableAmount,
         type: 'credit',
         description: `Subscription payment [${razorpay_payment_id}]`,
       })
