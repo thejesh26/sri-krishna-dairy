@@ -1,7 +1,7 @@
 -- Quality feedback on delivered orders
 create table if not exists quality_feedback (
   id uuid primary key default gen_random_uuid(),
-  order_id uuid references orders(id) on delete cascade,
+  order_id bigint references orders(id) on delete cascade,
   user_id uuid references profiles(id) on delete cascade,
   issue text not null,
   reported_at timestamptz default now()
@@ -84,7 +84,7 @@ create policy "Admins can view bulk enquiries"
 -- Missed delivery reports from customer dashboard
 create table if not exists missed_delivery_reports (
   id uuid primary key default gen_random_uuid(),
-  order_id uuid references orders(id) on delete cascade,
+  order_id bigint references orders(id) on delete cascade,
   user_id uuid references profiles(id) on delete cascade,
   delivery_date date,
   reported_at timestamptz default now()
