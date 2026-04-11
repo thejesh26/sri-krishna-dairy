@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
+import { notifyOrderDelivered } from '../../../lib/whatsapp'
 
 /**
  * POST /api/delivery/confirm
@@ -30,11 +31,31 @@ export async function POST(request) {
     const deliveredBy = callerProfile.full_name || user.id
 
     if (type === 'order' && order_id) {
-      const { error } = await supabase
+      const { data: orderRow, error } = await supabase
         .from('orders')
         .update({ status: 'delivered', delivered_at: deliveredAt, delivered_by: deliveredBy })
         .eq('id', order_id)
+        .select('user_id')
+        .single()
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+      // WhatsApp delivery notification (non-blocking)
+      try {
+        const { data: customerProfile } = await supabase
+          .from('profiles')
+          .select('full_name, phone')
+          .eq('id', orderRow.user_id)
+          .single()
+        if (customerProfile?.phone) {
+          await notifyOrderDelivered({
+            phone: customerProfile.phone,
+            name: customerProfile.full_name || 'Customer',
+          })
+        }
+      } catch {
+        // WhatsApp failure must not block delivery confirmation
+      }
+
       return NextResponse.json({ success: true })
     }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
 import { sendLowBalanceEmail, sendCronFailureAlert } from '../../../lib/email'
+import { notifyLowBalance, notifySubscriptionStopped } from '../../../lib/whatsapp'
 
 // Called daily by Vercel Cron at 18:30 UTC (midnight IST)
 // GET /api/cron/deduct-subscriptions
@@ -86,6 +87,24 @@ async function runDeductions() {
         .update({ is_active: false })
         .eq('id', sub.id)
 
+      // WhatsApp: subscription stopped notification (non-blocking)
+      try {
+        const { data: stoppedProfile } = await supabase
+          .from('profiles')
+          .select('full_name, phone')
+          .eq('id', sub.user_id)
+          .single()
+        if (stoppedProfile?.phone) {
+          await notifySubscriptionStopped({
+            phone: stoppedProfile.phone,
+            name: stoppedProfile.full_name || 'Customer',
+            balance,
+          })
+        }
+      } catch {
+        // WhatsApp failure must not block cron
+      }
+
       failed.push({
         subscriptionId: sub.id,
         userId: sub.user_id,
@@ -130,22 +149,31 @@ async function runDeductions() {
       try {
         const { data: userProfile } = await supabase
           .from('profiles')
-          .select('full_name, email')
+          .select('full_name, phone, email')
           .eq('id', sub.user_id)
           .single()
 
         const { data: authUser } = await supabase.auth.admin.getUserById(sub.user_id)
         const userEmail = authUser?.user?.email || userProfile?.email
+        const name = userProfile?.full_name || userEmail
 
         if (userEmail) {
           await sendLowBalanceEmail({
             to: userEmail,
-            name: userProfile?.full_name || userEmail,
+            name,
+            balance: newBalance,
+          })
+        }
+
+        if (userProfile?.phone) {
+          await notifyLowBalance({
+            phone: userProfile.phone,
+            name,
             balance: newBalance,
           })
         }
       } catch {
-        // Email failure must not block deduction
+        // Notification failure must not block deduction
       }
     }
 

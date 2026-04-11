@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
 import { sendOrderConfirmationEmail } from '../../../lib/email'
+import { notifyOrderPlaced } from '../../../lib/whatsapp'
 
 /**
  * SECURITY: Server-side order creation.
@@ -156,11 +157,11 @@ export async function POST(request) {
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
-    // ── 8. Send confirmation email (non-blocking) ────────────────────────────
+    // ── 8. Send confirmation email + WhatsApp (non-blocking) ────────────────
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, phone')
         .eq('id', user.id)
         .single()
 
@@ -170,17 +171,30 @@ export async function POST(request) {
         .eq('id', product.id)
         .single()
 
+      const name = profile?.full_name || user.email
+      const size = productDetails?.size || 'Milk'
+
       await sendOrderConfirmationEmail({
         to: user.email,
-        name: profile?.full_name || user.email,
-        product: productDetails?.size || 'Milk',
+        name,
+        product: size,
         quantity: qty,
         deliveryDate: delivery_date,
         deliverySlot: delivery_slot,
         totalAmount: totalPrice,
       })
+
+      await notifyOrderPlaced({
+        phone: profile?.phone,
+        name,
+        size,
+        quantity: qty,
+        deliveryDate: delivery_date,
+        slot: delivery_slot,
+        amount: totalPrice,
+      })
     } catch {
-      // Email failure must not block order creation
+      // Notification failure must not block order creation
     }
 
     return NextResponse.json({ success: true, order_id: order.id })

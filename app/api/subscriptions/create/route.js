@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
 import { sendSubscriptionConfirmationEmail } from '../../../lib/email'
+import { notifySubscriptionActivated } from '../../../lib/whatsapp'
 
 /**
  * SECURITY: Server-side subscription creation.
@@ -174,27 +175,38 @@ export async function POST(request) {
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
-    // ── 8. Send confirmation email (non-blocking) ────────────────────────────
+    // ── 8. Send confirmation email + WhatsApp (non-blocking) ────────────────
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, phone')
         .eq('id', user.id)
         .single()
 
+      const name = profile?.full_name || user.email
       const dailyAmount = Math.round(product.price * qty * (1 - discountPercent / 100))
 
       await sendSubscriptionConfirmationEmail({
         to: user.email,
-        name: profile?.full_name || user.email,
+        name,
         product: product.size,
         quantity: qty,
         startDate: start_date,
         deliverySlot: delivery_slot,
         dailyAmount,
       })
+
+      await notifySubscriptionActivated({
+        phone: profile?.phone,
+        name,
+        size: product.size,
+        quantity: qty,
+        startDate: start_date,
+        slot: delivery_slot,
+        dailyAmount,
+      })
     } catch {
-      // Email failure must not block subscription creation
+      // Notification failure must not block subscription creation
     }
 
     return NextResponse.json({ success: true, subscription_id: sub.id })
