@@ -33,17 +33,55 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Payment verification failed.' }, { status: 400 })
     }
 
-    // Send payment confirmation email (non-blocking).
-    // Done here — not in the client — so it fires for all payment methods
-    // (UPI, card, netbanking) regardless of client-side handler reliability.
-    try {
-      const razorpay = new Razorpay({
-        key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        key_secret: process.env.RAZORPAY_KEY_SECRET,
-      })
-      const payment = await razorpay.payments.fetch(razorpay_payment_id)
-      const amountPaid = payment.amount / 100 // paise → rupees
+    // Fetch actual amount paid from Razorpay (never trust client-supplied amount)
+    const razorpay = new Razorpay({
+      key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    })
+    const payment = await razorpay.payments.fetch(razorpay_payment_id)
+    const amountPaid = payment.amount / 100 // paise → rupees
 
+    // Idempotency: skip if this payment was already credited
+    const { data: existing } = await supabase
+      .from('wallet_transactions')
+      .select('id')
+      .eq('description', `Subscription payment [${razorpay_payment_id}]`)
+      .limit(1)
+
+    if (!existing || existing.length === 0) {
+      // Get or create wallet
+      let { data: wallet } = await supabase
+        .from('wallet')
+        .select('id, balance')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (!wallet) {
+        const { data: newWallet } = await supabase
+          .from('wallet')
+          .insert({ user_id: user.id, balance: 0 })
+          .select()
+          .single()
+        wallet = newWallet
+      }
+
+      // Credit wallet with the paid amount
+      await supabase
+        .from('wallet')
+        .update({ balance: (wallet.balance || 0) + amountPaid })
+        .eq('user_id', user.id)
+
+      // Record transaction
+      await supabase.from('wallet_transactions').insert({
+        user_id: user.id,
+        amount: amountPaid,
+        type: 'credit',
+        description: `Subscription payment [${razorpay_payment_id}]`,
+      })
+    }
+
+    // Send payment confirmation email (non-blocking)
+    try {
       const { data: profile } = await supabase
         .from('profiles')
         .select('full_name')
