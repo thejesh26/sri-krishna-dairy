@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
-import { sendLowBalanceEmail, sendCronFailureAlert } from '../../../lib/email'
-import { notifyLowBalance, notifySubscriptionStopped } from '../../../lib/whatsapp'
+import { sendLowBalanceEmail, sendCronFailureAlert, sendSubscriptionExpiryReminderEmail } from '../../../lib/email'
+import { notifyLowBalance, notifySubscriptionStopped, notifySubscriptionExpiryReminder } from '../../../lib/whatsapp'
 
 // Called daily by Vercel Cron at 18:30 UTC (midnight IST)
 // GET /api/cron/deduct-subscriptions
@@ -131,6 +131,7 @@ async function runDeductions() {
 
     const newBalance = balance - dailyAmount
 
+    // Only update `balance` — deposit_balance is never deducted by the cron
     await supabase
       .from('wallet')
       .update({ balance: newBalance })
@@ -213,6 +214,45 @@ async function runDeductions() {
       userId: sub.user_id,
       amount: dailyAmount,
     })
+  }
+
+  // ── Subscription expiry reminders (3-day warning for fixed subs) ──────────
+  try {
+    const in3Days = new Date()
+    in3Days.setDate(in3Days.getDate() + 3)
+    const in3DaysStr = in3Days.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+
+    const { data: expiringSubs } = await supabase
+      .from('subscriptions')
+      .select('id, user_id, products(size), end_date')
+      .eq('is_active', true)
+      .eq('end_date', in3DaysStr)
+
+    for (const sub of expiringSubs || []) {
+      try {
+        const { data: expiryProfile } = await supabase
+          .from('profiles')
+          .select('full_name, phone, email')
+          .eq('id', sub.user_id)
+          .single()
+        const { data: authUser } = await supabase.auth.admin.getUserById(sub.user_id)
+        const email = authUser?.user?.email || expiryProfile?.email
+        const name = expiryProfile?.full_name || email || 'Customer'
+        const product = sub.products?.size || 'Milk'
+        const endDateLabel = new Date(sub.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+
+        if (email) {
+          await sendSubscriptionExpiryReminderEmail({ to: email, name, product, endDate: endDateLabel, daysLeft: 3 })
+        }
+        if (expiryProfile?.phone) {
+          await notifySubscriptionExpiryReminder({ phone: expiryProfile.phone, name, product, endDate: endDateLabel, daysLeft: 3 })
+        }
+      } catch {
+        // Expiry notification failure must not block cron
+      }
+    }
+  } catch {
+    // Expiry check failure must not block cron
   }
 
   // Send admin alert if any deductions failed

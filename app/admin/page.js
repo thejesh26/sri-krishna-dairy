@@ -33,6 +33,13 @@ const [assigningOrder, setAssigningOrder] = useState(null)
   const [productSaving, setProductSaving] = useState(false)
   const [reviews, setReviews] = useState([])
   const [reviewsLoading, setReviewsLoading] = useState(false)
+  const [missedReports, setMissedReports] = useState([])
+  const [bulkEnquiries, setBulkEnquiries] = useState([])
+  const [qualityReports, setQualityReports] = useState([])
+  const [refundingUserId, setRefundingUserId] = useState(null)
+  const [discountCodes, setDiscountCodes] = useState([])
+  const [newCode, setNewCode] = useState({ code: '', percent: '', description: '' })
+  const [discountSaving, setDiscountSaving] = useState(false)
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalSubscriptions: 0,
@@ -134,6 +141,34 @@ const [assigningOrder, setAssigningOrder] = useState(null)
       .select('*, profiles(full_name, phone)')
       .order('created_at', { ascending: false })
     setReviews(allReviews || [])
+
+    // Load missed delivery reports
+    const { data: allReports } = await supabase
+      .from('missed_delivery_reports')
+      .select('*, profiles(full_name, phone, apartment_name, flat_number, area), orders(delivery_date, delivery_slot, products(size))')
+      .order('reported_at', { ascending: false })
+    setMissedReports(allReports || [])
+
+    // Load bulk enquiries
+    const { data: enquiries } = await supabase
+      .from('bulk_enquiries')
+      .select('*')
+      .order('created_at', { ascending: false })
+    setBulkEnquiries(enquiries || [])
+
+    // Load quality feedback
+    const { data: qFeedback } = await supabase
+      .from('quality_feedback')
+      .select('*, profiles(full_name, phone), orders(delivery_date, products(size))')
+      .order('reported_at', { ascending: false })
+    setQualityReports(qFeedback || [])
+
+    // Load discount codes
+    const { data: codes } = await supabase
+      .from('discount_codes')
+      .select('*')
+      .order('created_at', { ascending: false })
+    setDiscountCodes(codes || [])
 
     // Load all customers
     const { data: allCustomers } = await supabase
@@ -297,6 +332,40 @@ setWallets(allWallets || [])
           ))}
         </div>
 
+        {/* Revenue Chart — last 7 days */}
+        {(() => {
+          const days = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date()
+            d.setDate(d.getDate() - (6 - i))
+            return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+          })
+          const dayRevenue = days.map(day => ({
+            label: new Date(day).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }),
+            rev: orders.filter(o => (o.delivery_date || o.created_at?.split('T')[0]) === day)
+                       .reduce((s, o) => s + (o.total_price || 0), 0),
+          }))
+          const maxRev = Math.max(...dayRevenue.map(d => d.rev), 1)
+          return (
+            <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 mb-6 shadow-sm">
+              <h3 className="font-[family-name:var(--font-playfair)] text-base font-bold text-[#1c1c1c] mb-4">📈 Revenue — Last 7 Days</h3>
+              <div className="flex items-end gap-2 h-28">
+                {dayRevenue.map(({ label, rev }) => (
+                  <div key={label} className="flex-1 flex flex-col items-center gap-1">
+                    <span className="text-[10px] font-bold text-[#1a5c38]">{rev > 0 ? `₹${rev}` : ''}</span>
+                    <div className="w-full rounded-t-md transition-all"
+                      style={{
+                        height: `${Math.round((rev / maxRev) * 80)}px`,
+                        minHeight: rev > 0 ? '4px' : '0',
+                        background: 'linear-gradient(to top, #1a5c38, #2d7a50)',
+                      }} />
+                    <span className="text-[9px] text-gray-400 text-center leading-tight">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Low Balance Alerts */}
         {(() => {
           const lowBalance = wallets
@@ -345,6 +414,8 @@ setWallets(allWallets || [])
     { id: 'delivery', label: 'Delivery Agents', icon: '🚴' },
     { id: 'products', label: 'Products & Pricing', icon: '🥛' },
     { id: 'reviews', label: 'Reviews', icon: '⭐' },
+    { id: 'discounts', label: 'Discount Codes', icon: '🏷️' },
+    { id: 'reports', label: 'Issue Reports', icon: '⚠️' },
   ].map(({ id, label, icon }) => (
             <button key={id} onClick={() => setActiveTab(id)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition whitespace-nowrap ${
@@ -710,13 +781,38 @@ setWallets(allWallets || [])
                         <p className="text-xs text-gray-400">Near: {customer.landmark}</p>
                       )}
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-xs text-gray-400">Joined</p>
-                      <p className="text-xs font-semibold text-[#1c1c1c]">
-                        {new Date(customer.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </p>
+                    <div className="text-right flex-shrink-0 flex flex-col items-end gap-1">
+                      <p className="text-xs text-gray-400">Joined {new Date(customer.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                      {(() => {
+                        const w = wallets.find(w => w.user_id === customer.id)
+                        if (!w?.deposit_balance || w.deposit_balance <= 0) return null
+                        return (
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-xs text-[#d4a017] font-semibold">🍼 Deposit: ₹{w.deposit_balance}</span>
+                            <button
+                              disabled={refundingUserId === customer.id}
+                              onClick={async () => {
+                                if (!confirm(`Refund ₹${w.deposit_balance} deposit to ${customer.full_name}?`)) return
+                                setRefundingUserId(customer.id)
+                                const { data: { session } } = await supabase.auth.getSession()
+                                const res = await fetch('/api/admin/refund-deposit', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                                  body: JSON.stringify({ user_id: customer.id, amount: w.deposit_balance }),
+                                })
+                                if (res.ok) {
+                                  setWallets(prev => prev.map(ww => ww.user_id === customer.id ? { ...ww, deposit_balance: 0 } : ww))
+                                }
+                                setRefundingUserId(null)
+                              }}
+                              className="text-xs bg-[#d4a017] text-white px-3 py-1 rounded-lg hover:bg-[#b8860b] transition font-semibold disabled:opacity-50">
+                              {refundingUserId === customer.id ? 'Processing...' : 'Refund Deposit'}
+                            </button>
+                          </div>
+                        )
+                      })()}
                       <a href={'https://wa.me/91' + customer.phone} target="_blank"
-                        className="mt-2 flex items-center gap-1 text-xs text-[#25D366] font-semibold hover:underline">
+                        className="flex items-center gap-1 text-xs text-[#25D366] font-semibold hover:underline">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3 h-3" fill="#25D366">
                           <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
                         </svg>
@@ -1215,6 +1311,211 @@ setWallets(allWallets || [])
         ))}
       </div>
     )}
+  </div>
+)}
+
+{/* Discount Codes Tab */}
+{activeTab === 'discounts' && (
+  <div className="flex flex-col gap-6">
+    {/* Add new code */}
+    <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
+      <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-4">🏷️ Add Discount Code</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+        <div>
+          <label className="text-xs font-semibold text-gray-600 mb-1 block">Code *</label>
+          <input type="text" placeholder="e.g. SUMMER20"
+            value={newCode.code}
+            onChange={e => setNewCode(c => ({ ...c, code: e.target.value.toUpperCase() }))}
+            className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-600 mb-1 block">Discount % *</label>
+          <input type="number" placeholder="e.g. 15" min="1" max="99"
+            value={newCode.percent}
+            onChange={e => setNewCode(c => ({ ...c, percent: e.target.value }))}
+            className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-600 mb-1 block">Description (optional)</label>
+          <input type="text" placeholder="e.g. Summer promotion"
+            value={newCode.description}
+            onChange={e => setNewCode(c => ({ ...c, description: e.target.value }))}
+            className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
+        </div>
+      </div>
+      <button
+        disabled={discountSaving || !newCode.code.trim() || !newCode.percent}
+        onClick={async () => {
+          setDiscountSaving(true)
+          const { data: { session } } = await supabase.auth.getSession()
+          const res = await fetch('/api/admin/discount-codes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+            body: JSON.stringify({ code: newCode.code.trim(), percent: parseInt(newCode.percent), description: newCode.description.trim() }),
+          })
+          if (res.ok) {
+            const { data } = await res.json()
+            setDiscountCodes(prev => [data, ...prev])
+            setNewCode({ code: '', percent: '', description: '' })
+          }
+          setDiscountSaving(false)
+        }}
+        className="bg-[#1a5c38] text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-[#14472c] transition disabled:opacity-50">
+        {discountSaving ? 'Saving...' : '+ Add Code'}
+      </button>
+    </div>
+
+    {/* Existing codes */}
+    <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+      <div className="px-6 py-5 border-b border-[#f5f0e8]">
+        <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Active Discount Codes</h3>
+        <p className="text-xs text-gray-400 mt-0.5">{discountCodes.length} codes total</p>
+      </div>
+      {discountCodes.length === 0 ? (
+        <div className="px-6 py-12 text-center text-gray-400 text-sm">No discount codes yet. Add one above.</div>
+      ) : (
+        <div className="divide-y divide-[#f5f0e8]">
+          {discountCodes.map((dc) => (
+            <div key={dc.id} className="px-6 py-4 flex items-center gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-bold text-[#1a5c38] text-base">{dc.code}</span>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${dc.is_active ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-gray-100 text-gray-400'}`}>
+                    {dc.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                <p className="text-sm text-[#d4a017] font-bold mt-0.5">{dc.percent}% off</p>
+                {dc.description && <p className="text-xs text-gray-400 mt-0.5">{dc.description}</p>}
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <button onClick={async () => {
+                  const { data: { session } } = await supabase.auth.getSession()
+                  const res = await fetch('/api/admin/discount-codes', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                    body: JSON.stringify({ id: dc.id, is_active: !dc.is_active }),
+                  })
+                  if (res.ok) setDiscountCodes(prev => prev.map(x => x.id === dc.id ? { ...x, is_active: !dc.is_active } : x))
+                }} className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition ${dc.is_active ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4] hover:bg-[#e0f5ea]'}`}>
+                  {dc.is_active ? 'Disable' : 'Enable'}
+                </button>
+                <button onClick={async () => {
+                  if (!confirm(`Delete code "${dc.code}"?`)) return
+                  const { data: { session } } = await supabase.auth.getSession()
+                  const res = await fetch('/api/admin/discount-codes', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                    body: JSON.stringify({ id: dc.id }),
+                  })
+                  if (res.ok) setDiscountCodes(prev => prev.filter(x => x.id !== dc.id))
+                }} className="text-xs bg-red-50 text-red-500 border border-red-200 px-3 py-1.5 rounded-lg font-semibold hover:bg-red-100 transition">
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+)}
+
+{/* Issue Reports Tab */}
+{activeTab === 'reports' && (
+  <div className="flex flex-col gap-6">
+    {/* Missed Delivery Reports */}
+    <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+      <div className="px-6 py-5 border-b border-[#f5f0e8]">
+        <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">⚠️ Missed Delivery Reports</h3>
+        <p className="text-xs text-gray-400 mt-0.5">{missedReports.length} reports total</p>
+      </div>
+      {missedReports.length === 0 ? (
+        <div className="px-6 py-12 text-center text-gray-400 text-sm">No missed delivery reports. Great!</div>
+      ) : (
+        <div className="divide-y divide-[#f5f0e8]">
+          {missedReports.map((r) => {
+            const profile = r.profiles
+            const order = r.orders
+            const dateStr = order?.delivery_date ? new Date(order.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+            const slot = order?.delivery_slot === 'morning' ? 'Morning (7AM–9AM)' : 'Evening (5PM–7PM)'
+            const address = [profile?.flat_number, profile?.apartment_name, profile?.area].filter(Boolean).join(', ')
+            return (
+              <div key={r.id} className="px-6 py-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-semibold text-sm text-[#1c1c1c]">{profile?.full_name || 'Customer'}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">📞 {profile?.phone || 'N/A'} · 📍 {address || 'N/A'}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">🥛 {order?.products?.size || 'Milk'} · 📅 {dateStr} · ⏰ {slot}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <span className="text-xs bg-red-50 text-red-600 border border-red-200 font-semibold px-2 py-0.5 rounded-full">Reported</span>
+                    <p className="text-xs text-gray-400 mt-1">{new Date(r.reported_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+
+    {/* Quality Feedback */}
+    <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+      <div className="px-6 py-5 border-b border-[#f5f0e8]">
+        <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">👎 Quality Feedback</h3>
+        <p className="text-xs text-gray-400 mt-0.5">{qualityReports.length} reports</p>
+      </div>
+      {qualityReports.length === 0 ? (
+        <div className="px-6 py-12 text-center text-gray-400 text-sm">No quality complaints. Excellent!</div>
+      ) : (
+        <div className="divide-y divide-[#f5f0e8]">
+          {qualityReports.map((r) => {
+            const dateStr = r.orders?.delivery_date
+              ? new Date(r.orders.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+              : '—'
+            return (
+              <div key={r.id} className="px-6 py-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-semibold text-sm text-[#1c1c1c]">{r.profiles?.full_name || 'Customer'}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">📞 {r.profiles?.phone || 'N/A'} · 🥛 {r.orders?.products?.size || 'Milk'} · {dateStr}</p>
+                    <p className="text-sm text-orange-700 mt-1 italic">"{r.issue}"</p>
+                  </div>
+                  <p className="text-xs text-gray-400 flex-shrink-0">{new Date(r.reported_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+
+    {/* Bulk Enquiries */}
+    <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+      <div className="px-6 py-5 border-b border-[#f5f0e8]">
+        <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">📦 Bulk Order Enquiries</h3>
+        <p className="text-xs text-gray-400 mt-0.5">{bulkEnquiries.length} enquiries total</p>
+      </div>
+      {bulkEnquiries.length === 0 ? (
+        <div className="px-6 py-12 text-center text-gray-400 text-sm">No bulk enquiries yet.</div>
+      ) : (
+        <div className="divide-y divide-[#f5f0e8]">
+          {bulkEnquiries.map((e) => (
+            <div key={e.id} className="px-6 py-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-semibold text-sm text-[#1c1c1c]">{e.name}</p>
+                  {e.institution && <p className="text-xs text-gray-500 mt-0.5">🏢 {e.institution}</p>}
+                  <p className="text-xs text-gray-500 mt-0.5">📞 {e.phone}{e.quantity ? ` · 🥛 ${e.quantity}` : ''}</p>
+                  {e.message && <p className="text-xs text-gray-400 mt-1 italic">"{e.message}"</p>}
+                </div>
+                <p className="text-xs text-gray-400 flex-shrink-0">{new Date(e.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   </div>
 )}
 

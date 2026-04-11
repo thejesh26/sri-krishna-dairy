@@ -29,6 +29,7 @@ export default function DeliveryDashboard() {
   const { showSuccess, showError, showInfo } = useToast()
   const [deliveringId, setDeliveringId] = useState(null)
   const [deliveredSubs, setDeliveredSubs] = useState(new Set())
+  const [deliverySort, setDeliverySort] = useState('area')
 
   useEffect(() => { checkDelivery() }, [])
 
@@ -238,13 +239,19 @@ export default function DeliveryDashboard() {
     </div>
   )
 
-  const filteredOrders = activeTab === 'pending'
+  const filteredOrders = (activeTab === 'pending'
     ? orders.filter(o => o.status === 'pending')
     : activeTab === 'out'
     ? orders.filter(o => o.status === 'out_for_delivery')
     : activeTab === 'delivered'
     ? orders.filter(o => o.status === 'delivered')
     : orders
+  ).slice().sort((a, b) => {
+    const pa = a.profiles, pb = b.profiles
+    if (deliverySort === 'area') return (pa?.area || '').localeCompare(pb?.area || '')
+    if (deliverySort === 'building') return (pa?.apartment_name || '').localeCompare(pb?.apartment_name || '')
+    return (pa?.full_name || '').localeCompare(pb?.full_name || '')
+  })
 
   return (
     <div className="min-h-screen bg-[#fdfbf7]">
@@ -300,15 +307,28 @@ export default function DeliveryDashboard() {
         {/* Subscription Deliveries */}
         {subscriptions.length > 0 && (
           <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden mb-5 shadow-sm">
-            <div className="px-5 py-4 border-b border-[#f5f0e8] flex items-center justify-between">
-              <h3 className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c]">
-                Subscription Deliveries
-              </h3>
-              <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-bold px-3 py-1 rounded-full border border-[#f0dfa0]">
-                {subscriptions.length} customers
-              </span>
+            <div className="px-5 py-4 border-b border-[#f5f0e8] flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <h3 className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c]">
+                  Subscription Deliveries
+                </h3>
+                <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-bold px-3 py-1 rounded-full border border-[#f0dfa0]">
+                  {subscriptions.length} customers
+                </span>
+              </div>
+              <select value={deliverySort} onChange={e => setDeliverySort(e.target.value)}
+                className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-1.5 text-[#1c1c1c] bg-[#fdfbf7] focus:outline-none focus:border-[#1a5c38]">
+                <option value="area">Sort by Area</option>
+                <option value="building">Sort by Building</option>
+                <option value="name">Sort by Name</option>
+              </select>
             </div>
-            {subscriptions.map((sub, index) => (
+            {[...subscriptions].sort((a, b) => {
+              const pa = a.profiles, pb = b.profiles
+              if (deliverySort === 'area') return (pa?.area || '').localeCompare(pb?.area || '')
+              if (deliverySort === 'building') return (pa?.apartment_name || '').localeCompare(pb?.apartment_name || '')
+              return (pa?.full_name || '').localeCompare(pb?.full_name || '')
+            }).map((sub, index) => (
               <div key={sub.id}
                 className={`px-5 py-4 ${index !== subscriptions.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
                 <div className="flex items-start gap-3">
@@ -356,6 +376,14 @@ export default function DeliveryDashboard() {
         )}
 
         {/* Order Tabs */}
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <select value={deliverySort} onChange={e => setDeliverySort(e.target.value)}
+            className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 text-[#1c1c1c] bg-white focus:outline-none focus:border-[#1a5c38] shadow-sm">
+            <option value="area">Sort by Area</option>
+            <option value="building">Sort by Building</option>
+            <option value="name">Sort by Name</option>
+          </select>
+        </div>
         <div className="flex gap-1 mb-4 bg-white border border-[#e8e0d0] rounded-xl p-1 shadow-sm overflow-x-auto">
           {[
             { id: 'all',       label: 'All',       count: stats.total     },

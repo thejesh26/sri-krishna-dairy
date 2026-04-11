@@ -134,6 +134,17 @@ async function notifySubscriptionStopped({ phone, name, balance }) {
   )
 }
 
+async function notifySubscriptionExpiryReminder({ phone, name, product, endDate, daysLeft }) {
+  await sendWhatsAppMessage(phone,
+    `Hi ${name}! ⏰ Your milk subscription ends in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}!\n\n` +
+    `Product: ${product}\n` +
+    `End date: ${endDate}\n\n` +
+    `Renew now to keep enjoying fresh milk every day:\n` +
+    `srikrishnaadairy.in/subscribe\n\n` +
+    `- Sri Krishnaa Dairy Team`
+  )
+}
+
 export {
   sendWhatsAppMessage,
   sendWhatsAppToAdmin,
@@ -142,4 +153,5 @@ export {
   notifyOrderDelivered,
   notifyLowBalance,
   notifySubscriptionStopped,
+  notifySubscriptionExpiryReminder,
 }

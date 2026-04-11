@@ -80,7 +80,8 @@ export default function Subscribe() {
     ? Math.round(selectedProduct.price * quantity * (1 - discount / 100))
     : 0
 
-  const bottleDeposit = deliveryMode === 'keep_bottle' ? BOTTLE_DEPOSIT * Math.max(2, quantity) : 0
+  const is500mlTrial = selectedProduct?.size === '500ml'
+  const bottleDeposit = !is500mlTrial && deliveryMode === 'keep_bottle' ? BOTTLE_DEPOSIT * Math.max(2, quantity) : 0
   const firstPayment = dailyPrice + bottleDeposit
 
   const totalDays = subscriptionType === 'oneday' ? 1
@@ -310,6 +311,9 @@ export default function Subscribe() {
                   <div className="text-3xl mb-2">🥛</div>
                   <p className="font-bold text-[#1c1c1c] text-sm">{product.size}</p>
                   <p className="text-[#1a5c38] font-extrabold">Rs.{product.price}/day</p>
+                  {product.size === '500ml' && (
+                    <span className="inline-block mt-1 text-[10px] bg-[#d4a017] text-white font-bold px-2 py-0.5 rounded-full">Trial · No Deposit</span>
+                  )}
                 </button>
               ))}
             </div>
@@ -360,33 +364,42 @@ export default function Subscribe() {
           <div className="bg-white rounded-xl p-5 shadow-sm border border-[#e8e0d0]">
             <p className="text-sm font-bold text-[#1c1c1c] mb-1 font-[family-name:var(--font-playfair)]">Bottle Delivery Mode</p>
             <p className="text-xs text-gray-400 mb-4">Choose how you want to receive your milk</p>
-            <div className="grid grid-cols-2 gap-3">
-              <button type="button" onClick={() => setDeliveryMode('keep_bottle')}
-                className={`border-2 rounded-xl p-4 text-center transition ${
-                  deliveryMode === 'keep_bottle' ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#1a5c38]'
-                }`}>
-                <div className="text-3xl mb-1">🏺</div>
-                <p className="font-bold text-[#1c1c1c] text-sm">Keep Bottle</p>
-                <p className="text-xs text-gray-400 mt-1">Rs.100/bottle deposit</p>
-                <p className="text-xs text-[#1a5c38] font-semibold">Refundable</p>
-              </button>
-              <button type="button" onClick={() => setDeliveryMode('direct')}
-                className={`border-2 rounded-xl p-4 text-center transition ${
-                  deliveryMode === 'direct' ? 'border-[#d4a017] bg-[#fdf6e3]' : 'border-[#e8e0d0] hover:border-[#d4a017]'
-                }`}>
-                <div className="text-3xl mb-1">🔄</div>
-                <p className="font-bold text-[#1c1c1c] text-sm">Direct Delivery</p>
-                <p className="text-xs text-gray-400 mt-1">Bottle taken back</p>
-                <p className="text-xs text-[#d4a017] font-semibold">No deposit</p>
-              </button>
-            </div>
-            {deliveryMode === 'keep_bottle' && (
-              <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-lg p-3 mt-3">
-                <p className="text-xs text-[#1a5c38] font-semibold">
-                  Bottle deposit: Rs.{BOTTLE_DEPOSIT} x {Math.max(2, quantity)} = Rs.{bottleDeposit}
-                </p>
-                <p className="text-xs text-[#1a5c38] mt-1">Minimum deposit is for 2 bottles (Rs.200). Fully refundable.</p>
+            {is500mlTrial ? (
+              <div className="bg-[#fdf6e3] border border-[#d4a017] rounded-xl p-4 text-center">
+                <p className="text-sm font-bold text-[#d4a017]">🎉 Trial Pack — No Bottle Deposit!</p>
+                <p className="text-xs text-gray-500 mt-1">Our delivery person will collect the bottle after each delivery. No deposit charged for the 500ml trial.</p>
               </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <button type="button" onClick={() => setDeliveryMode('keep_bottle')}
+                    className={`border-2 rounded-xl p-4 text-center transition ${
+                      deliveryMode === 'keep_bottle' ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#1a5c38]'
+                    }`}>
+                    <div className="text-3xl mb-1">🏺</div>
+                    <p className="font-bold text-[#1c1c1c] text-sm">Keep Bottle</p>
+                    <p className="text-xs text-gray-400 mt-1">Rs.100/bottle deposit</p>
+                    <p className="text-xs text-[#1a5c38] font-semibold">Refundable</p>
+                  </button>
+                  <button type="button" onClick={() => setDeliveryMode('direct')}
+                    className={`border-2 rounded-xl p-4 text-center transition ${
+                      deliveryMode === 'direct' ? 'border-[#d4a017] bg-[#fdf6e3]' : 'border-[#e8e0d0] hover:border-[#d4a017]'
+                    }`}>
+                    <div className="text-3xl mb-1">🔄</div>
+                    <p className="font-bold text-[#1c1c1c] text-sm">Direct Delivery</p>
+                    <p className="text-xs text-gray-400 mt-1">Bottle taken back</p>
+                    <p className="text-xs text-[#d4a017] font-semibold">No deposit</p>
+                  </button>
+                </div>
+                {deliveryMode === 'keep_bottle' && (
+                  <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-lg p-3 mt-3">
+                    <p className="text-xs text-[#1a5c38] font-semibold">
+                      Bottle deposit: Rs.{BOTTLE_DEPOSIT} x {Math.max(2, quantity)} = Rs.{bottleDeposit}
+                    </p>
+                    <p className="text-xs text-[#1a5c38] mt-1">Minimum deposit is for 2 bottles (Rs.200). Fully refundable.</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
 

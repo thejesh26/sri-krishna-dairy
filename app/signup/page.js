@@ -106,6 +106,12 @@ export default function SignUp() {
             referred_id: data.user.id,
             status: 'pending',
           })
+
+          // Credit new customer with 200 welcome loyalty points (referral bonus)
+          await supabase
+            .from('profiles')
+            .update({ loyalty_points: 200 })
+            .eq('id', data.user.id)
         }
       }
       setMessage('Account created successfully! Redirecting to login...')
@@ -256,7 +262,7 @@ export default function SignUp() {
                 value={form.referral_code}
                 onChange={(e) => setForm({ ...form, referral_code: e.target.value.toUpperCase() })}
                 className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#d4a017] bg-[#fdfbf7]" />
-              <p className="text-xs text-gray-400 mt-1">🎁 You and your referrer both get 500ml free milk for 4 days!</p>
+              <p className="text-xs text-gray-400 mt-1">🎁 You get 200 bonus loyalty points + your referrer gets a reward too!</p>
             </div>
 
             <button type="submit" disabled={loading}

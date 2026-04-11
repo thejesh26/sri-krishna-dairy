@@ -95,7 +95,7 @@ export async function POST(request) {
     // ── 3. Fetch the real product price from the DB (never trust client) ─────
     const { data: product, error: productError } = await supabase
       .from('products')
-      .select('id, price, is_available')
+      .select('id, price, size, is_available')
       .eq('id', product_id)
       .single()
 
@@ -109,13 +109,26 @@ export async function POST(request) {
     // ── 4. Validate discount code server-side ────────────────────────────────
     let discountPercent = 0
     if (discount_code && typeof discount_code === 'string') {
-      discountPercent = DISCOUNT_CODES[discount_code.trim().toUpperCase()] ?? 0
+      const code = discount_code.trim().toUpperCase()
+      // Check DB-managed codes first
+      const { data: dbCode } = await supabase
+        .from('discount_codes')
+        .select('percent')
+        .eq('code', code)
+        .eq('is_active', true)
+        .maybeSingle()
+      if (dbCode) {
+        discountPercent = dbCode.percent
+      } else {
+        discountPercent = DISCOUNT_CODES[code] ?? 0
+      }
     }
 
     // ── 5. Compute authoritative price ──────────────────────────────────────
     const milkPrice = Math.round(product.price * qty * (1 - discountPercent / 100))
+    const is500mlTrial = product.size === '500ml'
     const bottleDeposit =
-      delivery_mode === 'keep_bottle'
+      !is500mlTrial && delivery_mode === 'keep_bottle'
         ? BOTTLE_DEPOSIT_PER_UNIT * Math.max(MIN_BOTTLE_UNITS, qty)
         : 0
     const totalPrice = milkPrice + bottleDeposit
@@ -157,7 +170,31 @@ export async function POST(request) {
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
-    // ── 8. Send confirmation email + WhatsApp (non-blocking) ────────────────
+    // ── 8. Track bottle deposit in wallet.deposit_balance ───────────────────
+    if (bottleDeposit > 0) {
+      try {
+        const { data: walletRow } = await supabase
+          .from('wallet')
+          .select('id, deposit_balance')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (walletRow) {
+          await supabase
+            .from('wallet')
+            .update({ deposit_balance: (walletRow.deposit_balance || 0) + bottleDeposit })
+            .eq('user_id', user.id)
+        } else {
+          await supabase
+            .from('wallet')
+            .insert({ user_id: user.id, balance: 0, deposit_balance: bottleDeposit })
+        }
+      } catch {
+        // Deposit tracking failure must not block order creation
+      }
+    }
+
+    // ── 9. Send confirmation email + WhatsApp (non-blocking) ────────────────
     try {
       const { data: profile } = await supabase
         .from('profiles')

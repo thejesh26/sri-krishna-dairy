@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [subscriptions, setSubscriptions] = useState([])
   const [loading, setLoading] = useState(true)
   const [walletBalance, setWalletBalance] = useState(0)
+  const [depositBalance, setDepositBalance] = useState(0)
   const [transactions, setTransactions] = useState([])
   const [referrals, setReferrals] = useState([])
   const [openFaq, setOpenFaq] = useState(null)
@@ -33,6 +34,10 @@ export default function Dashboard() {
   const [inactiveSubs, setInactiveSubs] = useState([])
   const [reactivatingId, setReactivatingId] = useState(null)
   const [reactivateMsg, setReactivateMsg] = useState('')
+  const [reportedOrders, setReportedOrders] = useState(new Set())
+  const [qualityFeedbackOpen, setQualityFeedbackOpen] = useState(null) // order id
+  const [qualityIssue, setQualityIssue] = useState('')
+  const [qualitySubmitted, setQualitySubmitted] = useState(new Set())
 
   useEffect(() => { getUser() }, [])
 
@@ -70,6 +75,7 @@ export default function Dashboard() {
 
     const { data: walletData } = await supabase.from('wallet').select('*').eq('user_id', u.id).limit(1)
     setWalletBalance(walletData?.[0]?.balance || 0)
+    setDepositBalance(walletData?.[0]?.deposit_balance || 0)
 
     const { data: txns } = await supabase.from('wallet_transactions').select('*')
       .eq('user_id', u.id).order('created_at', { ascending: false }).limit(50)
@@ -242,6 +248,9 @@ export default function Dashboard() {
                 ₹{walletBalance}
               </p>
               <p className="text-green-300 text-xs mt-1 uppercase tracking-widest">Wallet</p>
+              {depositBalance > 0 && (
+                <p className="text-[#d4a017] text-[10px] mt-0.5 opacity-80">+₹{depositBalance} deposit</p>
+              )}
             </div>
           </div>
         </div>
@@ -456,7 +465,8 @@ export default function Dashboard() {
               ) : (
                 orders.map((order, index) => (
                   <div key={order.id}
-                    className={`px-6 py-5 flex items-center gap-4 ${index !== orders.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                    className={`${index !== orders.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                    <div className="px-6 py-5 flex items-center gap-4">
                     <div className="w-14 h-14 rounded-2xl bg-[#f5f0e8] flex items-center justify-center text-3xl flex-shrink-0">🥛</div>
                     <div className="flex-1">
                       <p className="font-semibold text-[#1c1c1c] text-sm">{order.products?.size} Fresh Cow Milk</p>
@@ -480,8 +490,61 @@ export default function Dashboard() {
                       }} className="text-[10px] text-[#1a5c38] underline underline-offset-2 hover:text-[#14472c]">
                         Invoice
                       </button>
+                      {order.status === 'delivered' && !reportedOrders.has(order.id) && (
+                        <button onClick={async () => {
+                          const { data: { session } } = await supabase.auth.getSession()
+                          await fetch('/api/missed-delivery', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                            body: JSON.stringify({ order_id: order.id }),
+                          })
+                          setReportedOrders(prev => new Set([...prev, order.id]))
+                        }} className="text-[10px] text-red-500 underline underline-offset-2 hover:text-red-700">
+                          Report Issue
+                        </button>
+                      )}
+                      {reportedOrders.has(order.id) && (
+                        <span className="text-[10px] text-gray-400">Reported ✓</span>
+                      )}
+                      {order.status === 'delivered' && !qualitySubmitted.has(order.id) && (
+                        <button onClick={() => setQualityFeedbackOpen(qualityFeedbackOpen === order.id ? null : order.id)}
+                          className="text-[10px] text-orange-500 underline underline-offset-2 hover:text-orange-700">
+                          👎 Quality Issue
+                        </button>
+                      )}
+                      {qualitySubmitted.has(order.id) && (
+                        <span className="text-[10px] text-gray-400">Feedback sent ✓</span>
+                      )}
                     </div>
-                  </div>
+                    </div>{/* closes inner flex row */}
+                  {qualityFeedbackOpen === order.id && (
+                    <div className="mx-6 mb-4 bg-orange-50 border border-orange-200 rounded-xl p-3 flex flex-col gap-2">
+                      <p className="text-xs font-semibold text-orange-700">Describe the quality issue</p>
+                      <textarea rows={2} placeholder="e.g. Milk smelled off, bottle was cracked..."
+                        value={qualityIssue}
+                        onChange={e => setQualityIssue(e.target.value)}
+                        className="w-full border border-orange-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-orange-400 resize-none bg-white" />
+                      <div className="flex gap-2 justify-end">
+                        <button onClick={() => { setQualityFeedbackOpen(null); setQualityIssue('') }}
+                          className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1">Cancel</button>
+                        <button onClick={async () => {
+                          if (!qualityIssue.trim()) return
+                          const { data: { session } } = await supabase.auth.getSession()
+                          await fetch('/api/quality-feedback', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                            body: JSON.stringify({ order_id: order.id, issue: qualityIssue }),
+                          })
+                          setQualitySubmitted(prev => new Set([...prev, order.id]))
+                          setQualityFeedbackOpen(null)
+                          setQualityIssue('')
+                        }} className="text-xs bg-orange-500 text-white font-bold px-3 py-1 rounded-lg hover:bg-orange-600 transition">
+                          Submit
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  </div>{/* closes outer order wrapper */}
                 ))
               )}
             </div>
@@ -741,13 +804,29 @@ export default function Dashboard() {
                         {order.delivery_slot === 'morning' ? ' 🌅 Morning' : ' 🌆 Evening'}
                       </p>
                     </div>
-                    <div className="text-right flex-shrink-0">
+                    <div className="text-right flex-shrink-0 flex flex-col items-end gap-1">
                       <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
                         order.status === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' :
                         order.status === 'pending'   ? 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]' :
                         'bg-gray-50 text-gray-500 border border-gray-200'
                       }`}>{order.status}</span>
-                      <p className="font-bold text-[#1a5c38] text-sm mt-1">₹{order.total_price}</p>
+                      <p className="font-bold text-[#1a5c38] text-sm">₹{order.total_price}</p>
+                      {order.status === 'delivered' && !reportedOrders.has(order.id) && (
+                        <button onClick={async () => {
+                          const { data: { session } } = await supabase.auth.getSession()
+                          await fetch('/api/missed-delivery', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                            body: JSON.stringify({ order_id: order.id }),
+                          })
+                          setReportedOrders(prev => new Set([...prev, order.id]))
+                        }} className="text-[10px] text-red-500 underline underline-offset-2 hover:text-red-700">
+                          Report Issue
+                        </button>
+                      )}
+                      {reportedOrders.has(order.id) && (
+                        <span className="text-[10px] text-gray-400">Reported ✓</span>
+                      )}
                     </div>
                   </div>
                 ))

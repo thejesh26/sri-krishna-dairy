@@ -495,3 +495,35 @@ Open admin panel: https://srikrishnaadairy.in/admin`
     text,
   })
 }
+
+export async function sendSubscriptionExpiryReminderEmail({ to, name, product, endDate, daysLeft }) {
+  const html = wrapLayout('Your Subscription is Ending Soon', `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#1c1c1c;">Hi ${name || 'there'} 👋</h2>
+    <p style="margin:0 0 16px;font-size:15px;color:#4a4a4a;">Your Sri Krishnaa Dairy subscription is ending in <strong style="color:#b91c1c;">${daysLeft} day${daysLeft !== 1 ? 's' : ''}</strong>.</p>
+
+    <table style="width:100%;border-collapse:collapse;background:#fdf6e3;border:1px solid #f0dfa0;border-radius:12px;overflow:hidden;margin-bottom:20px;">
+      <tr>
+        <td style="padding:12px 16px;font-size:13px;color:#92400e;">📦 Product</td>
+        <td style="padding:12px 16px;font-size:14px;font-weight:bold;color:#1c1c1c;">${product}</td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-size:13px;color:#92400e;border-top:1px solid #f0dfa0;">📅 End Date</td>
+        <td style="padding:12px 16px;font-size:14px;font-weight:bold;color:#1c1c1c;border-top:1px solid #f0dfa0;">${endDate}</td>
+      </tr>
+    </table>
+
+    <p style="margin:0 0 20px;font-size:14px;color:#4a4a4a;">To keep receiving fresh milk without interruption, renew your subscription from your dashboard before it ends.</p>
+
+    <div style="text-align:center;">
+      <a href="https://srikrishnaadairy.in/subscribe" style="display:inline-block;background:linear-gradient(135deg,#1a5c38,#2d7a50);color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:14px 32px;border-radius:8px;">Renew Subscription</a>
+    </div>`)
+
+  const text = `Hi ${name || 'there'},\n\nYour Sri Krishnaa Dairy subscription ends in ${daysLeft} day(s) on ${endDate}.\n\nRenew here: https://srikrishnaadairy.in/subscribe`
+
+  return sendEmail({
+    to,
+    subject: `Your subscription ends in ${daysLeft} day${daysLeft !== 1 ? 's' : ''} — Sri Krishnaa Dairy`,
+    html,
+    text,
+  })
+}

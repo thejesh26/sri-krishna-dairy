@@ -80,14 +80,28 @@ export async function POST(request) {
       )
     }
 
-    // --- Lookup ---
-    const discount = DISCOUNT_CODES[code]
+    // --- Lookup: check DB first, then fall back to env-var codes ---
+    const { data: dbCode } = await supabase
+      .from('discount_codes')
+      .select('percent, description')
+      .eq('code', code)
+      .eq('is_active', true)
+      .maybeSingle()
 
-    if (discount) {
+    if (dbCode) {
       return NextResponse.json({
         valid: true,
-        percent: discount.percent,
-        message: discount.label,
+        percent: dbCode.percent,
+        message: dbCode.description ? `${dbCode.percent}% off — ${dbCode.description}` : `${dbCode.percent}% off applied!`,
+      })
+    }
+
+    const envDiscount = DISCOUNT_CODES[code]
+    if (envDiscount) {
+      return NextResponse.json({
+        valid: true,
+        percent: envDiscount.percent,
+        message: envDiscount.label,
       })
     }
 

@@ -102,7 +102,7 @@ export async function GET(request, { params }) {
       <h1>Sri Krishnaa Dairy Farms</h1>
       <p>Kattigenahalli, Bangalore – 562157</p>
       <p>Phone: +91 99801 66221</p>
-      <p>Email: srikrishnaadairyfarms@gmail.com</p>
+      <p>Email: orders@srikrishnaadairy.in</p>
     </div>
     <div class="invoice-meta">
       <div class="inv-num">${invoiceNumber}</div>
@@ -156,8 +156,8 @@ export async function GET(request, { params }) {
 
   <div class="footer">
     <p>Thank you for choosing <strong>Sri Krishnaa Dairy Farms</strong>!</p>
-    <p style="margin-top:6px">FSSAI License No. 11224999000437 &nbsp;|&nbsp; This is a computer-generated invoice and does not require a signature.</p>
-    <p style="margin-top:4px">For queries: srikrishnaadairyfarms@gmail.com | +91 99801 66221</p>
+    <p style="margin-top:6px">FSSAI License No. 21225008004544 &nbsp;|&nbsp; This is a computer-generated invoice and does not require a signature.</p>
+    <p style="margin-top:4px">For queries: orders@srikrishnaadairy.in | +91 99801 66221</p>
   </div>
 </div>
 </body>

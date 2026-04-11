@@ -176,7 +176,7 @@ export default function Wallet() {
         )}
 
         {/* Wallet Balance Card */}
-        <div className="rounded-2xl p-8 mb-6 text-white relative overflow-hidden shadow-xl"
+        <div className="rounded-2xl p-8 mb-4 text-white relative overflow-hidden shadow-xl"
           style={{background: wallet?.balance === 0 ? 'linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%)' : wallet?.balance < 300 ? 'linear-gradient(135deg, #78350f 0%, #b45309 100%)' : 'linear-gradient(135deg, #0d3320 0%, #1a5c38 100%)'}}>
           <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full opacity-10"
             style={{background:'radial-gradient(circle, #d4a017, transparent)'}}></div>
@@ -187,7 +187,27 @@ export default function Wallet() {
             <p className="font-[family-name:var(--font-playfair)] text-5xl font-bold text-white mb-1">
               Rs.{wallet?.balance || 0}
             </p>
-            <p className="text-green-300 text-sm">Sri Krishnaa Dairy Wallet</p>
+            <p className="text-green-300 text-sm">Spendable · used for daily deliveries</p>
+          </div>
+        </div>
+
+        {/* Refundable Deposit Card */}
+        <div className="rounded-2xl p-5 mb-6 border-2 border-dashed border-[#d4a017] bg-[#fdf6e3] flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-[#d4a017] bg-opacity-15 flex items-center justify-center text-xl flex-shrink-0">
+              🍼
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-[#92400e] uppercase tracking-widest mb-0.5">Refundable Deposit</p>
+              <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#78350f]">
+                Rs.{wallet?.deposit_balance || 0}
+              </p>
+              <p className="text-xs text-[#92400e] mt-0.5">Returned when you give back your bottles</p>
+            </div>
+          </div>
+          <div className="bg-[#d4a017] bg-opacity-10 border border-[#f0dfa0] rounded-xl px-3 py-2 text-center flex-shrink-0">
+            <p className="text-[10px] font-bold text-[#92400e] uppercase tracking-wider">Not Spendable</p>
+            <p className="text-[10px] text-[#b45309] mt-0.5">Held as security</p>
           </div>
         </div>
 
