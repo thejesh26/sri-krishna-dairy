@@ -145,6 +145,84 @@ async function notifySubscriptionExpiryReminder({ phone, name, product, endDate,
   )
 }
 
+async function notifyReferralCompleted({ phone, name, points }) {
+  await sendWhatsAppMessage(phone,
+    `Hi ${name}! 🎉 Congratulations!\n\n` +
+    `Your referral bonus of ${points} loyalty points has been credited!\n\n` +
+    `Your friend has been subscribing for 30 consecutive days.\n` +
+    `Keep referring to earn more rewards!\n\n` +
+    `View your rewards: srikrishnaadairy.in/dashboard\n` +
+    `- Sri Krishnaa Dairy Team`
+  )
+}
+
+async function notifyDepositRefund({ phone, name, refundAmount, goodBottles }) {
+  await sendWhatsAppMessage(phone,
+    `Hi ${name}! 💰 Your deposit refund is processed!\n\n` +
+    `Bottles returned: ${goodBottles} in good condition\n` +
+    `Refund amount: Rs.${refundAmount}\n` +
+    `Credited to: Your wallet balance\n\n` +
+    `The refund is now available in your wallet.\n` +
+    `srikrishnaadairy.in/wallet\n\n` +
+    `- Sri Krishnaa Dairy Team`
+  )
+}
+
+async function notifyCodUpsell({ phone, name }) {
+  await sendWhatsAppMessage(phone,
+    `Hi ${name}! 🥛 Loved our fresh milk?\n\n` +
+    `Subscribe now for daily delivery and save!\n` +
+    `✅ Farm fresh every morning\n` +
+    `✅ Automatic daily delivery\n` +
+    `✅ Easy wallet-based payment\n\n` +
+    `Subscribe here: srikrishnaadairy.in/subscribe\n\n` +
+    `- Sri Krishnaa Dairy Team`
+  )
+}
+
+async function notifyOrderCancelled({ phone, name, deliveryDate, refundAmount }) {
+  const dateLabel = new Date(deliveryDate).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
+  await sendWhatsAppMessage(phone,
+    `Hi ${name}! Your order for ${dateLabel} has been cancelled.\n\n` +
+    (refundAmount > 0 ? `Refund: Rs.${refundAmount} credited to your wallet.\n\n` : `COD order — no charge was applied.\n\n`) +
+    `Place a new order: srikrishnaadairy.in/order\n` +
+    `- Sri Krishnaa Dairy Team`
+  )
+}
+
+async function notifyUndelivered({ phone, name }) {
+  await sendWhatsAppMessage(phone,
+    `Hi ${name}! ℹ️ We couldn't confirm your milk delivery today.\n\n` +
+    `You have NOT been charged.\n\n` +
+    `If you did receive your milk, please contact us:\n` +
+    `📞 9980166221\n\n` +
+    `- Sri Krishnaa Dairy Team`
+  )
+}
+
+async function notifyAddonOrderConfirmed({ phone, name, dates, product, quantity, totalAmount }) {
+  const dateList = dates.slice(0, 3).map(d => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })).join(', ')
+  const extra = dates.length > 3 ? ` (+${dates.length - 3} more)` : ''
+  await sendWhatsAppMessage(phone,
+    `Hi ${name}! 🥛 Extra milk order confirmed!\n\n` +
+    `Product: ${product} x ${quantity}\n` +
+    `Date(s): ${dateList}${extra}\n` +
+    `Amount: Rs.${totalAmount} deducted from wallet\n\n` +
+    `- Sri Krishnaa Dairy Team`
+  )
+}
+
+async function notifyPointsExpiring({ phone, name, points, expiryDate }) {
+  const dateLabel = new Date(expiryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+  await sendWhatsAppMessage(phone,
+    `Hi ${name}! ⏰ Your ${points} loyalty points expire on ${dateLabel}!\n\n` +
+    `100 points = 1 free 1L milk delivery.\n` +
+    `Redeem before they expire!\n\n` +
+    `srikrishnaadairy.in/dashboard\n` +
+    `- Sri Krishnaa Dairy Team`
+  )
+}
+
 export {
   sendWhatsAppMessage,
   sendWhatsAppToAdmin,
@@ -154,4 +232,11 @@ export {
   notifyLowBalance,
   notifySubscriptionStopped,
   notifySubscriptionExpiryReminder,
+  notifyReferralCompleted,
+  notifyDepositRefund,
+  notifyCodUpsell,
+  notifyOrderCancelled,
+  notifyUndelivered,
+  notifyAddonOrderConfirmed,
+  notifyPointsExpiring,
 }

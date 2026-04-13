@@ -40,7 +40,7 @@ export default function PauseSubscription() {
 
   const getSubscriptions = async (userId) => {
     const { data } = await supabase
-      .from('subscriptions').select('*, products(*)')
+      .from('subscriptions').select('*, products(*), pause_days_used_this_month')
       .eq('user_id', userId).eq('is_active', true)
     setSubscriptions(data || [])
     if (data && data.length > 0) setSelectedSub(data[0])
@@ -69,9 +69,15 @@ export default function PauseSubscription() {
     if (!res.ok) {
       showError(result.error || 'Could not pause delivery.')
     } else {
-      showSuccess('Delivery paused for ' + new Date(pauseDate).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }))
-      setSelectedSub({ ...selectedSub, paused_dates: result.paused_dates })
-      setSubscriptions(subscriptions.map(s => s.id === selectedSub.id ? { ...s, paused_dates: result.paused_dates } : s))
+      const remaining = result.pause_days_remaining ?? null
+      showSuccess(
+        'Delivery paused for ' +
+        new Date(pauseDate).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }) +
+        (remaining !== null ? ` · ${remaining} pause day${remaining !== 1 ? 's' : ''} remaining this month` : '')
+      )
+      const updated = { ...selectedSub, paused_dates: result.paused_dates, pause_days_used_this_month: result.pause_days_used_this_month ?? selectedSub.pause_days_used_this_month }
+      setSelectedSub(updated)
+      setSubscriptions(subscriptions.map(s => s.id === selectedSub.id ? updated : s))
     }
     setLoading(false)
   }
@@ -218,13 +224,47 @@ export default function PauseSubscription() {
         </div>
 
         {/* 12 hour notice */}
-        <div className="bg-[#fdf6e3] border border-[#f0dfa0] rounded-xl p-4 mb-6 flex items-center gap-3">
+        <div className="bg-[#fdf6e3] border border-[#f0dfa0] rounded-xl p-4 mb-4 flex items-center gap-3">
           <span className="text-2xl">⏰</span>
           <div>
             <p className="text-[#d4a017] text-sm font-semibold">Pause at least 12 hours in advance</p>
             <p className="text-yellow-600 text-xs mt-0.5">Changes made after 8PM apply from day after tomorrow</p>
           </div>
         </div>
+
+        {/* Wallet not charged on paused days */}
+        <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-xl p-4 mb-4 flex items-center gap-3">
+          <span className="text-2xl">💰</span>
+          <div>
+            <p className="text-[#1a5c38] text-sm font-semibold">Your wallet will not be charged on paused days</p>
+            <p className="text-[#1a5c38] text-xs mt-0.5 opacity-80">Maximum 5 pause days per month</p>
+          </div>
+        </div>
+
+        {/* Pause days used this month */}
+        {selectedSub && (() => {
+          const used = selectedSub.pause_days_used_this_month || 0
+          const remaining = Math.max(0, 5 - used)
+          return (
+            <div className={`rounded-xl p-4 mb-4 ${remaining === 0 ? 'bg-red-50 border border-red-200' : 'bg-white border border-[#e8e0d0]'}`}>
+              <div className="flex justify-between items-center mb-2">
+                <p className={`text-sm font-semibold ${remaining === 0 ? 'text-red-700' : 'text-[#1c1c1c]'}`}>
+                  Pause days this month
+                </p>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${remaining === 0 ? 'bg-red-100 text-red-600' : 'bg-[#f0faf4] text-[#1a5c38]'}`}>
+                  {remaining} remaining
+                </span>
+              </div>
+              <div className="flex gap-1">
+                {[1,2,3,4,5].map(i => (
+                  <div key={i} className={`flex-1 h-2 rounded-full ${i <= used ? 'bg-[#d4a017]' : 'bg-gray-100'}`}></div>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">{used}/5 pause days used this month</p>
+              {remaining === 0 && <p className="text-xs text-red-600 font-semibold mt-1">No pause days remaining. Resets on the 1st of next month.</p>}
+            </div>
+          )
+        })()}
 
         {subscriptions.length === 0 ? (
           <div className="bg-white rounded-xl p-12 text-center border border-[#e8e0d0] shadow-sm">

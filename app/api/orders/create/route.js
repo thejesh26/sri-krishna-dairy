@@ -170,7 +170,13 @@ export async function POST(request) {
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
-    // ── 8. Track bottle deposit in wallet.deposit_balance ───────────────────
+    // ── 8. Mark COD trial as used (one COD order allowed per customer) ───────
+    await supabase
+      .from('profiles')
+      .update({ has_used_cod: true })
+      .eq('id', user.id)
+
+    // ── 9. Track bottle deposit in wallet.deposit_balance ───────────────────
     if (bottleDeposit > 0) {
       try {
         const { data: walletRow } = await supabase

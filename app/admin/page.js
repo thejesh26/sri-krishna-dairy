@@ -37,6 +37,11 @@ const [assigningOrder, setAssigningOrder] = useState(null)
   const [bulkEnquiries, setBulkEnquiries] = useState([])
   const [qualityReports, setQualityReports] = useState([])
   const [refundingUserId, setRefundingUserId] = useState(null)
+  const [refundModal, setRefundModal] = useState(null) // { customer, depositBalance }
+  const [refundGoodBottles, setRefundGoodBottles] = useState('')
+  const [refundDamagedBottles, setRefundDamagedBottles] = useState('')
+  const [refundNotes, setRefundNotes] = useState('')
+  const [refundProcessing, setRefundProcessing] = useState(false)
   const [discountCodes, setDiscountCodes] = useState([])
   const [newCode, setNewCode] = useState({ code: '', percent: '', description: '' })
   const [discountSaving, setDiscountSaving] = useState(false)
@@ -790,23 +795,14 @@ setWallets(allWallets || [])
                           <div className="flex flex-col items-end gap-1">
                             <span className="text-xs text-[#d4a017] font-semibold">🍼 Deposit: ₹{w.deposit_balance}</span>
                             <button
-                              disabled={refundingUserId === customer.id}
-                              onClick={async () => {
-                                if (!confirm(`Refund ₹${w.deposit_balance} deposit to ${customer.full_name}?`)) return
-                                setRefundingUserId(customer.id)
-                                const { data: { session } } = await supabase.auth.getSession()
-                                const res = await fetch('/api/admin/refund-deposit', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-                                  body: JSON.stringify({ user_id: customer.id, amount: w.deposit_balance }),
-                                })
-                                if (res.ok) {
-                                  setWallets(prev => prev.map(ww => ww.user_id === customer.id ? { ...ww, deposit_balance: 0 } : ww))
-                                }
-                                setRefundingUserId(null)
+                              onClick={() => {
+                                setRefundModal({ customer, depositBalance: w.deposit_balance })
+                                setRefundGoodBottles('')
+                                setRefundDamagedBottles('')
+                                setRefundNotes('')
                               }}
-                              className="text-xs bg-[#d4a017] text-white px-3 py-1 rounded-lg hover:bg-[#b8860b] transition font-semibold disabled:opacity-50">
-                              {refundingUserId === customer.id ? 'Processing...' : 'Refund Deposit'}
+                              className="text-xs bg-[#d4a017] text-white px-3 py-1 rounded-lg hover:bg-[#b8860b] transition font-semibold">
+                              Refund Deposit
                             </button>
                           </div>
                         )
@@ -1521,5 +1517,93 @@ setWallets(allWallets || [])
 
     </div>
     </div>
+
+    {/* ── Deposit Refund Modal ── */}
+    {refundModal && (() => {
+      const good = Number(refundGoodBottles) || 0
+      const damaged = Number(refundDamagedBottles) || 0
+      const refundAmt = good * 100
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-bold text-lg text-[#1c1c1c]">Process Deposit Refund</h3>
+              <button onClick={() => setRefundModal(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+            </div>
+
+            <div className="bg-[#f5f0e8] rounded-xl p-4 mb-5">
+              <p className="text-sm font-semibold text-[#1c1c1c]">{refundModal.customer.full_name}</p>
+              <p className="text-xs text-gray-500 mt-0.5">Total deposit on account: <strong>₹{refundModal.depositBalance}</strong></p>
+            </div>
+
+            <div className="flex flex-col gap-4 mb-5">
+              <div>
+                <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Bottles returned in good condition</label>
+                <input type="number" min="0" value={refundGoodBottles}
+                  onChange={e => setRefundGoodBottles(e.target.value)}
+                  placeholder="0"
+                  className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Bottles damaged/broken</label>
+                <input type="number" min="0" value={refundDamagedBottles}
+                  onChange={e => setRefundDamagedBottles(e.target.value)}
+                  placeholder="0"
+                  className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Notes (optional)</label>
+                <input type="text" value={refundNotes}
+                  onChange={e => setRefundNotes(e.target.value)}
+                  placeholder="Condition notes or remarks..."
+                  className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]" />
+              </div>
+            </div>
+
+            <div className={`rounded-xl p-4 mb-5 ${refundAmt > 0 ? 'bg-[#f0faf4] border border-[#c8e6d4]' : 'bg-[#f5f0e8]'}`}>
+              <p className="text-sm text-gray-600">{good} bottle(s) × ₹100 = <strong className={refundAmt > 0 ? 'text-[#1a5c38]' : 'text-gray-400'}>₹{refundAmt} refund</strong></p>
+              {damaged > 0 && <p className="text-xs text-red-500 mt-1">{damaged} damaged bottle(s) — no refund for these</p>}
+              {refundAmt > refundModal.depositBalance && <p className="text-xs text-red-500 mt-1">Refund exceeds deposit balance of ₹{refundModal.depositBalance}</p>}
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setRefundModal(null)}
+                className="flex-1 border border-[#e8e0d0] text-gray-600 font-semibold py-3 rounded-xl hover:bg-gray-50 transition text-sm">
+                Cancel
+              </button>
+              <button
+                disabled={refundProcessing || refundAmt <= 0 || refundAmt > refundModal.depositBalance}
+                onClick={async () => {
+                  setRefundProcessing(true)
+                  const { data: { session } } = await supabase.auth.getSession()
+                  const res = await fetch('/api/admin/refund-deposit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                    body: JSON.stringify({
+                      user_id: refundModal.customer.id,
+                      refund_amount: refundAmt,
+                      good_bottles: good,
+                      notes: refundNotes,
+                    }),
+                  })
+                  if (res.ok) {
+                    setWallets(prev => prev.map(ww => ww.user_id === refundModal.customer.id
+                      ? { ...ww, deposit_balance: (ww.deposit_balance || 0) - refundAmt, balance: (ww.balance || 0) + refundAmt }
+                      : ww
+                    ))
+                    showSuccess(`₹${refundAmt} deposit refunded to ${refundModal.customer.full_name}`)
+                    setRefundModal(null)
+                  }
+                  setRefundProcessing(false)
+                }}
+                className="flex-1 bg-[#d4a017] text-white font-bold py-3 rounded-xl hover:bg-[#b8860b] transition text-sm disabled:opacity-50">
+                {refundProcessing ? 'Processing...' : `Confirm Refund ₹${refundAmt}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    })()}
+
   )
 }

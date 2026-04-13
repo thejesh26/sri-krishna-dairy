@@ -496,6 +496,216 @@ Open admin panel: https://srikrishnaadairy.in/admin`
   })
 }
 
+// ── 10. Referral Completed ────────────────────────────────────────────────────
+export async function sendReferralCompletedEmail({ to, name, points, friendName }) {
+  const html = wrapLayout('Referral Bonus Earned - Sri Krishnaa Dairy', `
+    <p style="margin:0 0 6px;font-size:13px;color:#d4a017;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Referral Bonus</p>
+    <h1 style="margin:0 0 8px;font-size:22px;color:#1a5c38;">Congratulations! Bonus earned! 🎉</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#4b5563;">Hi <strong>${name}</strong>, your referral bonus has been credited to your account!</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #f0ebe0;margin-bottom:24px;">
+      ${row('Bonus Points', `+${points} loyalty points`, true)}
+      ${row('Friend', friendName || 'Your referral')}
+      ${row('Reason', 'Friend subscribed for 30 consecutive days')}
+    </table>
+
+    <div style="background:#f0faf4;border:1px solid #c8e6d4;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:#1a5c38;font-weight:bold;">Keep referring to earn more!</p>
+      <p style="margin:6px 0 0;font-size:13px;color:#1a5c38;">Share your referral code with friends and family. Every successful referral earns you 100 points — redeemable for free milk!</p>
+    </div>
+
+    <div style="text-align:center;">
+      <a href="https://srikrishnaadairy.in/dashboard" style="display:inline-block;background:linear-gradient(135deg,#1a5c38,#2d7a50);color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:8px;">View Rewards</a>
+    </div>`)
+
+  const text = `Hi ${name},
+
+Congratulations! Your referral bonus of ${points} loyalty points has been credited!
+
+Your friend has been subscribing for 30 consecutive days. Keep referring to earn more!
+
+View your rewards: https://srikrishnaadairy.in/dashboard
+${TEXT_FOOTER}`
+
+  return sendEmail({ to, subject: 'Referral bonus earned! +100 points - Sri Krishnaa Dairy', html, text })
+}
+
+// ── 11. Deposit Refund Processed ─────────────────────────────────────────────
+export async function sendDepositRefundEmail({ to, name, refundAmount, goodBottles }) {
+  const html = wrapLayout('Bottle Deposit Refund Processed - Sri Krishnaa Dairy', `
+    <p style="margin:0 0 6px;font-size:13px;color:#d4a017;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Deposit Refund</p>
+    <h1 style="margin:0 0 8px;font-size:22px;color:#1a5c38;">Your deposit has been refunded 💰</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#4b5563;">Hi <strong>${name}</strong>, your bottle deposit refund has been processed and credited to your wallet.</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #f0ebe0;margin-bottom:24px;">
+      ${row('Bottles Returned', `${goodBottles} in good condition`)}
+      ${row('Refund Amount', `Rs.${refundAmount}`, true)}
+      ${row('Credited To', 'Your wallet balance')}
+    </table>
+
+    <div style="background:#f0faf4;border:1px solid #c8e6d4;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:#1a5c38;">The refund is now available in your wallet and can be used for your next milk delivery.</p>
+    </div>
+
+    <div style="text-align:center;">
+      <a href="https://srikrishnaadairy.in/wallet" style="display:inline-block;background:linear-gradient(135deg,#1a5c38,#2d7a50);color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:8px;">View Wallet</a>
+    </div>`)
+
+  const text = `Hi ${name},
+
+Your bottle deposit refund of Rs.${refundAmount} has been processed and credited to your wallet.
+
+${goodBottles} bottle(s) returned in good condition.
+
+View your wallet: https://srikrishnaadairy.in/wallet
+${TEXT_FOOTER}`
+
+  return sendEmail({ to, subject: 'Bottle deposit refund processed - Sri Krishnaa Dairy', html, text })
+}
+
+// ── 12. Order Cancelled ───────────────────────────────────────────────────────
+export async function sendOrderCancelledEmail({ to, name, deliveryDate, refundAmount }) {
+  const formattedDate = new Date(deliveryDate).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  const hasRefund = refundAmount > 0
+
+  const html = wrapLayout('Order Cancelled - Sri Krishnaa Dairy', `
+    <p style="margin:0 0 6px;font-size:13px;color:#d4a017;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Order Cancelled</p>
+    <h1 style="margin:0 0 8px;font-size:22px;color:#1c1c1c;">Your order has been cancelled</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#4b5563;">Hi <strong>${name}</strong>, your order for ${formattedDate} has been cancelled.</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #f0ebe0;margin-bottom:24px;">
+      ${row('Delivery Date', formattedDate)}
+      ${row('Status', '<span style="color:#991b1b;font-weight:bold;">Cancelled</span>')}
+      ${hasRefund ? row('Refund', `Rs.${refundAmount} credited to wallet`, true) : row('Payment', 'COD — no charge applied')}
+    </table>
+
+    ${hasRefund ? `<div style="background:#f0faf4;border:1px solid #c8e6d4;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:#1a5c38;font-weight:bold;">Refund processed</p>
+      <p style="margin:6px 0 0;font-size:13px;color:#1a5c38;">Rs.${refundAmount} has been credited back to your wallet balance.</p>
+    </div>` : ''}
+
+    <div style="text-align:center;">
+      <a href="https://srikrishnaadairy.in/order" style="display:inline-block;background:linear-gradient(135deg,#1a5c38,#2d7a50);color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:8px;">Place New Order</a>
+    </div>`)
+
+  const text = `Hi ${name},
+
+Your order for ${formattedDate} has been cancelled.
+${hasRefund ? `\nRefund: Rs.${refundAmount} has been credited to your wallet.` : '\nCOD order — no charge was applied.'}
+
+Place a new order: https://srikrishnaadairy.in/order
+${TEXT_FOOTER}`
+
+  return sendEmail({ to, subject: 'Order cancelled - Sri Krishnaa Dairy', html, text })
+}
+
+// ── 13. Undelivered Milk Alert ────────────────────────────────────────────────
+export async function sendUndeliveredAlertEmail({ to, name }) {
+  const html = wrapLayout('Delivery Update - Sri Krishnaa Dairy', `
+    <p style="margin:0 0 6px;font-size:13px;color:#d4a017;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Delivery Update</p>
+    <h1 style="margin:0 0 8px;font-size:22px;color:#1c1c1c;">We couldn't confirm your delivery today</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#4b5563;">Hi <strong>${name}</strong>, we were unable to confirm your milk delivery today.</p>
+
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:#991b1b;font-weight:bold;">You have NOT been charged</p>
+      <p style="margin:6px 0 0;font-size:13px;color:#991b1b;">Since we could not confirm delivery, no amount has been deducted from your wallet today.</p>
+    </div>
+
+    <div style="background:#f0faf4;border:1px solid #c8e6d4;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:#1a5c38;font-weight:bold;">Did you receive your milk?</p>
+      <p style="margin:6px 0 0;font-size:13px;color:#1a5c38;">If you did receive your milk today, please contact us at 9980166221 so we can update our records.</p>
+    </div>
+
+    <div style="text-align:center;">
+      <a href="https://srikrishnaadairy.in/dashboard" style="display:inline-block;background:linear-gradient(135deg,#1a5c38,#2d7a50);color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:8px;">View Dashboard</a>
+    </div>`)
+
+  const text = `Hi ${name},
+
+We were unable to confirm your milk delivery today. You have NOT been charged.
+
+If you did receive your milk, please contact us at 9980166221.
+
+View your dashboard: https://srikrishnaadairy.in/dashboard
+${TEXT_FOOTER}`
+
+  return sendEmail({ to, subject: 'Delivery update — you were not charged today - Sri Krishnaa Dairy', html, text })
+}
+
+// ── 14. Add-on Order Confirmed ───────────────────────────────────────────────
+export async function sendAddonOrderEmail({ to, name, dates, product, quantity, totalAmount }) {
+  const dateList = dates.map(d => new Date(d).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })).join(', ')
+
+  const html = wrapLayout('Extra Milk Order Confirmed - Sri Krishnaa Dairy', `
+    <p style="margin:0 0 6px;font-size:13px;color:#d4a017;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Add-on Order</p>
+    <h1 style="margin:0 0 8px;font-size:22px;color:#1a5c38;">Extra milk order confirmed! 🥛</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#4b5563;">Hi <strong>${name}</strong>, your extra milk order has been confirmed.</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #f0ebe0;margin-bottom:24px;">
+      ${row('Product', `${product} x ${quantity}`)}
+      ${row('Delivery Date(s)', dateList)}
+      ${row('Total Charged', `Rs.${totalAmount}`, true)}
+      ${row('Payment', 'Deducted from wallet')}
+    </table>
+
+    <div style="background:#f0faf4;border:1px solid #c8e6d4;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:#1a5c38;">Your extra orders will be delivered along with your regular subscription on the selected dates.</p>
+    </div>
+
+    <div style="text-align:center;">
+      <a href="https://srikrishnaadairy.in/dashboard" style="display:inline-block;background:linear-gradient(135deg,#1a5c38,#2d7a50);color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:8px;">View Dashboard</a>
+    </div>`)
+
+  const text = `Hi ${name},
+
+Your extra milk order has been confirmed!
+
+Product: ${product} x ${quantity}
+Dates: ${dateList}
+Total: Rs.${totalAmount} deducted from wallet
+
+View your dashboard: https://srikrishnaadairy.in/dashboard
+${TEXT_FOOTER}`
+
+  return sendEmail({ to, subject: 'Extra milk order confirmed - Sri Krishnaa Dairy', html, text })
+}
+
+// ── 15. Points Expiring Soon ──────────────────────────────────────────────────
+export async function sendPointsExpiryEmail({ to, name, points, expiryDate }) {
+  const formatted = new Date(expiryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+
+  const html = wrapLayout('Loyalty Points Expiring Soon - Sri Krishnaa Dairy', `
+    <p style="margin:0 0 6px;font-size:13px;color:#d4a017;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Points Expiry</p>
+    <h1 style="margin:0 0 8px;font-size:22px;color:#b45309;">Your loyalty points expire soon! ⏰</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#4b5563;">Hi <strong>${name}</strong>, your loyalty points are expiring soon. Don't let them go to waste!</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #f0ebe0;margin-bottom:24px;">
+      ${row('Points Balance', `${points} points`)}
+      ${row('Expires On', formatted)}
+      ${row('Points Value', `Rs.${Math.floor(points / 100)} (100 pts = free 1L milk)`, true)}
+    </table>
+
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:#991b1b;font-weight:bold;">Redeem before ${formatted}</p>
+      <p style="margin:6px 0 0;font-size:13px;color:#991b1b;">100 points = 1 free 1L milk delivery. Redeem now from your dashboard.</p>
+    </div>
+
+    <div style="text-align:center;">
+      <a href="https://srikrishnaadairy.in/dashboard" style="display:inline-block;background:linear-gradient(135deg,#b45309,#d97706);color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:8px;">Redeem Points Now</a>
+    </div>`)
+
+  const text = `Hi ${name},
+
+Your ${points} loyalty points expire on ${formatted}!
+
+100 points = 1 free 1L milk delivery. Redeem before they expire.
+
+Redeem now: https://srikrishnaadairy.in/dashboard
+${TEXT_FOOTER}`
+
+  return sendEmail({ to, subject: `Your ${points} loyalty points expire on ${formatted} - Sri Krishnaa Dairy`, html, text })
+}
+
 export async function sendSubscriptionExpiryReminderEmail({ to, name, product, endDate, daysLeft }) {
   const html = wrapLayout('Your Subscription is Ending Soon', `
     <h2 style="margin:0 0 8px;font-size:22px;color:#1c1c1c;">Hi ${name || 'there'} 👋</h2>

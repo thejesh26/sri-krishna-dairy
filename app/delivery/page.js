@@ -30,6 +30,8 @@ export default function DeliveryDashboard() {
   const [deliveringId, setDeliveringId] = useState(null)
   const [deliveredSubs, setDeliveredSubs] = useState(new Set())
   const [deliverySort, setDeliverySort] = useState('area')
+  const [addonOrders, setAddonOrders] = useState([])
+  const [deliveredAddons, setDeliveredAddons] = useState(new Set())
 
   useEffect(() => { checkDelivery() }, [])
 
@@ -83,6 +85,14 @@ export default function DeliveryDashboard() {
 
     const { data: allSubs } = await subsQuery
     setSubscriptions(allSubs || [])
+
+    // Load today's add-on orders
+    const { data: allAddons } = await supabase
+      .from('addon_orders')
+      .select('*, products(*), profiles!addon_orders_user_id_fkey(*)')
+      .eq('delivery_date', today)
+      .eq('status', 'pending')
+    setAddonOrders(allAddons || [])
 
     // Calculate stats
     const allDeliveries = [...(allOrders || [])]
@@ -366,6 +376,59 @@ export default function DeliveryDashboard() {
                       <button onClick={() => handleMarkSubDelivered(sub.id)} disabled={deliveringId === sub.id}
                         className="bg-[#1a5c38] text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-[#14472c] transition disabled:opacity-50">
                         {deliveringId === sub.id ? '...' : '✓ Delivered'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add-on Orders */}
+        {addonOrders.length > 0 && (
+          <div className="bg-white rounded-2xl border border-[#f0dfa0] overflow-hidden mb-5 shadow-sm">
+            <div className="px-5 py-4 border-b border-[#f5f0e8] flex items-center gap-2">
+              <h3 className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c]">Extra Orders (Add-ons)</h3>
+              <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-bold px-3 py-1 rounded-full border border-[#f0dfa0]">
+                EXTRA
+              </span>
+            </div>
+            {addonOrders.map((addon, index) => (
+              <div key={addon.id}
+                className={`px-5 py-4 ${index !== addonOrders.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[#d4a017] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    {addon.profiles?.full_name?.[0] || '?'}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-[#1c1c1c] text-sm">{addon.profiles?.full_name}</p>
+                      <span className="bg-[#fdf6e3] text-[#d4a017] text-[10px] font-bold px-2 py-0.5 rounded-full border border-[#f0dfa0]">EXTRA</span>
+                    </div>
+                    <p className="text-xs text-gray-400">{addon.profiles?.apartment_name}, Flat {addon.profiles?.flat_number}</p>
+                    <p className="text-xs text-gray-400">{addon.profiles?.area}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="bg-[#fdf6e3] text-[#d4a017] text-xs px-2 py-0.5 rounded-full border border-[#f0dfa0]">
+                        {addon.products?.size} × {addon.quantity}
+                      </span>
+                      <span className="text-xs text-gray-400">{addon.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2 flex-shrink-0">
+                    <a href={`tel:${addon.profiles?.phone}`}
+                      className="bg-[#f0faf4] text-[#1a5c38] text-xs font-bold px-3 py-1.5 rounded-lg border border-[#c8e6d4] hover:bg-[#d4eddf] transition text-center">
+                      📞 Call
+                    </a>
+                    {deliveredAddons.has(addon.id) ? (
+                      <span className="bg-[#f0faf4] text-[#1a5c38] text-xs font-bold px-3 py-1.5 rounded-lg border border-[#c8e6d4] text-center">✅ Done</span>
+                    ) : (
+                      <button onClick={async () => {
+                        await supabase.from('addon_orders').update({ status: 'delivered' }).eq('id', addon.id)
+                        setDeliveredAddons(prev => new Set([...prev, addon.id]))
+                      }}
+                        className="bg-[#d4a017] text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-[#b8860b] transition">
+                        ✓ Delivered
                       </button>
                     )}
                   </div>

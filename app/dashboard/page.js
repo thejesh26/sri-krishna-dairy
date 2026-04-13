@@ -38,6 +38,9 @@ export default function Dashboard() {
   const [qualityFeedbackOpen, setQualityFeedbackOpen] = useState(null) // order id
   const [qualityIssue, setQualityIssue] = useState('')
   const [qualitySubmitted, setQualitySubmitted] = useState(new Set())
+  const [cancelPopup, setCancelPopup] = useState(null) // order object
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelLoading, setCancelLoading] = useState(false)
 
   useEffect(() => { getUser() }, [])
 
@@ -329,13 +332,14 @@ export default function Dashboard() {
             )}
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
                 { href: '/order',     icon: '🛒', label: 'Order Now',   desc: 'One time delivery', color: '#f0faf4', border: '#c8e6d4' },
                 { href: '/subscribe', icon: '📅', label: 'Subscribe',   desc: 'Daily milk plan',   color: '#fdf6e3', border: '#f0dfa0' },
                 { href: '/pause',     icon: '⏸️', label: 'Manage Plan', desc: 'Pause or cancel',   color: '#f5f0e8', border: '#e8e0d0' },
                 { href: '/wallet',    icon: '💰', label: 'Wallet',      desc: 'Add balance',       color: '#f0faf4', border: '#c8e6d4' },
-                { href: '/',          icon: '🏠', label: 'Our Website', desc: 'View homepage',     color: '#fdf6e3', border: '#f0dfa0' },
+                { href: '/addon',     icon: '➕', label: 'Extra Milk',  desc: 'Add-on for subscribers', color: '#fdf6e3', border: '#f0dfa0' },
+                { href: '/',          icon: '🏠', label: 'Our Website', desc: 'View homepage',     color: '#f5f0e8', border: '#e8e0d0' },
               ].map(({ href, icon, label, desc, color, border }) => (
                 <a key={label} href={href}
                   className="rounded-2xl p-4 border hover:shadow-md transition group"
@@ -686,11 +690,26 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* Points Expiry Warning */}
+            {profile?.loyalty_points_expiry && (() => {
+              const daysLeft = Math.ceil((new Date(profile.loyalty_points_expiry) - new Date()) / (1000 * 60 * 60 * 24))
+              if (daysLeft > 30) return null
+              return (
+                <div className="bg-orange-50 border-2 border-orange-300 rounded-xl p-4 flex items-start gap-3">
+                  <span className="text-2xl flex-shrink-0">⏰</span>
+                  <div>
+                    <p className="text-orange-700 font-bold text-sm">Points expire in {daysLeft} day{daysLeft !== 1 ? 's' : ''}!</p>
+                    <p className="text-orange-600 text-xs mt-1">Your {profile.loyalty_points} points expire on {new Date(profile.loyalty_points_expiry).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}. Redeem before they expire!</p>
+                  </div>
+                </div>
+              )
+            })()}
+
             {/* Refer & Earn */}
             <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
               <div className="px-6 py-5 border-b border-[#f5f0e8]">
                 <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">🎁 Refer & Earn</h3>
-                <p className="text-sm text-gray-600 mt-1">Share your referral code with friends. When your friend subscribes, <strong>both of you get 500ml free milk for 4 days!</strong> 🎉</p>
+                <p className="text-sm text-gray-600 mt-1">Share your referral code. <strong>Both you and your friend earn 100 reward points</strong> after your friend subscribes for 30 days! 🎉</p>
               </div>
               <div className="px-6 py-5">
                 <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-xl p-4 mb-4">
@@ -708,8 +727,8 @@ export default function Dashboard() {
                 <div className="grid grid-cols-3 gap-3 mb-4 text-center">
                   {[
                     { icon: '📤', label: 'Share code' },
-                    { icon: '👤', label: 'Friend signs up' },
-                    { icon: '🥛', label: 'Both get free milk' },
+                    { icon: '📅', label: 'Friend subscribes 30 days' },
+                    { icon: '⭐', label: 'Both get 100 pts' },
                   ].map(({ icon, label }) => (
                     <div key={label} className="bg-[#fdfbf7] rounded-xl p-3 border border-[#e8e0d0]">
                       <div className="text-2xl mb-1">{icon}</div>
@@ -717,7 +736,7 @@ export default function Dashboard() {
                     </div>
                   ))}
                 </div>
-                <a href={`https://wa.me/?text=Get fresh farm milk delivered daily! Use my referral code ${profile?.referral_code || ''} when signing up at Sri Krishnaa Dairy and we both get 500ml free for 4 days!`}
+                <a href={`https://wa.me/?text=Get fresh farm milk delivered daily! Use my referral code ${profile?.referral_code || ''} when signing up at Sri Krishnaa Dairy. We both earn 100 reward points after you subscribe for 30 days! srikrishnaadairy.in`}
                   target="_blank"
                   className="flex items-center justify-center gap-2 bg-[#25D366] text-white font-bold py-3 rounded-xl hover:bg-[#1da851] transition text-sm">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-5 h-5" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
@@ -728,19 +747,41 @@ export default function Dashboard() {
                 <div className="border-t border-[#f5f0e8]">
                   <div className="px-6 py-4">
                     <p className="text-sm font-bold text-[#1c1c1c] mb-3">Your Referrals ({referrals.length})</p>
-                    {referrals.map((ref) => (
-                      <div key={ref.id} className="flex items-center justify-between py-2 border-b border-[#f5f0e8] last:border-0">
-                        <div>
-                          <p className="text-sm font-semibold text-[#1c1c1c]">{ref.profiles?.full_name || 'Friend'}</p>
-                          <p className="text-xs text-gray-400">{new Date(ref.created_at).toLocaleDateString('en-IN')}</p>
+                    {referrals.map((ref) => {
+                      const days = ref.subscription_days_count || 0
+                      const isComplete = ref.status === 'completed'
+                      const daysLeft = Math.max(0, 30 - days)
+                      return (
+                        <div key={ref.id} className="py-3 border-b border-[#f5f0e8] last:border-0">
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <p className="text-sm font-semibold text-[#1c1c1c]">{ref.profiles?.full_name || 'Friend'}</p>
+                              <p className="text-xs text-gray-400">{new Date(ref.created_at).toLocaleDateString('en-IN')}</p>
+                            </div>
+                            <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+                              isComplete ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' :
+                              'bg-gray-50 text-gray-500 border border-gray-200'
+                            }`}>{isComplete ? '✓ Bonus earned!' : 'Pending'}</span>
+                          </div>
+                          {!isComplete && (
+                            <div>
+                              <div className="flex justify-between text-xs text-gray-500 mb-1">
+                                <span>Your friend has subscribed for {days}/30 days</span>
+                                <span>{daysLeft} days to go</span>
+                              </div>
+                              <div className="bg-gray-100 rounded-full h-1.5">
+                                <div className="bg-[#1a5c38] h-1.5 rounded-full transition-all"
+                                  style={{width: `${Math.min(100, (days / 30) * 100)}%`}}></div>
+                              </div>
+                              <p className="text-xs text-[#d4a017] font-medium mt-1">Referral bonus pending — {daysLeft} day{daysLeft !== 1 ? 's' : ''} to go!</p>
+                            </div>
+                          )}
+                          {isComplete && (
+                            <p className="text-xs text-[#1a5c38] font-semibold">Referral bonus earned! +100 points credited</p>
+                          )}
                         </div>
-                        <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-                          ref.status === 'rewarded' ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' :
-                          ref.status === 'completed' ? 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]' :
-                          'bg-gray-50 text-gray-500 border border-gray-200'
-                        }`}>{ref.status}</span>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -806,11 +847,21 @@ export default function Dashboard() {
                     </div>
                     <div className="text-right flex-shrink-0 flex flex-col items-end gap-1">
                       <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                        order.status === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' :
-                        order.status === 'pending'   ? 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]' :
+                        order.status === 'delivered'  ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' :
+                        order.status === 'pending'    ? 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]' :
+                        order.status === 'cancelled'  ? 'bg-red-50 text-red-500 border border-red-200' :
                         'bg-gray-50 text-gray-500 border border-gray-200'
                       }`}>{order.status}</span>
                       <p className="font-bold text-[#1a5c38] text-sm">₹{order.total_price}</p>
+                      {order.status === 'pending' && (() => {
+                        const cutoff = new Date(`${order.delivery_date}T06:00:00+05:30`)
+                        return new Date() < cutoff ? (
+                          <button onClick={() => { setCancelPopup(order); setCancelReason('') }}
+                            className="text-[10px] text-red-500 border border-red-200 px-2 py-0.5 rounded hover:bg-red-50 transition">
+                            Cancel Order
+                          </button>
+                        ) : null
+                      })()}
                       {order.status === 'delivered' && !reportedOrders.has(order.id) && (
                         <button onClick={async () => {
                           const { data: { session } } = await supabase.auth.getSession()
@@ -996,6 +1047,62 @@ export default function Dashboard() {
 
       <DisclaimerPopup />
       <PushNotificationPrompt />
+
+      {/* Cancel Order Confirmation Modal */}
+      {cancelPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <h3 className="font-bold text-lg text-[#1c1c1c] mb-2">Cancel Order?</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Are you sure you want to cancel your order for{' '}
+              <strong>{new Date(cancelPopup.delivery_date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</strong>?<br/>
+              <span className="text-xs text-gray-400">Cancellations are only allowed before 6AM on delivery day.</span>
+            </p>
+            <div className="mb-4">
+              <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Reason</label>
+              <select value={cancelReason} onChange={e => setCancelReason(e.target.value)}
+                className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]">
+                <option value="">Select a reason</option>
+                <option value="Changed my mind">Changed my mind</option>
+                <option value="Wrong date selected">Wrong date selected</option>
+                <option value="Other plans">Other plans</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            {cancelPopup.payment_method !== 'COD' && (
+              <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-xl p-3 mb-4">
+                <p className="text-xs text-[#1a5c38] font-semibold">₹{cancelPopup.total_price} will be refunded to your wallet</p>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button onClick={() => setCancelPopup(null)}
+                className="flex-1 border border-[#e8e0d0] text-gray-600 font-semibold py-3 rounded-xl text-sm hover:bg-gray-50 transition">
+                Keep Order
+              </button>
+              <button
+                disabled={cancelLoading}
+                onClick={async () => {
+                  setCancelLoading(true)
+                  const { data: { session } } = await supabase.auth.getSession()
+                  const res = await fetch('/api/orders/cancel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                    body: JSON.stringify({ order_id: cancelPopup.id, reason: cancelReason }),
+                  })
+                  if (res.ok) {
+                    setAllOrders(prev => prev.map(o => o.id === cancelPopup.id ? { ...o, status: 'cancelled' } : o))
+                    setCancelPopup(null)
+                  }
+                  setCancelLoading(false)
+                }}
+                className="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl text-sm hover:bg-red-600 transition disabled:opacity-50">
+                {cancelLoading ? 'Cancelling...' : 'Yes, Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

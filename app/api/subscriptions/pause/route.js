@@ -28,7 +28,7 @@ export async function POST(request) {
     // Fetch subscription (ownership enforced by user_id filter)
     const { data: sub, error: fetchError } = await supabase
       .from('subscriptions')
-      .select('*, products(*)')
+      .select('*, products(*), pause_days_used_this_month')
       .eq('id', subscription_id)
       .eq('user_id', user.id)
       .eq('is_active', true)
@@ -38,16 +38,25 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Subscription not found.' }, { status: 404 })
     }
 
+    // Enforce 5-day monthly pause limit
+    const pausedThisMonth = sub.pause_days_used_this_month || 0
+    if (pausedThisMonth >= 5) {
+      return NextResponse.json({
+        error: "You've used all 5 pause days this month. Pausing will resume next month.",
+      }, { status: 400 })
+    }
+
     const currentPaused = sub.paused_dates || []
     if (currentPaused.includes(pause_date)) {
       return NextResponse.json({ error: 'This date is already paused.' }, { status: 409 })
     }
 
     const updatedPaused = [...currentPaused, pause_date].sort()
+    const newPausedCount = pausedThisMonth + 1
 
     const { error: updateError } = await supabase
       .from('subscriptions')
-      .update({ paused_dates: updatedPaused })
+      .update({ paused_dates: updatedPaused, pause_days_used_this_month: newPausedCount })
       .eq('id', subscription_id)
       .eq('user_id', user.id)
 
@@ -65,7 +74,12 @@ export async function POST(request) {
       })
     } catch { /* email failure must not block response */ }
 
-    return NextResponse.json({ success: true, paused_dates: updatedPaused })
+    return NextResponse.json({
+      success: true,
+      paused_dates: updatedPaused,
+      pause_days_used_this_month: newPausedCount,
+      pause_days_remaining: Math.max(0, 5 - newPausedCount),
+    })
   } catch (err) {
     return NextResponse.json({ error: err.message || 'Server error.' }, { status: 500 })
   }

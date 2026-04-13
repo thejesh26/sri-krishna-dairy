@@ -161,11 +161,39 @@ if (existingOrder) {
         <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1c1c1c] mb-2 text-center">Place Your Order 🥛</h2>
         <p className="text-center text-gray-400 text-sm mb-6">Fresh milk delivered to your doorstep</p>
 
+        {/* COD Trial Used — show restriction */}
+        {profile?.has_used_cod && (
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-6 mb-6 text-center">
+            <div className="text-5xl mb-3">🥛</div>
+            <h3 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c] mb-2">You've already used your free trial!</h3>
+            <p className="text-gray-600 text-sm mb-5">
+              Cash on Delivery is available for one-time trial orders only.<br/>
+              Please recharge your wallet to place more orders or subscribe for daily delivery.
+            </p>
+            <div className="flex flex-col gap-3">
+              <a href="/wallet"
+                className="block w-full text-white font-bold py-3 rounded-xl text-sm hover:opacity-90 transition"
+                style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
+                💰 Recharge Wallet
+              </a>
+              <a href="/subscribe"
+                className="block w-full bg-[#fdf6e3] border-2 border-[#d4a017] text-[#d4a017] font-bold py-3 rounded-xl text-sm hover:bg-[#f0dfa0] transition">
+                📅 Subscribe Now
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* 12 hour notice */}
+        {!profile?.has_used_cod && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4 text-center">
           <p className="text-yellow-700 text-sm font-semibold">⏰ Book at least 12 hours in advance</p>
           <p className="text-yellow-600 text-xs mt-1">Orders placed after 8PM will be delivered day after tomorrow</p>
         </div>
+        )}
+
+        {/* Health disclaimer + order form — hidden if COD trial already used */}
+        {!profile?.has_used_cod && <>
 
         {/* Health Disclaimer Banner */}
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
@@ -381,6 +409,7 @@ if (existingOrder) {
           </button>
 
         </form>
+        </>}
       </div>
 
       {/* Footer */}

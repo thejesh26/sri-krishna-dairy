@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
-import { sendLowBalanceEmail, sendCronFailureAlert, sendSubscriptionExpiryReminderEmail } from '../../../lib/email'
-import { notifyLowBalance, notifySubscriptionStopped, notifySubscriptionExpiryReminder } from '../../../lib/whatsapp'
+import { sendLowBalanceEmail, sendCronFailureAlert, sendSubscriptionExpiryReminderEmail, sendReferralCompletedEmail, sendPointsExpiryEmail } from '../../../lib/email'
+import { notifyLowBalance, notifySubscriptionStopped, notifySubscriptionExpiryReminder, notifyReferralCompleted, notifyPointsExpiring } from '../../../lib/whatsapp'
 
 // Called daily by Vercel Cron at 18:30 UTC (midnight IST)
 // GET /api/cron/deduct-subscriptions
@@ -47,18 +47,18 @@ async function runDeductions() {
     sub.products && !(sub.paused_dates || []).includes(today)
   )
 
-  const deducted = []
+  const pendingMarked = []
   const failed = []
   let skipped = 0
 
+  // ── Mark eligible subscriptions as pending_delivery (deduction happens on confirm) ──
   for (const sub of eligible) {
     const dailyAmount = Math.round(
       sub.products.price * sub.quantity * (1 - (sub.discount_percent || 0) / 100)
     )
-    // Embed sub.id + date in description — acts as a natural idempotency key
-    const description = `Daily subscription ${sub.id} [${today}]`
 
-    // Skip if already processed today (prevents double-deduction on retry)
+    // Check if already processed today (idempotency)
+    const description = `Daily subscription ${sub.id} [${today}]`
     const { data: existing } = await supabase
       .from('wallet_transactions')
       .select('id')
@@ -71,7 +71,7 @@ async function runDeductions() {
       continue
     }
 
-    // Get current wallet balance
+    // Check wallet has sufficient balance before marking pending
     const { data: wallet } = await supabase
       .from('wallet')
       .select('id, balance')
@@ -84,10 +84,9 @@ async function runDeductions() {
       // Auto-deactivate subscription — balance cannot cover today's delivery
       await supabase
         .from('subscriptions')
-        .update({ is_active: false })
+        .update({ is_active: false, pending_delivery: false })
         .eq('id', sub.id)
 
-      // WhatsApp: subscription stopped notification (non-blocking)
       try {
         const { data: stoppedProfile } = await supabase
           .from('profiles')
@@ -101,9 +100,7 @@ async function runDeductions() {
             balance,
           })
         }
-      } catch {
-        // WhatsApp failure must not block cron
-      }
+      } catch { /* non-blocking */ }
 
       failed.push({
         subscriptionId: sub.id,
@@ -116,7 +113,6 @@ async function runDeductions() {
       continue
     }
 
-    // Deduct balance — skip entirely if no wallet row exists (should not happen)
     if (!wallet) {
       failed.push({
         subscriptionId: sub.id,
@@ -129,92 +125,132 @@ async function runDeductions() {
       continue
     }
 
-    const newBalance = balance - dailyAmount
-
-    // Only update `balance` — deposit_balance is never deducted by the cron
+    // Mark as pending delivery — deduction happens when delivery is confirmed
     await supabase
-      .from('wallet')
-      .update({ balance: newBalance })
-      .eq('user_id', sub.user_id)
+      .from('subscriptions')
+      .update({ pending_delivery: true })
+      .eq('id', sub.id)
 
-    // Record transaction
-    await supabase.from('wallet_transactions').insert({
-      user_id: sub.user_id,
-      amount: dailyAmount,
-      type: 'debit',
-      description,
-    })
-
-    // Send low balance alert if balance drops below Rs.300
-    if (newBalance < 300) {
-      try {
-        const { data: userProfile } = await supabase
-          .from('profiles')
-          .select('full_name, phone, email')
-          .eq('id', sub.user_id)
-          .single()
-
-        const { data: authUser } = await supabase.auth.admin.getUserById(sub.user_id)
-        const userEmail = authUser?.user?.email || userProfile?.email
-        const name = userProfile?.full_name || userEmail
-
-        if (userEmail) {
-          await sendLowBalanceEmail({
-            to: userEmail,
-            name,
-            balance: newBalance,
-          })
-        }
-
-        if (userProfile?.phone) {
-          await notifyLowBalance({
-            phone: userProfile.phone,
-            name,
-            balance: newBalance,
-          })
-        }
-      } catch {
-        // Notification failure must not block deduction
-      }
-    }
-
-    // Award loyalty points: 1 point per Rs.100 spent
-    const pointsEarned = Math.floor(dailyAmount / 100)
-    if (pointsEarned > 0) {
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('loyalty_points, streak_count, last_delivery_date, badges')
-        .eq('id', sub.user_id)
-        .single()
-
-      if (profileData) {
-        const newPoints = (profileData.loyalty_points || 0) + pointsEarned
-        const yesterday = new Date()
-        yesterday.setDate(yesterday.getDate() - 1)
-        const yesterdayStr = yesterday.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-        const isConsecutive = profileData.last_delivery_date === yesterdayStr || profileData.last_delivery_date === today
-        const newStreak = isConsecutive ? (profileData.streak_count || 0) + 1 : 1
-        const currentBadges = profileData.badges || []
-        const newBadges = [...currentBadges]
-        if (newStreak >= 7 && !newBadges.includes('fresh_start')) newBadges.push('fresh_start')
-        if (newStreak >= 30 && !newBadges.includes('milk_lover')) newBadges.push('milk_lover')
-        if (newStreak >= 90 && !newBadges.includes('health_champion')) newBadges.push('health_champion')
-        if (newStreak >= 365 && !newBadges.includes('dairy_legend')) newBadges.push('dairy_legend')
-        await supabase.from('profiles').update({
-          loyalty_points: newPoints,
-          streak_count: newStreak,
-          last_delivery_date: today,
-          badges: newBadges,
-        }).eq('id', sub.user_id)
-      }
-    }
-
-    deducted.push({
-      subscriptionId: sub.id,
-      userId: sub.user_id,
-      amount: dailyAmount,
-    })
+    pendingMarked.push({ subscriptionId: sub.id, userId: sub.user_id, amount: dailyAmount })
   }
+
+  // ── Reset pause_days_used_this_month on the 1st of each month ────────────────
+  try {
+    const dayOfMonth = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }).split('-')[2]
+    if (dayOfMonth === '01') {
+      await supabase
+        .from('subscriptions')
+        .update({ pause_days_used_this_month: 0 })
+        .eq('is_active', true)
+    }
+  } catch { /* non-blocking */ }
+
+  // ── Referral completion check: award 100 pts to both after 30 subscription days ──
+  try {
+    const { data: pendingReferrals } = await supabase
+      .from('referrals')
+      .select('id, referrer_id, referred_id, subscription_days_count, profiles!referrals_referred_id_fkey(full_name)')
+      .eq('status', 'pending')
+
+    for (const ref of pendingReferrals || []) {
+      // Check if referred user has an active subscription today
+      const { data: activeSub } = await supabase
+        .from('subscriptions')
+        .select('id')
+        .eq('user_id', ref.referred_id)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (!activeSub) continue
+
+      const newCount = (ref.subscription_days_count || 0) + 1
+
+      if (newCount >= 30) {
+        // Award 100 points to both
+        const REFERRAL_POINTS = 100
+        const referredName = ref.profiles?.full_name || 'Your referral'
+
+        // Award referrer
+        const { data: referrerProf } = await supabase
+          .from('profiles')
+          .select('loyalty_points, full_name, phone, email')
+          .eq('id', ref.referrer_id)
+          .single()
+        const { data: referrerAuth } = await supabase.auth.admin.getUserById(ref.referrer_id)
+        await supabase.from('profiles').update({
+          loyalty_points: (referrerProf?.loyalty_points || 0) + REFERRAL_POINTS,
+        }).eq('id', ref.referrer_id)
+
+        // Award referee
+        const { data: referredProf } = await supabase
+          .from('profiles')
+          .select('loyalty_points, full_name, phone, email')
+          .eq('id', ref.referred_id)
+          .single()
+        const { data: referredAuth } = await supabase.auth.admin.getUserById(ref.referred_id)
+        await supabase.from('profiles').update({
+          loyalty_points: (referredProf?.loyalty_points || 0) + REFERRAL_POINTS,
+        }).eq('id', ref.referred_id)
+
+        // Mark referral completed
+        await supabase.from('referrals').update({
+          status: 'completed',
+          referral_activated_at: new Date().toISOString(),
+          subscription_days_count: newCount,
+        }).eq('id', ref.id)
+
+        // Notify both — non-blocking
+        try {
+          const referrerEmail = referrerAuth?.user?.email || referrerProf?.email
+          const referredEmail = referredAuth?.user?.email || referredProf?.email
+          if (referrerEmail) await sendReferralCompletedEmail({ to: referrerEmail, name: referrerProf?.full_name || 'Customer', points: REFERRAL_POINTS, friendName: referredName })
+          if (referredEmail) await sendReferralCompletedEmail({ to: referredEmail, name: referredProf?.full_name || 'Customer', points: REFERRAL_POINTS, friendName: referrerProf?.full_name || 'Your referrer' })
+          if (referrerProf?.phone) await notifyReferralCompleted({ phone: referrerProf.phone, name: referrerProf.full_name || 'Customer', points: REFERRAL_POINTS })
+          if (referredProf?.phone) await notifyReferralCompleted({ phone: referredProf.phone, name: referredProf.full_name || 'Customer', points: REFERRAL_POINTS })
+        } catch { /* non-blocking */ }
+      } else {
+        // Increment counter
+        await supabase.from('referrals').update({ subscription_days_count: newCount }).eq('id', ref.id)
+      }
+    }
+  } catch { /* referral check must not block cron */ }
+
+  // ── Loyalty points expiry check ───────────────────────────────────────────────
+  try {
+    const in30Days = new Date()
+    in30Days.setDate(in30Days.getDate() + 30)
+    const in30DaysStr = in30Days.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+
+    // Expire any points whose expiry date has passed
+    const { data: expiredProfiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, phone, loyalty_points_expiry')
+      .not('loyalty_points_expiry', 'is', null)
+      .lte('loyalty_points_expiry', today)
+      .gt('loyalty_points', 0)
+
+    for (const prof of expiredProfiles || []) {
+      await supabase.from('profiles').update({ loyalty_points: 0, loyalty_points_expiry: null }).eq('id', prof.id)
+    }
+
+    // Notify customers whose points expire in exactly 30 days
+    const { data: expiringProfiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, phone, loyalty_points, loyalty_points_expiry')
+      .eq('loyalty_points_expiry', in30DaysStr)
+      .gt('loyalty_points', 0)
+
+    for (const prof of expiringProfiles || []) {
+      try {
+        const { data: authUser } = await supabase.auth.admin.getUserById(prof.id)
+        const email = authUser?.user?.email
+        if (email) await sendPointsExpiryEmail({ to: email, name: prof.full_name || 'Customer', points: prof.loyalty_points, expiryDate: prof.loyalty_points_expiry })
+        if (prof.phone) await notifyPointsExpiring({ phone: prof.phone, name: prof.full_name || 'Customer', points: prof.loyalty_points, expiryDate: prof.loyalty_points_expiry })
+      } catch { /* non-blocking */ }
+    }
+  } catch { /* expiry check must not block cron */ }
+
+  const deducted = pendingMarked // keep field name for admin alert compat
 
   // ── Subscription expiry reminders (3-day warning for fixed subs) ──────────
   try {
@@ -273,7 +309,7 @@ async function runDeductions() {
     date: today,
     summary: {
       eligible: eligible.length,
-      deducted: deducted.length,
+      pendingMarked: pendingMarked.length,
       skipped,
       failed: failed.length,
     },
