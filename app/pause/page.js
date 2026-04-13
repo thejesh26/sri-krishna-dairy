@@ -16,6 +16,8 @@ export default function PauseSubscription() {
   const [loading, setLoading] = useState(false)
   const [newQuantity, setNewQuantity] = useState('')
   const [qtyLoading, setQtyLoading] = useState(false)
+  const [availableProducts, setAvailableProducts] = useState([])
+  const [changePlanLoading, setChangePlanLoading] = useState(false)
   const { showSuccess, showError, showInfo } = useToast()
 
   useEffect(() => {
@@ -36,6 +38,7 @@ export default function PauseSubscription() {
     const user = session.user
     setUser(user)
     getSubscriptions(user.id)
+    getProducts()
   }
 
   const getSubscriptions = async (userId) => {
@@ -44,6 +47,15 @@ export default function PauseSubscription() {
       .eq('user_id', userId).eq('is_active', true)
     setSubscriptions(data || [])
     if (data && data.length > 0) setSelectedSub(data[0])
+  }
+
+  const getProducts = async () => {
+    const { data } = await supabase
+      .from('products')
+      .select('id, name, size, price')
+      .eq('is_available', true)
+      .order('price', { ascending: true })
+    setAvailableProducts(data || [])
   }
 
   const isValidPauseDate = () => {
@@ -176,6 +188,28 @@ export default function PauseSubscription() {
       setNewQuantity('')
     }
     setQtyLoading(false)
+  }
+
+  const handleChangePlan = async (newProductId) => {
+    if (!selectedSub) return
+    setChangePlanLoading(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/subscriptions/change-product', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ subscription_id: selectedSub.id, new_product_id: newProductId }),
+    })
+    const result = await res.json()
+    if (!res.ok) {
+      showError(result.error || 'Could not change plan.')
+    } else {
+      showSuccess(`Plan changed to ${result.new_product} — ₹${result.new_daily_cost}/day from next delivery`)
+      const newProduct = availableProducts.find(p => p.id === newProductId)
+      const updated = { ...selectedSub, product_id: newProductId, products: newProduct }
+      setSelectedSub(updated)
+      setSubscriptions(subscriptions.map(s => s.id === selectedSub.id ? updated : s))
+    }
+    setChangePlanLoading(false)
   }
 
   const handleCancelSubscription = async () => {
@@ -347,6 +381,53 @@ export default function PauseSubscription() {
                     {qtyLoading ? '...' : 'Update'}
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* Change Plan */}
+            {selectedSub && availableProducts.length > 1 && (
+              <div className="bg-white rounded-xl p-5 shadow-sm border border-[#e8e0d0]">
+                <p className="text-sm font-bold text-[#1c1c1c] mb-1 font-[family-name:var(--font-playfair)]">Change Plan</p>
+                <p className="text-xs text-gray-400 mb-4">Switch your milk size — effective from next delivery</p>
+                <div className="flex flex-col gap-3">
+                  {availableProducts.map(product => {
+                    const isCurrent = product.id === selectedSub.product_id
+                    const currentPrice = selectedSub.products?.price || 0
+                    const priceDiff = Math.round((product.price - currentPrice) * selectedSub.quantity)
+                    return (
+                      <div key={product.id}
+                        className={`flex items-center justify-between border-2 rounded-xl p-4 transition ${
+                          isCurrent ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#d4a017]'
+                        }`}>
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">🥛</span>
+                          <div>
+                            <p className="font-semibold text-[#1c1c1c] text-sm">{product.name} — {product.size}</p>
+                            <p className="text-xs text-gray-400">
+                              ₹{Math.round(product.price * selectedSub.quantity)}/day
+                              {!isCurrent && priceDiff !== 0 && (
+                                <span className={`ml-1 font-semibold ${priceDiff > 0 ? 'text-red-500' : 'text-[#1a5c38]'}`}>
+                                  ({priceDiff > 0 ? '+' : ''}₹{priceDiff}/day)
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        {isCurrent ? (
+                          <span className="text-xs font-bold text-[#1a5c38] bg-[#d4eddf] px-3 py-1 rounded-full">Current</span>
+                        ) : (
+                          <button
+                            onClick={() => handleChangePlan(product.id)}
+                            disabled={changePlanLoading}
+                            className="bg-[#d4a017] text-white font-bold px-4 py-2 rounded-lg hover:bg-[#b8860b] transition text-xs disabled:opacity-50">
+                            {changePlanLoading ? '...' : 'Switch'}
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                <p className="text-xs text-gray-400 mt-3">Changes apply from your next scheduled delivery.</p>
               </div>
             )}
 
