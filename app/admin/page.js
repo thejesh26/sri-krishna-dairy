@@ -1515,9 +1515,6 @@ setWallets(allWallets || [])
   </div>
 )}
 
-    </div>
-    </div>
-
     {/* ── Deposit Refund Modal ── */}
     {refundModal && (() => {
       const good = Number(refundGoodBottles) || 0
@@ -1604,6 +1601,9 @@ setWallets(allWallets || [])
         </div>
       )
     })()}
+
+    </div>
+    </div>
 
   )
 }
