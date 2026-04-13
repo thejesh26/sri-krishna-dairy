@@ -509,7 +509,7 @@ export default function Home() {
             style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
             {bulkSubmitting ? 'Sending...' : '📩 Send Enquiry'}
           </button>
-          <p className="text-xs text-gray-400 text-center">Or reach us directly: <a href="https://wa.me/919980166221" target="_blank" className="text-[#25D366] font-semibold">WhatsApp</a> · <a href="tel:9980166221" className="text-[#1a5c38] font-semibold">Call Us</a></p>
+          <p className="text-xs text-gray-400 text-center">We'll respond within 24 hours. Prefer instant help? <a href="https://wa.me/919980166221" target="_blank" className="text-[#25D366] font-semibold">Chat on WhatsApp</a></p>
         </form>
       )}
     </div>

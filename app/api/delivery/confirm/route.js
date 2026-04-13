@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
-import { notifyOrderDelivered, notifyCodUpsell, notifyLowBalance } from '../../../lib/whatsapp'
+import { notifyOrderDelivered, notifyCodUpsell, notifyLowBalance, sendWhatsAppMessage, sendWhatsAppToAdmin } from '../../../lib/whatsapp'
 import { sendLowBalanceEmail } from '../../../lib/email'
 
 /**
@@ -27,7 +27,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { type, order_id, subscription_id, delivery_date } = await request.json()
+    const { type, order_id, subscription_id, delivery_date, bottle_returned, not_delivered } = await request.json()
     const deliveredAt = new Date().toISOString()
     const deliveredBy = callerProfile.full_name || user.id
 
@@ -68,6 +68,23 @@ export async function POST(request) {
     }
 
     if (type === 'subscription' && subscription_id && delivery_date) {
+      // ── Not-delivered path: clear pending without charging ───────────────────
+      if (not_delivered) {
+        await supabase.from('subscriptions').update({ pending_delivery: false }).eq('id', subscription_id)
+        try {
+          const { data: sub } = await supabase.from('subscriptions').select('user_id').eq('id', subscription_id).single()
+          const { data: profile } = sub?.user_id
+            ? await supabase.from('profiles').select('full_name, apartment_name, flat_number, area').eq('id', sub.user_id).single()
+            : { data: null }
+          await sendWhatsAppToAdmin(
+            `❌ Not Delivered [${delivery_date}]\nCustomer: ${profile?.full_name || sub?.user_id}\n` +
+            `Address: ${profile?.apartment_name}, Flat ${profile?.flat_number}, ${profile?.area}\n` +
+            `Reported by: ${deliveredBy}`
+          )
+        } catch { /* non-blocking */ }
+        return NextResponse.json({ success: true, not_delivered: true })
+      }
+
       const { data: sub } = await supabase
         .from('subscriptions')
         .select('user_id, products(*), quantity, discount_percent, pending_delivery')
@@ -177,6 +194,39 @@ export async function POST(request) {
 
       // Clear pending_delivery flag
       await supabase.from('subscriptions').update({ pending_delivery: false }).eq('id', subscription_id)
+
+      // ── Bottle return tracking ──────────────────────────────────────────────
+      if (bottle_returned === false) {
+        try {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('full_name, phone, apartment_name, flat_number, area, unreturned_bottles')
+            .eq('id', sub.user_id).single()
+          const newCount = (profileData?.unreturned_bottles || 0) + 1
+          await supabase.from('profiles').update({ unreturned_bottles: newCount }).eq('id', sub.user_id)
+
+          // Admin alert
+          await sendWhatsAppToAdmin(
+            `⚠️ Bottle NOT returned by ${profileData?.full_name || sub.user_id}\n` +
+            `Address: ${profileData?.apartment_name}, Flat ${profileData?.flat_number}, ${profileData?.area}\n` +
+            `Date: ${delivery_date} | Total unreturned: ${newCount}`
+          )
+
+          // Auto-pause subscription when 3+ bottles unreturned
+          if (newCount >= 3) {
+            await supabase.from('subscriptions').update({ is_active: false }).eq('id', subscription_id)
+            if (profileData?.phone) {
+              await sendWhatsAppMessage(
+                profileData.phone,
+                `Your Sri Krishnaa Dairy delivery has been paused as we have not received ${newCount} bottles back. Please return the bottles to resume delivery. Contact us: 9980166221`
+              )
+            }
+            await sendWhatsAppToAdmin(
+              `🚨 Subscription #${subscription_id} AUTO-PAUSED — ${profileData?.full_name} has ${newCount} unreturned bottles`
+            )
+          }
+        } catch { /* non-blocking */ }
+      }
 
       return NextResponse.json({ success: true })
     }

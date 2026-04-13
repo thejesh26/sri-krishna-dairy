@@ -93,13 +93,11 @@ export default function Wallet() {
           const rechargeData = await rechargeRes.json()
           if (!rechargeRes.ok || !rechargeData.success) {
             showError('Payment done but wallet credit failed. Contact support with payment ID: ' + response.razorpay_payment_id)
+            setRechargeLoading(false)
           } else {
-            showSuccess('Wallet recharged successfully!')
-            setSelectedAmount(null)
-            setCustomAmount('')
-            await loadWallet(user.id)
+            showSuccess('Wallet recharged successfully! Redirecting to dashboard...')
+            setTimeout(() => router.push('/dashboard'), 1500)
           }
-          setRechargeLoading(false)
         },
         modal: {
           ondismiss: () => {

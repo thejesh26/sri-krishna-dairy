@@ -72,11 +72,12 @@ export default function DeliveryDashboard() {
     const { data: allOrders } = await ordersQuery
     setOrders(allOrders || [])
 
-    // Load today's subscriptions assigned to this agent
+    // Load today's subscriptions assigned to this agent (only started on/before today)
     let subsQuery = supabase
       .from('subscriptions')
       .select('*, products(*), profiles(*)')
       .eq('is_active', true)
+      .lte('start_date', today)
       .order('delivery_slot', { ascending: true })
 
     if (!profile?.is_admin) {
@@ -209,14 +210,20 @@ export default function DeliveryDashboard() {
     setWalletLoading(false)
   }
 
-  const handleMarkSubDelivered = async (subId) => {
+  const handleMarkSubDelivered = async (subId, bottleReturned = true, notDelivered = false) => {
     setDeliveringId(subId)
     const { data: { session } } = await supabase.auth.getSession()
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
     await fetch('/api/delivery/confirm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-      body: JSON.stringify({ type: 'subscription', subscription_id: subId, delivery_date: today }),
+      body: JSON.stringify({
+        type: 'subscription',
+        subscription_id: subId,
+        delivery_date: today,
+        bottle_returned: bottleReturned,
+        not_delivered: notDelivered,
+      }),
     })
     setDeliveredSubs(prev => new Set([...prev, subId]))
     setDeliveringId(null)
@@ -372,11 +379,23 @@ export default function DeliveryDashboard() {
                     </a>
                     {deliveredSubs.has(sub.id) ? (
                       <span className="bg-[#f0faf4] text-[#1a5c38] text-xs font-bold px-3 py-1.5 rounded-lg border border-[#c8e6d4] text-center">✅ Done</span>
+                    ) : deliveringId === sub.id ? (
+                      <span className="text-xs text-gray-400 px-3 py-1.5">...</span>
                     ) : (
-                      <button onClick={() => handleMarkSubDelivered(sub.id)} disabled={deliveringId === sub.id}
-                        className="bg-[#1a5c38] text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-[#14472c] transition disabled:opacity-50">
-                        {deliveringId === sub.id ? '...' : '✓ Delivered'}
-                      </button>
+                      <>
+                        <button onClick={() => handleMarkSubDelivered(sub.id, true, false)}
+                          className="bg-[#1a5c38] text-white text-[10px] font-bold px-2 py-1.5 rounded-lg hover:bg-[#14472c] transition w-full">
+                          ✅ Returned
+                        </button>
+                        <button onClick={() => handleMarkSubDelivered(sub.id, false, false)}
+                          className="bg-orange-500 text-white text-[10px] font-bold px-2 py-1.5 rounded-lg hover:bg-orange-600 transition w-full">
+                          ⚠️ Not Returned
+                        </button>
+                        <button onClick={() => handleMarkSubDelivered(sub.id, false, true)}
+                          className="bg-red-500 text-white text-[10px] font-bold px-2 py-1.5 rounded-lg hover:bg-red-600 transition w-full">
+                          ❌ Not Delivered
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>

@@ -22,7 +22,7 @@ export default function Order() {
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const { showSuccess, showError, showInfo } = useToast()
 
-  const BOTTLE_DEPOSIT = 100
+  const BOTTLE_DEPOSIT = 200
 
   useEffect(() => {
     getUser()
@@ -75,7 +75,7 @@ export default function Order() {
   }
 
   const is500mlTrial = selectedProduct?.size === '500ml'
-  const bottleDeposit = !is500mlTrial && deliveryMode === 'keep_bottle' ? BOTTLE_DEPOSIT * Math.max(2, quantity) : 0
+  const bottleDeposit = !is500mlTrial && deliveryMode === 'keep_bottle' ? BOTTLE_DEPOSIT * quantity : 0
   const milkPrice = selectedProduct ? Math.round(selectedProduct.price * quantity * (1 - discount / 100)) : 0
   const totalPrice = milkPrice + bottleDeposit
 
@@ -293,7 +293,7 @@ if (existingOrder) {
                     }`}>
                     <div className="text-3xl mb-1">🏺</div>
                     <p className="font-bold text-[#1c1c1c] text-sm">Keep Bottle</p>
-                    <p className="text-xs text-gray-400 mt-1">₹100 deposit/bottle</p>
+                    <p className="text-xs text-gray-400 mt-1">₹200 deposit/bottle</p>
                     <p className="text-xs text-[#1a5c38] font-semibold mt-1">Refundable</p>
                   </button>
                   <button type="button" onClick={() => setDeliveryMode('direct')}
@@ -309,9 +309,9 @@ if (existingOrder) {
                 {deliveryMode === 'keep_bottle' && (
                   <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-lg p-3 mt-3">
                     <p className="text-xs text-[#1a5c38] font-semibold">
-                      🍼 Bottle deposit: ₹{BOTTLE_DEPOSIT} × {Math.max(2, quantity)} bottles = ₹{bottleDeposit}
+                      🍼 Bottle deposit: ₹{BOTTLE_DEPOSIT} × {quantity} bottle{quantity !== 1 ? 's' : ''} = ₹{bottleDeposit}
                     </p>
-                    <p className="text-xs text-[#1a5c38] mt-1">Minimum deposit is for 2 bottles (₹200). Fully refundable.</p>
+                    <p className="text-xs text-[#1a5c38] mt-1">₹200 per bottle. Fully refundable when bottles are returned.</p>
                   </div>
                 )}
                 {deliveryMode === 'direct' && (

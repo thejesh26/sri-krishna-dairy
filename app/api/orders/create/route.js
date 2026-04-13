@@ -25,8 +25,7 @@ import { notifyOrderPlaced } from '../../../lib/whatsapp'
 
 const VALID_DELIVERY_SLOTS = ['morning', 'evening']
 const VALID_DELIVERY_MODES = ['keep_bottle', 'direct']
-const BOTTLE_DEPOSIT_PER_UNIT = 100
-const MIN_BOTTLE_UNITS = 2
+const BOTTLE_DEPOSIT_PER_UNIT = 200
 
 // Mirror of DISCOUNT_CODES in validate-discount/route.js — single source of truth
 const DISCOUNT_CODES = {
@@ -129,7 +128,7 @@ export async function POST(request) {
     const is500mlTrial = product.size === '500ml'
     const bottleDeposit =
       !is500mlTrial && delivery_mode === 'keep_bottle'
-        ? BOTTLE_DEPOSIT_PER_UNIT * Math.max(MIN_BOTTLE_UNITS, qty)
+        ? BOTTLE_DEPOSIT_PER_UNIT * qty
         : 0
     const totalPrice = milkPrice + bottleDeposit
 

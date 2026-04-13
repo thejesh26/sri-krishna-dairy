@@ -156,12 +156,14 @@ export default function Dashboard() {
     const now = new Date()
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
     const monthOrders = allOrders.filter(o => o.created_at >= monthStart)
-    const monthTxns = transactions.filter(t => t.type === 'debit' && t.created_at >= monthStart)
-    const totalBottles = monthOrders.reduce((s, o) => s + o.quantity, 0)
-    const totalSpent = monthTxns.reduce((s, t) => s + (t.amount || 0), 0)
-    // Market price approx 2x our price
-    const marketValue = monthOrders.reduce((s, o) => s + ((o.products?.price || 0) * 2 * o.quantity), 0)
-    const moneySaved = Math.max(0, marketValue - totalSpent)
+    const totalBottles = monthOrders.reduce((s, o) => s + (o.quantity || 0), 0)
+    const totalSpent = monthOrders.reduce((s, o) => s + (o.total_price || 0), 0)
+    // Market prices: 500ml = Rs.50, 1000ml = Rs.90
+    const moneySaved = monthOrders.reduce((s, o) => {
+      const market = o.products?.size === '500ml' ? 50 : 90
+      const ours = o.products?.price || 0
+      return s + Math.max(0, (market - ours) * (o.quantity || 0))
+    }, 0)
     return { totalBottles, totalSpent, moneySaved, orderCount: monthOrders.length }
   }
 
@@ -185,7 +187,7 @@ export default function Dashboard() {
 
   const greeting = getGreeting()
   const firstName = profile?.full_name?.split(' ')[0] || 'Customer'
-  const totalDailyValue = subscriptions.reduce((sum, sub) => sum + (sub.products?.price * sub.quantity), 0)
+  const totalDailyValue = subscriptions.reduce((sum, sub) => sum + Math.round((sub.products?.price || 0) * sub.quantity * (1 - (sub.discount_percent || 0) / 100)), 0)
   const nextDelivery = subscriptions[0]
   const report = getMonthlyReport()
 
@@ -561,7 +563,7 @@ export default function Dashboard() {
               <div className="px-6 py-4 flex flex-col gap-2">
                 {[
                   { q: 'What time is milk delivered?', a: 'Morning slot: 7AM – 9AM. Evening slot: 5PM – 7PM. We guarantee delivery within your chosen slot.' },
-                  { q: 'What is the bottle deposit?', a: 'A one-time refundable deposit of ₹100 per bottle (minimum ₹200 for 2 bottles). The full deposit is returned when bottles are given back in good condition. Choose Direct Delivery mode to skip the deposit — our agent collects the bottle right after delivery.' },
+                  { q: 'What is the bottle deposit?', a: 'A one-time refundable deposit of ₹200 per bottle. The full deposit is returned when bottles are given back in good condition. Choose Direct Delivery mode to skip the deposit — our agent collects the bottle right after delivery.' },
                   { q: 'What is the minimum wallet balance?', a: 'Your wallet must have sufficient balance to cover the day\'s delivery cost. If your balance is insufficient, your subscription will be automatically deactivated. We send you an email alert when your balance drops below ₹300 — top up in advance to stay uninterrupted.' },
                   { q: 'Is the milk safe to drink directly?', a: '⚠️ Our milk is farm-fresh and raw — NOT pasteurized. Always boil before consuming, especially for children, elderly, pregnant women, and immunocompromised individuals. FSSAI Lic. No: 21225008004544.' },
                   { q: 'Can I pause my subscription?', a: 'Yes! Go to Manage Plan and select a single date or a date range to pause. Must be done at least 12 hours in advance. Great for holidays or travel.' },

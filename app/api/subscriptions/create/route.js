@@ -19,8 +19,7 @@ import { notifySubscriptionActivated } from '../../../lib/whatsapp'
 const VALID_DELIVERY_SLOTS = ['morning', 'evening']
 const VALID_DELIVERY_MODES = ['keep_bottle', 'direct']
 const VALID_SUBSCRIPTION_TYPES = ['ongoing', 'fixed', 'oneday']
-const BOTTLE_DEPOSIT_PER_UNIT = 100
-const MIN_BOTTLE_UNITS = 2
+const BOTTLE_DEPOSIT_PER_UNIT = 200
 
 const DISCOUNT_CODES = {
   ...(process.env.DISCOUNT_CODE_1 ? { [process.env.DISCOUNT_CODE_1]: 10 } : {}),
@@ -147,7 +146,7 @@ export async function POST(request) {
     const is500mlTrial = product.size === '500ml'
     const bottleDeposit =
       !is500mlTrial && delivery_mode === 'keep_bottle'
-        ? BOTTLE_DEPOSIT_PER_UNIT * Math.max(MIN_BOTTLE_UNITS, qty)
+        ? BOTTLE_DEPOSIT_PER_UNIT * qty
         : 0
 
     // ── 6. Check for existing active subscription ────────────────────────────
