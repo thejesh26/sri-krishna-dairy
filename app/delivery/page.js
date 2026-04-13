@@ -55,7 +55,7 @@ export default function DeliveryDashboard() {
   }
 
   const loadDeliveries = async (userId, profile) => {
-    const today = new Date().toLocaleDateString('en-CA')
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 
     // Load today's orders assigned to this agent
     let ordersQuery = supabase
@@ -138,7 +138,7 @@ export default function DeliveryDashboard() {
 
   const loadHistory = async () => {
     if (historyLoaded) return
-    const today = new Date().toLocaleDateString('en-CA')
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
     let q = supabase
       .from('orders')
       .select('*, products(*), profiles(*)')

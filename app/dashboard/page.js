@@ -32,6 +32,7 @@ export default function Dashboard() {
   const [redeemMsg, setRedeemMsg] = useState('')
   const [redeemLoading, setRedeemLoading] = useState(false)
   const [inactiveSubs, setInactiveSubs] = useState([])
+  const [subDeliveries, setSubDeliveries] = useState([])
   const [reactivatingId, setReactivatingId] = useState(null)
   const [reactivateMsg, setReactivateMsg] = useState('')
   const [reportedOrders, setReportedOrders] = useState(new Set())
@@ -75,6 +76,11 @@ export default function Dashboard() {
     const { data: inactiveSubs } = await supabase.from('subscriptions').select('*, products(*)')
       .eq('user_id', u.id).eq('is_active', false).order('created_at', { ascending: false }).limit(5)
     setInactiveSubs(inactiveSubs || [])
+
+    const { data: subDels } = await supabase.from('subscription_deliveries')
+      .select('delivery_date, subscriptions(quantity)')
+      .eq('user_id', u.id)
+    setSubDeliveries(subDels || [])
 
     const { data: walletData } = await supabase.from('wallet').select('*').eq('user_id', u.id).limit(1)
     setWalletBalance(walletData?.[0]?.balance || 0)
@@ -151,15 +157,27 @@ export default function Dashboard() {
     setRedeemLoading(false)
   }
 
-  // Monthly report calculations
+  // Monthly report calculations (IST-aware, delivery_date based)
   const getMonthlyReport = () => {
-    const now = new Date()
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
-    const monthOrders = allOrders.filter(o => o.created_at >= monthStart)
-    const totalBottles = monthOrders.reduce((s, o) => s + (o.quantity || 0), 0)
-    const totalSpent = monthOrders.reduce((s, o) => s + (o.total_price || 0), 0)
+    const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+    const monthPrefix = `${istDate.getFullYear()}-${String(istDate.getMonth() + 1).padStart(2, '0')}`
+
+    // Only non-cancelled orders whose delivery_date falls in this month
+    const monthOrders = allOrders.filter(o =>
+      o.delivery_date?.startsWith(monthPrefix) && o.status !== 'cancelled'
+    )
+    const deliveredOrders = monthOrders.filter(o => o.status === 'delivered')
+
+    const orderBottles = monthOrders.reduce((s, o) => s + (o.quantity || 0), 0)
+    // Count subscription deliveries this month
+    const subBottles = subDeliveries
+      .filter(d => d.delivery_date?.startsWith(monthPrefix))
+      .reduce((s, d) => s + (d.subscriptions?.quantity || 0), 0)
+    const totalBottles = orderBottles + subBottles
+    // Total spent: only actually-delivered orders (exclude pending/future)
+    const totalSpent = deliveredOrders.reduce((s, o) => s + (o.total_price || 0), 0)
     // Market prices: 500ml = Rs.50, 1000ml = Rs.90
-    const moneySaved = monthOrders.reduce((s, o) => {
+    const moneySaved = deliveredOrders.reduce((s, o) => {
       const market = o.products?.size === '500ml' ? 50 : 90
       const ours = o.products?.price || 0
       return s + Math.max(0, (market - ours) * (o.quantity || 0))
@@ -187,8 +205,13 @@ export default function Dashboard() {
 
   const greeting = getGreeting()
   const firstName = profile?.full_name?.split(' ')[0] || 'Customer'
-  const totalDailyValue = subscriptions.reduce((sum, sub) => sum + Math.round((sub.products?.price || 0) * sub.quantity * (1 - (sub.discount_percent || 0) / 100)), 0)
-  const nextDelivery = subscriptions[0]
+  const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  // Only subscriptions that have actually started (start_date <= today IST)
+  const activeSubscriptions = subscriptions.filter(s =>
+    s.start_date <= todayIST && (!s.end_date || s.end_date >= todayIST)
+  )
+  const totalDailyValue = activeSubscriptions.reduce((sum, sub) => sum + Math.round((sub.products?.price || 0) * sub.quantity * (1 - (sub.discount_percent || 0) / 100)), 0)
+  const nextDelivery = activeSubscriptions[0]
   const report = getMonthlyReport()
 
   return (
@@ -241,7 +264,7 @@ export default function Dashboard() {
           </div>
           <div className="relative z-10 grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-white border-opacity-20">
             <div className="text-center">
-              <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#d4a017]">{subscriptions.length}</p>
+              <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#d4a017]">{activeSubscriptions.length}</p>
               <p className="text-green-300 text-xs mt-1 uppercase tracking-widest">Active Plans</p>
             </div>
             <div className="text-center border-x border-white border-opacity-20">
@@ -383,9 +406,13 @@ export default function Dashboard() {
                     <div className="w-16 h-16 rounded-2xl bg-[#f5f0e8] flex items-center justify-center text-3xl flex-shrink-0">🥛</div>
                     <div className="flex-1">
                       <p className="font-semibold text-[#1c1c1c]">{sub.products?.size} Fresh Cow Milk</p>
-                      <p className="text-sm text-gray-400 mt-1">{sub.quantity} bottle/day • Started {new Date(sub.start_date).toLocaleDateString('en-IN')}</p>
+                      <p className="text-sm text-gray-400 mt-1">
+                        {sub.quantity} bottle/day • {sub.start_date > todayIST ? 'Starts' : 'Started'} {new Date(sub.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
                       <div className="flex flex-wrap gap-2 mt-2">
-                        <span className="bg-[#f0faf4] text-[#1a5c38] text-xs font-medium px-3 py-1 rounded-full border border-[#c8e6d4]">Active</span>
+                        <span className={`text-xs font-medium px-3 py-1 rounded-full border ${sub.start_date > todayIST ? 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]' : 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'}`}>
+                          {sub.start_date > todayIST ? 'Upcoming' : 'Active'}
+                        </span>
                         <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-medium px-3 py-1 rounded-full border border-[#f0dfa0]">
                           {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
                         </span>
@@ -953,17 +980,15 @@ export default function Dashboard() {
             {/* Monthly Delivery Calendar hint */}
             <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
               <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-4">📅 This Month's Orders</h3>
-              {allOrders.filter(o => {
-                const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-                return o.created_at >= monthStart
-              }).length === 0 ? (
+              {(() => {
+                const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+                const monthPrefix = `${istDate.getFullYear()}-${String(istDate.getMonth() + 1).padStart(2, '0')}`
+                const thisMonthOrders = allOrders.filter(o => o.delivery_date?.startsWith(monthPrefix) && o.status !== 'cancelled')
+                return thisMonthOrders.length === 0 ? (
                 <p className="text-gray-400 text-sm">No orders this month yet.</p>
               ) : (
                 <div className="flex flex-col gap-2">
-                  {allOrders.filter(o => {
-                    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-                    return o.created_at >= monthStart
-                  }).map((order) => (
+                  {thisMonthOrders.map((order) => (
                     <div key={order.id} className="flex items-center justify-between py-2 border-b border-[#f5f0e8] last:border-0">
                       <span className="text-sm text-[#1c1c1c] font-medium">
                         {new Date(order.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
@@ -976,7 +1001,8 @@ export default function Dashboard() {
                     </div>
                   ))}
                 </div>
-              )}
+              )
+              })()}
             </div>
 
           </div>

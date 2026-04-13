@@ -86,7 +86,7 @@ const [assigningOrder, setAssigningOrder] = useState(null)
   }
 
   const loadAllData = async () => {
-    const today = new Date().toLocaleDateString('en-CA') // Returns YYYY-MM-DD in local timezone
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 
     // Load all orders with profiles
     const { data: allOrders } = await supabase
@@ -1088,7 +1088,7 @@ setWallets(allWallets || [])
         </h3>
         <p className="text-xs text-gray-400 mt-0.5">Assign orders to delivery agents</p>
       </div>
-      {orders.filter(o => o.delivery_date === new Date().toLocaleDateString('en-CA')).length === 0 ? (
+      {orders.filter(o => o.delivery_date === new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })).length === 0 ? (
         <div className="px-6 py-12 text-center">
           <div className="text-5xl mb-3">📭</div>
           <p className="text-gray-400">No orders for today</p>
@@ -1096,7 +1096,7 @@ setWallets(allWallets || [])
       ) : (
         <div>
           {orders
-            .filter(o => o.delivery_date === new Date().toLocaleDateString('en-CA'))
+            .filter(o => o.delivery_date === new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))
             .map((order, index) => (
             <div key={order.id}
               className={`px-6 py-4 flex items-center gap-4 ${index !== orders.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
