@@ -91,7 +91,21 @@ export async function POST(request) {
       )
     }
 
-    // ── 3. Fetch the real product price from the DB (never trust client) ─────
+    // ── 3. Check COD trial eligibility ─────────────────────────────────────
+    const { data: callerProfile } = await supabase
+      .from('profiles')
+      .select('has_used_cod')
+      .eq('id', user.id)
+      .single()
+
+    if (callerProfile?.has_used_cod) {
+      return NextResponse.json(
+        { error: 'Your free trial has been used. Please recharge your wallet and subscribe for continued delivery.' },
+        { status: 403 }
+      )
+    }
+
+    // ── 4. Fetch the real product price from the DB (never trust client) ─────
     const { data: product, error: productError } = await supabase
       .from('products')
       .select('id, price, size, is_available')
@@ -124,13 +138,10 @@ export async function POST(request) {
     }
 
     // ── 5. Compute authoritative price ──────────────────────────────────────
+    // Trial orders (first COD order) have no deposit for any product
     const milkPrice = Math.round(product.price * qty * (1 - discountPercent / 100))
-    const is500mlTrial = product.size === '500ml'
-    const bottleDeposit =
-      !is500mlTrial && delivery_mode === 'keep_bottle'
-        ? BOTTLE_DEPOSIT_PER_UNIT * qty
-        : 0
-    const totalPrice = milkPrice + bottleDeposit
+    const bottleDeposit = 0 // No deposit on trial orders; deposit tracked on subscriptions
+    const totalPrice = milkPrice // total_price = milk only, deposit stored separately
 
     // ── 6. Check for duplicate order on this date ────────────────────────────
     const { data: existingOrder } = await supabase

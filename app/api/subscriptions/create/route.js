@@ -142,10 +142,9 @@ export async function POST(request) {
     // ── 5. Compute authoritative bottle deposit ──────────────────────────────
     // Note: daily charge is always recomputed by the cron job from products.price
     // so discountPercent here is informational only (stored for reference if needed)
-    // 500ml is a trial product — no bottle deposit required
-    const is500mlTrial = product.size === '500ml'
+    // Deposit applies to all products on subscriptions (subscribe page is for committed customers)
     const bottleDeposit =
-      !is500mlTrial && delivery_mode === 'keep_bottle'
+      delivery_mode === 'keep_bottle'
         ? BOTTLE_DEPOSIT_PER_UNIT * qty
         : 0
 

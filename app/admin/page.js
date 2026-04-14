@@ -42,6 +42,7 @@ const [assigningOrder, setAssigningOrder] = useState(null)
   const [refundDamagedBottles, setRefundDamagedBottles] = useState('')
   const [refundNotes, setRefundNotes] = useState('')
   const [refundProcessing, setRefundProcessing] = useState(false)
+  const [failedDeductions, setFailedDeductions] = useState([])
   const [discountCodes, setDiscountCodes] = useState([])
   const [newCode, setNewCode] = useState({ code: '', percent: '', description: '' })
   const [discountSaving, setDiscountSaving] = useState(false)
@@ -174,6 +175,16 @@ const [assigningOrder, setAssigningOrder] = useState(null)
       .select('*')
       .order('created_at', { ascending: false })
     setDiscountCodes(codes || [])
+
+    // Load failed deductions (last 30 days)
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const { data: failedDeds } = await supabase
+      .from('failed_deductions')
+      .select('*, profiles(full_name, phone)')
+      .gte('created_at', thirtyDaysAgo.toISOString())
+      .order('created_at', { ascending: false })
+    setFailedDeductions(failedDeds || [])
 
     // Load all customers
     const { data: allCustomers } = await supabase
@@ -433,6 +444,23 @@ setWallets(allWallets || [])
             </button>
           ))}
         </div>
+
+        {/* Failed Deductions Alert Banner */}
+        {failedDeductions.length > 0 && (
+          <div className="bg-red-50 border-2 border-red-200 rounded-2xl px-5 py-4 flex items-center justify-between gap-4 mb-2">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">⚠️</span>
+              <div>
+                <p className="font-bold text-red-700 text-sm">{failedDeductions.length} subscription deduction{failedDeductions.length > 1 ? 's' : ''} failed recently</p>
+                <p className="text-xs text-red-500">Customers with insufficient balance — review in Issue Reports</p>
+              </div>
+            </div>
+            <button onClick={() => setActiveTab('reports')}
+              className="text-xs bg-red-600 text-white font-bold px-3 py-1.5 rounded-lg hover:bg-red-700 transition whitespace-nowrap">
+              View Details
+            </button>
+          </div>
+        )}
 
         {/* Today's Deliveries Tab */}
         {activeTab === 'overview' && (
@@ -1482,6 +1510,33 @@ setWallets(allWallets || [])
               </div>
             )
           })}
+        </div>
+      )}
+    </div>
+
+    {/* Failed Deductions */}
+    <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+      <div className="px-6 py-5 border-b border-[#f5f0e8]">
+        <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">❌ Failed Subscription Deductions</h3>
+        <p className="text-xs text-gray-400 mt-0.5">{failedDeductions.length} failures in last 30 days</p>
+      </div>
+      {failedDeductions.length === 0 ? (
+        <div className="px-6 py-12 text-center text-gray-400 text-sm">No failed deductions. All subscriptions are healthy!</div>
+      ) : (
+        <div className="divide-y divide-[#f5f0e8]">
+          {failedDeductions.map((d) => (
+            <div key={d.id} className="px-6 py-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-semibold text-sm text-[#1c1c1c]">{d.profiles?.full_name || 'Customer'}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">📞 {d.profiles?.phone || 'N/A'} · Sub #{d.subscription_id}</p>
+                  <p className="text-xs text-red-500 mt-0.5 font-medium">{d.reason}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Amount due: ₹{d.amount}</p>
+                </div>
+                <p className="text-xs text-gray-400 flex-shrink-0">{new Date(d.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

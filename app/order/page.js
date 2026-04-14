@@ -74,8 +74,8 @@ export default function Order() {
     return (deliveryStart - now) / (1000 * 60 * 60) >= 12
   }
 
-  const is500mlTrial = selectedProduct?.size === '500ml'
-  const bottleDeposit = !is500mlTrial && deliveryMode === 'keep_bottle' ? BOTTLE_DEPOSIT * quantity : 0
+  const isTrialOrder = !profile?.has_used_cod
+  const bottleDeposit = !isTrialOrder && deliveryMode === 'keep_bottle' ? BOTTLE_DEPOSIT * quantity : 0
   const milkPrice = selectedProduct ? Math.round(selectedProduct.price * quantity * (1 - discount / 100)) : 0
   const totalPrice = milkPrice + bottleDeposit
 
@@ -230,7 +230,7 @@ if (existingOrder) {
                   <div className="text-3xl mb-1">🥛</div>
                   <p className="font-bold text-[#1c1c1c] text-sm">{product.size}</p>
                   <p className="text-[#1a5c38] font-extrabold">₹{product.price}</p>
-                  {product.size === '500ml' && (
+                  {isTrialOrder && (
                     <span className="inline-block mt-1 text-[10px] bg-[#d4a017] text-white font-bold px-2 py-0.5 rounded-full">Trial · No Deposit</span>
                   )}
                 </button>
@@ -279,10 +279,10 @@ if (existingOrder) {
           <div className="bg-white rounded-lg p-5 shadow-sm border border-[#e8e0d0]">
             <p className="text-sm font-bold text-[#1c1c1c] mb-1">Bottle Delivery Mode 🍼</p>
             <p className="text-xs text-gray-400 mb-3">Choose how you want to receive your milk</p>
-            {is500mlTrial ? (
+            {isTrialOrder ? (
               <div className="bg-[#fdf6e3] border border-[#d4a017] rounded-lg p-4 text-center">
-                <p className="text-sm font-bold text-[#d4a017]">🎉 Trial Pack — No Bottle Deposit!</p>
-                <p className="text-xs text-gray-500 mt-1">Our delivery person will collect the bottle after delivery. No deposit charged for the 500ml trial.</p>
+                <p className="text-sm font-bold text-[#d4a017]">🎉 Trial Order — No Bottle Deposit!</p>
+                <p className="text-xs text-gray-500 mt-1">Our delivery person will collect the bottle after delivery. No deposit charged for your first trial order.</p>
               </div>
             ) : (
               <>
@@ -374,7 +374,7 @@ if (existingOrder) {
             </div>
             <div className="flex justify-between text-sm mb-1">
               <span>Payment</span>
-              <span>Cash on Delivery</span>
+              <span>{isTrialOrder ? 'Cash on Delivery (Trial)' : 'Wallet'}</span>
             </div>
             <div className="border-t border-green-600 mt-3 pt-3 flex justify-between font-bold text-lg">
               <span>Total</span>
@@ -425,22 +425,9 @@ if (existingOrder) {
                   <p className="font-[family-name:var(--font-playfair)] font-bold text-lg leading-tight">Sri Krishnaa<br />Dairy Farms</p>
                 </div>
               </div>
-              <p className="text-gray-400 text-sm leading-relaxed mb-4">
+              <p className="text-gray-400 text-sm leading-relaxed">
                 Pure, fresh cow milk delivered straight from our farm to your doorstep every morning.
               </p>
-              <div className="flex gap-3">
-                <a href="https://wa.me/919980166221" target="_blank"
-                  className="flex items-center gap-2 bg-[#25D366] hover:bg-[#1da851] text-white text-xs font-semibold px-4 py-2 rounded transition">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4" fill="white">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                  </svg>
-                  WhatsApp
-                </a>
-                <a href="tel:9980166221"
-                  className="bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold px-4 py-2 rounded transition">
-                  📞 Call Us
-                </a>
-              </div>
             </div>
 
             {/* Quick Links */}
@@ -476,10 +463,8 @@ if (existingOrder) {
                   <a href="tel:9980166221" className="hover:text-white transition">9980166221</a>
                 </li>
                 <li className="flex items-start gap-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4 mt-0.5 flex-shrink-0" fill="#25D366">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                  </svg>
-                  <a href="https://wa.me/919980166221" target="_blank" className="hover:text-white transition">WhatsApp Us</a>
+                  <span className="text-[#d4a017] mt-0.5">✉️</span>
+                  <a href="mailto:hello@srikrishnaadairy.in" className="hover:text-white transition">hello@srikrishnaadairy.in</a>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="text-[#d4a017] mt-0.5">📍</span>

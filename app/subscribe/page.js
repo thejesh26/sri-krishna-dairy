@@ -80,8 +80,7 @@ export default function Subscribe() {
     ? Math.round(selectedProduct.price * quantity * (1 - discount / 100))
     : 0
 
-  const is500mlTrial = selectedProduct?.size === '500ml'
-  const bottleDeposit = !is500mlTrial && deliveryMode === 'keep_bottle' ? BOTTLE_DEPOSIT * quantity : 0
+  const bottleDeposit = deliveryMode === 'keep_bottle' ? BOTTLE_DEPOSIT * quantity : 0
   const firstPayment = dailyPrice + bottleDeposit
 
   const totalDays = subscriptionType === 'oneday' ? 1
@@ -312,9 +311,6 @@ export default function Subscribe() {
                   <div className="text-3xl mb-2">🥛</div>
                   <p className="font-bold text-[#1c1c1c] text-sm">{product.size}</p>
                   <p className="text-[#1a5c38] font-extrabold">Rs.{product.price}/day</p>
-                  {product.size === '500ml' && (
-                    <span className="inline-block mt-1 text-[10px] bg-[#d4a017] text-white font-bold px-2 py-0.5 rounded-full">Trial · No Deposit</span>
-                  )}
                 </button>
               ))}
             </div>
@@ -365,13 +361,7 @@ export default function Subscribe() {
           <div className="bg-white rounded-xl p-5 shadow-sm border border-[#e8e0d0]">
             <p className="text-sm font-bold text-[#1c1c1c] mb-1 font-[family-name:var(--font-playfair)]">Bottle Delivery Mode</p>
             <p className="text-xs text-gray-400 mb-4">Choose how you want to receive your milk</p>
-            {is500mlTrial ? (
-              <div className="bg-[#fdf6e3] border border-[#d4a017] rounded-xl p-4 text-center">
-                <p className="text-sm font-bold text-[#d4a017]">🎉 Trial Pack — No Bottle Deposit!</p>
-                <p className="text-xs text-gray-500 mt-1">Our delivery person will collect the bottle after each delivery. No deposit charged for the 500ml trial.</p>
-              </div>
-            ) : (
-              <>
+            <>
                 <div className="grid grid-cols-2 gap-3">
                   <button type="button" onClick={() => setDeliveryMode('keep_bottle')}
                     className={`border-2 rounded-xl p-4 text-center transition ${
@@ -400,8 +390,7 @@ export default function Subscribe() {
                     <p className="text-xs text-[#1a5c38] mt-1">Rs.200 per bottle. Fully refundable when bottles are returned.</p>
                   </div>
                 )}
-              </>
-            )}
+            </>
           </div>
 
           {/* Dates */}

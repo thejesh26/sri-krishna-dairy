@@ -110,6 +110,13 @@ async function runDeductions() {
         required: dailyAmount,
         reason: 'Insufficient balance — subscription deactivated',
       })
+      // Persist to failed_deductions table
+      await supabase.from('failed_deductions').insert({
+        user_id: sub.user_id,
+        subscription_id: sub.id,
+        amount: dailyAmount,
+        reason: 'Insufficient balance — subscription deactivated',
+      }).catch(() => {})
       continue
     }
 
@@ -122,6 +129,13 @@ async function runDeductions() {
         required: dailyAmount,
         reason: 'No wallet found',
       })
+      // Persist to failed_deductions table
+      await supabase.from('failed_deductions').insert({
+        user_id: sub.user_id,
+        subscription_id: sub.id,
+        amount: dailyAmount,
+        reason: 'No wallet found',
+      }).catch(() => {})
       continue
     }
 

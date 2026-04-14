@@ -1,8 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
 
 export default function DisclaimerPopup() {
   const [show, setShow] = useState(false)
+  const [checked, setChecked] = useState(false)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -11,8 +13,20 @@ export default function DisclaimerPopup() {
     }
   }, [])
 
-  const handleAccept = () => {
+  const handleAccept = async () => {
     localStorage.setItem('sk_disclaimer_accepted', 'true')
+    // Save to DB so we have a server-side record
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user?.id) {
+        await supabase
+          .from('profiles')
+          .update({ disclaimer_accepted: true })
+          .eq('id', session.user.id)
+      }
+    } catch {
+      // Non-blocking — localStorage acceptance is the primary gate
+    }
     setShow(false)
   }
 
@@ -58,7 +72,7 @@ export default function DisclaimerPopup() {
           <div>
             <p className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c] text-base mb-2">Bottle Deposit</p>
             <p className="text-sm text-gray-500 leading-relaxed">
-              A refundable deposit of ₹100/bottle (minimum ₹200) is collected for bottle retention delivery mode.
+              A refundable deposit of ₹200/bottle is collected for bottle retention delivery mode.
               Deposit is refunded when bottles are returned in good condition.
             </p>
           </div>
@@ -92,11 +106,27 @@ export default function DisclaimerPopup() {
 
         {/* Footer */}
         <div className="sticky bottom-0 bg-white rounded-b-2xl px-6 pb-6 pt-4 border-t border-[#e8e0d0]">
+          {/* Mandatory checkbox */}
+          <label className="flex items-start gap-3 cursor-pointer mb-4 p-3 rounded-xl border-2 border-[#e8e0d0] hover:border-[#1a5c38] transition">
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={e => setChecked(e.target.checked)}
+              className="mt-0.5 w-4 h-4 flex-shrink-0 accent-[#1a5c38] cursor-pointer"
+            />
+            <span className="text-xs text-[#4a4a4a] leading-relaxed">
+              I have read and understood the health disclaimer. I acknowledge that raw milk should be boiled before
+              consumption and Sri Krishnaa Dairy Farms is not responsible for any health issues arising from
+              consumption of unboiled milk.
+            </span>
+          </label>
+
           <button
             onClick={handleAccept}
-            className="w-full text-white py-3 rounded-xl font-bold text-base hover:opacity-90 transition shadow-lg"
-            style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
-            Accept & Continue
+            disabled={!checked}
+            className="w-full text-white py-3 rounded-xl font-bold text-base transition shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{background: checked ? 'linear-gradient(135deg, #1a5c38, #2d7a50)' : '#9ca3af'}}>
+            {checked ? 'Accept & Continue' : 'Check the box above to continue'}
           </button>
           <div className="flex justify-center gap-4 mt-3 text-xs text-gray-400">
             <a href="/terms-of-service" target="_blank" className="hover:text-[#1a5c38] transition">Terms</a>
