@@ -23,7 +23,7 @@ export default function Wallet() {
     if (!session) { router.push('/login'); return }
     const user = session.user
     setUser(user)
-    const { data: prof } = await supabase.from('profiles').select('phone').eq('id', user.id).single()
+    const { data: prof } = await supabase.from('profiles').select('full_name, phone').eq('id', user.id).single()
     setProfile(prof)
     await loadWallet(user.id)
     setLoading(false)
@@ -83,13 +83,9 @@ export default function Wallet() {
         image: '/Logo.jpg',
         theme: { color: '#1a5c38' },
         prefill: {
+          name: profile?.full_name || '',
           contact: profile?.phone || '',
           email: user?.email || '',
-        },
-        config: {
-          display: {
-            preferences: { show_default_blocks: true },
-          },
         },
         handler: async (response) => {
           const rechargeRes = await fetch('/api/wallet/recharge', {

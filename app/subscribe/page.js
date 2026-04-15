@@ -154,13 +154,9 @@ export default function Subscribe() {
       image: '/Logo.jpg',
       theme: { color: '#1a5c38' },
       prefill: {
+        name: profile?.full_name || '',
         contact: profile?.phone || '',
         email: user?.email || '',
-      },
-      config: {
-        display: {
-          preferences: { show_default_blocks: true },
-        },
       },
       handler: async (response) => {
         // Verify payment — this also sets subscription.is_active = true
