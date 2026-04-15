@@ -86,10 +86,9 @@ export default function Subscribe() {
 
   const bottleDeposit = deliveryMode === 'keep_bottle' ? BOTTLE_DEPOSIT * quantity : 0
 
-  const totalDays = subscriptionType === 'oneday' ? 1
-    : subscriptionType === 'fixed' && endDate
-      ? Math.max(1, Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1)
-      : 30
+  const totalDays = subscriptionType === 'fixed' && endDate
+    ? Math.max(1, Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1)
+    : 30
 
   // Additional deposit = only what's needed on top of existing deposit_balance
   const additionalDeposit = Math.max(0, bottleDeposit - depositBalance)
@@ -154,6 +153,25 @@ export default function Subscribe() {
       description: 'Subscription Activation',
       image: '/Logo.jpg',
       theme: { color: '#1a5c38' },
+      prefill: {
+        contact: '9980166221',
+        email: 'orders@srikrishnaadairy.in',
+      },
+      config: {
+        display: {
+          blocks: {
+            utib: {
+              name: 'Pay via UPI',
+              instruments: [{ method: 'upi' }],
+            },
+          },
+          sequence: ['block.utib'],
+          preferences: { show_default_blocks: true },
+        },
+      },
+      method: {
+        upi: { flow: 'collect' },
+      },
       handler: async (response) => {
         // Verify payment — this also sets subscription.is_active = true
         const verifyRes = await fetch('/api/razorpay/verify-payment', {
@@ -311,9 +329,8 @@ export default function Subscribe() {
           {/* Subscription Type */}
           <div className="bg-white rounded-xl p-5 shadow-sm border border-[#e8e0d0]">
             <p className="text-sm font-bold text-[#1c1c1c] mb-4 font-[family-name:var(--font-playfair)]">Subscription Type</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {[
-                { type: 'oneday', icon: '1️⃣', label: 'One Day', sub: 'Try us!' },
                 { type: 'fixed', icon: '📆', label: 'Fixed Period', sub: 'Set end date' },
                 { type: 'ongoing', icon: '♾️', label: 'Ongoing', sub: 'Until cancelled' },
               ].map(({ type, icon, label, sub }) => (
@@ -429,7 +446,7 @@ export default function Subscribe() {
           {/* Dates */}
           <div className="bg-white rounded-xl p-5 shadow-sm border border-[#e8e0d0]">
             <p className="text-sm font-bold text-[#1c1c1c] mb-3 font-[family-name:var(--font-playfair)]">
-              {subscriptionType === 'oneday' ? 'Delivery Date' : 'Start Date'}
+              Start Date
             </p>
             <input type="date" value={startDate}
               onChange={(e) => { setStartDate(e.target.value); setFixedPreset(null); setEndDate('') }}
@@ -602,7 +619,7 @@ export default function Subscribe() {
             )}
             <div className="flex justify-between text-sm mb-2 text-green-200">
               <span>Delivery</span>
-              <span>{deliverySlot === 'morning' ? '🌅 7-9AM' : '🌆 5-7PM'} · {subscriptionType === 'oneday' ? '1 Day' : subscriptionType === 'fixed' ? 'Fixed' : 'Ongoing'}</span>
+              <span>{deliverySlot === 'morning' ? '🌅 7-9AM' : '🌆 5-7PM'} · {subscriptionType === 'fixed' ? 'Fixed' : 'Ongoing'}</span>
             </div>
             {subscriptionType === 'ongoing' && selectedProduct && (
               <div className="flex justify-between text-sm mb-2 text-green-300">

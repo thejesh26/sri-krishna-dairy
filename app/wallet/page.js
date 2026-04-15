@@ -79,6 +79,25 @@ export default function Wallet() {
         description: 'Wallet Recharge',
         image: '/Logo.jpg',
         theme: { color: '#1a5c38' },
+        prefill: {
+          contact: '9980166221',
+          email: 'orders@srikrishnaadairy.in',
+        },
+        config: {
+          display: {
+            blocks: {
+              utib: {
+                name: 'Pay via UPI',
+                instruments: [{ method: 'upi' }],
+              },
+            },
+            sequence: ['block.utib'],
+            preferences: { show_default_blocks: true },
+          },
+        },
+        method: {
+          upi: { flow: 'collect' },
+        },
         handler: async (response) => {
           const rechargeRes = await fetch('/api/wallet/recharge', {
             method: 'POST',
