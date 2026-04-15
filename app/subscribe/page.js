@@ -154,23 +154,13 @@ export default function Subscribe() {
       image: '/Logo.jpg',
       theme: { color: '#1a5c38' },
       prefill: {
-        contact: '9980166221',
-        email: 'orders@srikrishnaadairy.in',
+        contact: profile?.phone || '',
+        email: user?.email || '',
       },
       config: {
         display: {
-          blocks: {
-            utib: {
-              name: 'Pay via UPI',
-              instruments: [{ method: 'upi' }],
-            },
-          },
-          sequence: ['block.utib'],
           preferences: { show_default_blocks: true },
         },
-      },
-      method: {
-        upi: { flow: 'collect' },
       },
       handler: async (response) => {
         // Verify payment — this also sets subscription.is_active = true

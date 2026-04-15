@@ -7,6 +7,7 @@ import { useToast } from '../components/ToastContext'
 export default function Wallet() {
   const router = useRouter()
   const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
   const [wallet, setWallet] = useState(null)
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -22,6 +23,8 @@ export default function Wallet() {
     if (!session) { router.push('/login'); return }
     const user = session.user
     setUser(user)
+    const { data: prof } = await supabase.from('profiles').select('phone').eq('id', user.id).single()
+    setProfile(prof)
     await loadWallet(user.id)
     setLoading(false)
   }
@@ -80,23 +83,13 @@ export default function Wallet() {
         image: '/Logo.jpg',
         theme: { color: '#1a5c38' },
         prefill: {
-          contact: '9980166221',
-          email: 'orders@srikrishnaadairy.in',
+          contact: profile?.phone || '',
+          email: user?.email || '',
         },
         config: {
           display: {
-            blocks: {
-              utib: {
-                name: 'Pay via UPI',
-                instruments: [{ method: 'upi' }],
-              },
-            },
-            sequence: ['block.utib'],
             preferences: { show_default_blocks: true },
           },
-        },
-        method: {
-          upi: { flow: 'collect' },
         },
         handler: async (response) => {
           const rechargeRes = await fetch('/api/wallet/recharge', {
