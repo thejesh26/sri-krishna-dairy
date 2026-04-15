@@ -23,6 +23,8 @@ export default function Subscribe() {
   const [discount, setDiscount] = useState(0)
   const [loading, setLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [walletBalance, setWalletBalance] = useState(0)
+  const [depositBalance, setDepositBalance] = useState(0)
   const { showSuccess, showError, showInfo } = useToast()
 
   const BOTTLE_DEPOSIT = 200
@@ -38,10 +40,14 @@ export default function Subscribe() {
   const getUser = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
-    const user = session.user
-    setUser(user)
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-    setProfile(profile)
+    const u = session.user
+    setUser(u)
+    const { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
+    setProfile(prof)
+    // Fetch wallet balance and existing deposit balance
+    const { data: wallet } = await supabase.from('wallet').select('balance, deposit_balance').eq('user_id', u.id).maybeSingle()
+    setWalletBalance(wallet?.balance || 0)
+    setDepositBalance(wallet?.deposit_balance || 0)
   }
 
   const getProducts = async () => {
@@ -56,10 +62,7 @@ export default function Subscribe() {
       const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/validate-discount', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
         body: JSON.stringify({ code: discountCode }),
       })
       const result = await res.json()
@@ -76,26 +79,63 @@ export default function Subscribe() {
     return (selected - now) / (1000 * 60 * 60) >= 12
   }
 
+  // ── Derived pricing values ───────────────────────────────────────────────
   const dailyPrice = selectedProduct
     ? Math.round(selectedProduct.price * quantity * (1 - discount / 100))
     : 0
 
   const bottleDeposit = deliveryMode === 'keep_bottle' ? BOTTLE_DEPOSIT * quantity : 0
-  const firstPayment = dailyPrice + bottleDeposit
 
   const totalDays = subscriptionType === 'oneday' ? 1
     : subscriptionType === 'fixed' && endDate
       ? Math.max(1, Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1)
       : 30
 
-  const totalPrice = dailyPrice * totalDays + bottleDeposit
+  // Additional deposit = only what's needed on top of existing deposit_balance
+  const additionalDeposit = Math.max(0, bottleDeposit - depositBalance)
+  // Total the customer needs to have covered (milk buffer + any extra deposit)
+  const totalNeeded = dailyPrice * totalDays + additionalDeposit
+  // How much wallet can cover
+  const walletUsed = Math.min(walletBalance, totalNeeded)
+  // How much still needs to go through Razorpay
+  const razorpayNeeded = Math.max(0, totalNeeded - walletBalance)
+  // True when wallet covers everything — no Razorpay
+  const walletCovers = walletBalance >= totalNeeded && totalNeeded > 0
 
-  const openRazorpay = async (amountRupees, onSuccess) => {
-    const { data: { session } } = await supabase.auth.getSession()
+  // ── Subscription activation payload (shared between both paths) ──────────
+  const subscriptionPayload = () => ({
+    product_id: selectedProduct.id,
+    quantity,
+    start_date: startDate,
+    end_date: endDate || null,
+    delivery_slot: deliverySlot,
+    subscription_type: subscriptionType,
+    delivery_mode: deliveryMode,
+    discount_code: discountCode || null,
+    additional_deposit: additionalDeposit,
+  })
 
+  // ── Path A: Activate directly from wallet balance ────────────────────────
+  const activateWithWallet = async (session) => {
+    const res = await fetch('/api/subscriptions/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ ...subscriptionPayload(), wallet_only: true }),
+    })
+    const result = await res.json()
+    if (!res.ok) {
+      showError(result.error || 'Activation failed. Please try again.')
+      setLoading(false)
+    } else {
+      router.push('/confirmation?type=subscription')
+    }
+  }
+
+  // ── Path B: Razorpay payment → verify → activate ────────────────────────
+  const openRazorpay = async (amountRupees, subscriptionId, session) => {
     const orderRes = await fetch('/api/razorpay/create-order', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
       body: JSON.stringify({ amount_rupees: amountRupees }),
     })
     const orderData = await orderRes.json()
@@ -115,24 +155,25 @@ export default function Subscribe() {
       image: '/Logo.jpg',
       theme: { color: '#1a5c38' },
       handler: async (response) => {
-        // Verify payment server-side
+        // Verify payment — this also sets subscription.is_active = true
         const verifyRes = await fetch('/api/razorpay/verify-payment', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
           body: JSON.stringify({
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
-            bottle_deposit: bottleDeposit,
+            additional_deposit: additionalDeposit,
+            subscription_id: subscriptionId,
           }),
         })
         const verifyData = await verifyRes.json()
         if (!verifyRes.ok || !verifyData.success) {
-          showError('Payment verification failed. Please contact support.')
+          showError('Payment verification failed. Please contact support with your payment ID.')
           setLoading(false)
           return
         }
-        onSuccess(session)
+        router.push('/confirmation?type=subscription')
       },
       modal: {
         ondismiss: () => {
@@ -144,30 +185,7 @@ export default function Subscribe() {
     rzp.open()
   }
 
-  const activateSubscription = async (session) => {
-    const res = await fetch('/api/subscriptions/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-      body: JSON.stringify({
-        product_id: selectedProduct.id,
-        quantity,
-        start_date: startDate,
-        end_date: endDate || null,
-        delivery_slot: deliverySlot,
-        subscription_type: subscriptionType,
-        delivery_mode: deliveryMode,
-        discount_code: discountCode || null,
-      }),
-    })
-    const result = await res.json()
-    if (!res.ok) {
-      showError('Payment received but subscription activation failed: ' + (result.error || 'Contact support.'))
-    } else {
-      router.push('/confirmation?type=subscription')
-    }
-    setLoading(false)
-  }
-
+  // ── Main submit handler ──────────────────────────────────────────────────
   const handleSubscribe = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -177,41 +195,60 @@ export default function Subscribe() {
       setLoading(false)
       return
     }
-
     if (!isValidBooking()) {
       showError('Please book at least 12 hours in advance!')
       setLoading(false)
       return
     }
-
     if (subscriptionType === 'fixed' && !endDate) {
       showError('Please select a duration (1 Week, 2 Weeks, 1 Month, or 3 Months)!')
       setLoading(false)
       return
     }
-
     if (subscriptionType === 'fixed' && new Date(endDate) <= new Date(startDate)) {
       showError('End date must be after start date!')
       setLoading(false)
       return
     }
 
-    // Check if active subscription already exists
+    const { data: { session } } = await supabase.auth.getSession()
+
+    // Check no existing active subscription
     const { data: existingSub } = await supabase
       .from('subscriptions')
       .select('id')
       .eq('user_id', user.id)
       .eq('is_active', true)
       .single()
-
     if (existingSub) {
       showInfo('You already have an active subscription! Please manage your existing plan first.')
       setLoading(false)
       return
     }
 
-    // Open Razorpay; on success activate subscription
-    await openRazorpay(totalPrice, activateSubscription)
+    // ── Path A: wallet covers full cost — no Razorpay ──────────────────────
+    if (walletCovers) {
+      await activateWithWallet(session)
+      return
+    }
+
+    // ── Path B: Razorpay for remaining amount ──────────────────────────────
+    // Step 1: Create pending subscription (is_active = false)
+    const pendingRes = await fetch('/api/subscriptions/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ ...subscriptionPayload(), wallet_only: false }),
+    })
+    const pendingData = await pendingRes.json()
+    if (!pendingRes.ok) {
+      showError(pendingData.error || 'Could not create subscription. Please try again.')
+      setLoading(false)
+      return
+    }
+
+    // Step 2: Open Razorpay for the remaining amount
+    // verify-payment will activate the subscription after successful payment
+    await openRazorpay(razorpayNeeded, pendingData.subscription_id, session)
   }
 
   return (
@@ -283,9 +320,7 @@ export default function Subscribe() {
                 <button type="button" key={type}
                   onClick={() => setSubscriptionType(type)}
                   className={`border-2 rounded-xl p-3 text-center transition ${
-                    subscriptionType === type
-                      ? 'border-[#1a5c38] bg-[#f0faf4]'
-                      : 'border-[#e8e0d0] hover:border-[#1a5c38]'
+                    subscriptionType === type ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#1a5c38]'
                   }`}>
                   <div className="text-2xl mb-1">{icon}</div>
                   <p className="font-bold text-[#1c1c1c] text-xs">{label}</p>
@@ -304,9 +339,7 @@ export default function Subscribe() {
                 <button type="button" key={product.id}
                   onClick={() => setSelectedProduct(product)}
                   className={`border-2 rounded-xl p-4 text-center transition ${
-                    selectedProduct?.id === product.id
-                      ? 'border-[#1a5c38] bg-[#f0faf4]'
-                      : 'border-[#e8e0d0] hover:border-[#1a5c38]'
+                    selectedProduct?.id === product.id ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#1a5c38]'
                   }`}>
                   <div className="text-3xl mb-2">🥛</div>
                   <p className="font-bold text-[#1c1c1c] text-sm">{product.size}</p>
@@ -456,61 +489,154 @@ export default function Subscribe() {
             </div>
           </div>
 
-          {/* Summary */}
+          {/* ── Wallet Balance & Deposit Info ─────────────────────────────────── */}
+          {selectedProduct && (
+            <div className="bg-white rounded-xl border border-[#e8e0d0] p-5 shadow-sm">
+              <p className="text-sm font-bold text-[#1c1c1c] mb-3 font-[family-name:var(--font-playfair)]">💰 Wallet & Deposit</p>
+
+              {/* Wallet balance row */}
+              <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
+                <span className="text-sm text-gray-600">Your wallet balance</span>
+                <span className={`font-bold text-sm ${walletBalance > 0 ? 'text-[#1a5c38]' : 'text-gray-400'}`}>
+                  Rs.{walletBalance}
+                </span>
+              </div>
+
+              {/* Deposit rows */}
+              {deliveryMode === 'keep_bottle' && (
+                <>
+                  <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
+                    <span className="text-sm text-gray-600">Bottle deposit required</span>
+                    <span className="font-semibold text-sm text-[#1c1c1c]">Rs.{bottleDeposit}</span>
+                  </div>
+                  {depositBalance > 0 && (
+                    <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
+                      <span className="text-sm text-[#1a5c38]">✅ Deposit already paid</span>
+                      <span className="font-semibold text-sm text-[#1a5c38]">− Rs.{Math.min(depositBalance, bottleDeposit)}</span>
+                    </div>
+                  )}
+                  {additionalDeposit > 0 && (
+                    <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
+                      <span className="text-sm text-orange-600 font-medium">Additional deposit needed</span>
+                      <span className="font-bold text-sm text-orange-600">Rs.{additionalDeposit}</span>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Total needed */}
+              <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
+                <span className="text-sm text-gray-600">
+                  Milk buffer ({totalDays === 1 ? '1 day' : totalDays === 30 ? '~1 month' : `${totalDays} days`})
+                </span>
+                <span className="font-semibold text-sm text-[#1c1c1c]">Rs.{dailyPrice * totalDays}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
+                <span className="text-sm font-semibold text-[#1c1c1c]">Total needed</span>
+                <span className="font-bold text-sm text-[#1c1c1c]">Rs.{totalNeeded}</span>
+              </div>
+
+              {/* Payment breakdown */}
+              {walletBalance > 0 && (
+                <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
+                  <span className="text-sm text-[#1a5c38]">Covered by wallet</span>
+                  <span className="font-semibold text-sm text-[#1a5c38]">− Rs.{walletUsed}</span>
+                </div>
+              )}
+
+              {/* Result */}
+              <div className={`flex justify-between items-center pt-3 mt-1 rounded-lg px-3 py-2 ${
+                walletCovers ? 'bg-[#f0faf4]' : razorpayNeeded > 0 ? 'bg-orange-50' : 'bg-[#f5f0e8]'
+              }`}>
+                {walletCovers ? (
+                  <>
+                    <span className="text-sm font-bold text-[#1a5c38]">✅ No payment needed!</span>
+                    <span className="text-sm font-bold text-[#1a5c38]">Activate with wallet</span>
+                  </>
+                ) : razorpayNeeded > 0 && walletBalance > 0 ? (
+                  <>
+                    <span className="text-sm font-bold text-orange-700">Pay via Razorpay</span>
+                    <span className="text-xl font-[family-name:var(--font-playfair)] font-bold text-orange-700">Rs.{razorpayNeeded}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-sm font-bold text-[#1c1c1c]">Pay via Razorpay</span>
+                    <span className="text-xl font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c]">Rs.{totalNeeded}</span>
+                  </>
+                )}
+              </div>
+
+              {walletBalance > 0 && !walletCovers && (
+                <p className="text-xs text-gray-400 mt-2 text-center">
+                  Your wallet covers Rs.{walletUsed} · Pay Rs.{razorpayNeeded} more to activate
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Payment Summary (dark card) */}
           <div className="rounded-xl p-6 text-white shadow-lg"
             style={{background:'linear-gradient(135deg, #0d3320 0%, #1a5c38 100%)'}}>
-            <p className="text-xs font-semibold text-green-200 uppercase tracking-widest mb-4">Payment Summary</p>
+            <p className="text-xs font-semibold text-green-200 uppercase tracking-widest mb-4">Subscription Summary</p>
             <div className="flex justify-between text-sm mb-2">
-              <span className="text-green-200">{selectedProduct?.size} x {quantity}/day</span>
+              <span className="text-green-200">{selectedProduct?.size} × {quantity}/day</span>
               <span>Rs.{selectedProduct?.price * quantity}/day</span>
             </div>
             {discount > 0 && (
               <div className="flex justify-between text-sm mb-2 text-[#d4a017]">
                 <span>Discount ({discount}%)</span>
-                <span>- Rs.{Math.round(selectedProduct?.price * quantity * discount / 100)}/day</span>
+                <span>− Rs.{Math.round(selectedProduct?.price * quantity * discount / 100)}/day</span>
               </div>
             )}
-            {bottleDeposit > 0 && (
+            {additionalDeposit > 0 && (
               <div className="flex justify-between text-sm mb-2 text-yellow-200">
-                <span>Bottle Deposit (refundable)</span>
-                <span>Rs.{bottleDeposit}</span>
+                <span>Additional deposit (refundable)</span>
+                <span>Rs.{additionalDeposit}</span>
+              </div>
+            )}
+            {depositBalance > 0 && bottleDeposit > 0 && (
+              <div className="flex justify-between text-sm mb-2 text-green-300">
+                <span>✅ Existing deposit covered</span>
+                <span>Rs.{Math.min(depositBalance, bottleDeposit)}</span>
               </div>
             )}
             <div className="flex justify-between text-sm mb-2 text-green-200">
-              <span>Delivery Slot</span>
-              <span>{deliverySlot === 'morning' ? '🌅 7-9AM' : '🌆 5-7PM'}</span>
-            </div>
-            <div className="flex justify-between text-sm mb-2 text-green-200">
-              <span>Type</span>
-              <span>{subscriptionType === 'oneday' ? '1 Day' : subscriptionType === 'fixed' ? 'Fixed Period' : 'Ongoing'}</span>
+              <span>Delivery</span>
+              <span>{deliverySlot === 'morning' ? '🌅 7-9AM' : '🌆 5-7PM'} · {subscriptionType === 'oneday' ? '1 Day' : subscriptionType === 'fixed' ? 'Fixed' : 'Ongoing'}</span>
             </div>
             {subscriptionType === 'ongoing' && selectedProduct && (
               <div className="flex justify-between text-sm mb-2 text-green-300">
-                <span>Est. monthly cost</span>
+                <span>Est. monthly</span>
                 <span>~Rs.{Math.round(dailyPrice * 30)}/mo</span>
               </div>
             )}
             <div className="border-t border-green-700 mt-4 pt-4">
-              <div className="flex justify-between font-bold text-lg">
-                <span>First Day Total</span>
-                <span>Rs.{firstPayment}</span>
-              </div>
+              {walletCovers ? (
+                <div className="flex justify-between font-bold text-lg">
+                  <span>Pay today</span>
+                  <span className="text-[#d4a017]">Rs.0 (wallet)</span>
+                </div>
+              ) : walletBalance > 0 ? (
+                <>
+                  <div className="flex justify-between text-sm text-green-300 mb-1">
+                    <span>Wallet covers</span>
+                    <span>Rs.{walletUsed}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-lg">
+                    <span>Pay via Razorpay</span>
+                    <span>Rs.{razorpayNeeded}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between font-bold text-lg">
+                  <span>Pay today</span>
+                  <span>Rs.{totalNeeded}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm text-[#d4a017] mt-1">
-                <span>Daily from Day 2</span>
-                <span>Rs.{dailyPrice}/day</span>
+                <span>Daily from then</span>
+                <span>Rs.{dailyPrice}/day (auto-deducted)</span>
               </div>
-              {subscriptionType === 'ongoing' && (
-                <div className="flex justify-between text-sm text-green-300 mt-1">
-                  <span>Monthly estimate</span>
-                  <span>Rs.{dailyPrice * 30 + bottleDeposit}</span>
-                </div>
-              )}
-              {subscriptionType !== 'ongoing' && (
-                <div className="flex justify-between text-sm text-green-300 mt-1">
-                  <span>{subscriptionType === 'oneday' ? 'One time' : totalDays + ' days total'}</span>
-                  <span>Rs.{totalPrice}</span>
-                </div>
-              )}
             </div>
           </div>
 
@@ -534,13 +660,13 @@ export default function Subscribe() {
             </label>
           </div>
 
-          <button type="submit" disabled={loading || !selectedProduct || !agreedToTerms}
+          <button type="submit" disabled={loading || !selectedProduct || !agreedToTerms || totalNeeded === 0}
             className="text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition shadow-lg disabled:opacity-50"
             style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
             {loading ? 'Processing...' :
-              subscriptionType === 'oneday' ? `Pay ₹${totalPrice} & Book` :
-              subscriptionType === 'fixed' ? `Pay ₹${totalPrice} & Subscribe` :
-              `Pay ₹${totalPrice} & Subscribe`}
+              walletCovers ? '✅ Activate with Wallet Balance' :
+              walletBalance > 0 ? `Pay Rs.${razorpayNeeded} & Subscribe` :
+              `Pay Rs.${totalNeeded} & Subscribe`}
           </button>
 
         </form>
@@ -559,22 +685,9 @@ export default function Subscribe() {
                   <p className="font-[family-name:var(--font-playfair)] font-bold text-lg leading-tight">Sri Krishnaa<br />Dairy Farms</p>
                 </div>
               </div>
-              <p className="text-gray-400 text-sm leading-relaxed mb-4">
+              <p className="text-gray-400 text-sm leading-relaxed">
                 Pure, fresh cow milk delivered straight from our farm to your doorstep every morning.
               </p>
-              <div className="flex gap-3">
-                <a href="https://wa.me/919980166221" target="_blank"
-                  className="flex items-center gap-2 bg-[#25D366] hover:bg-[#1da851] text-white text-xs font-semibold px-4 py-2 rounded transition">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4" fill="white">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                  </svg>
-                  WhatsApp
-                </a>
-                <a href="tel:9980166221"
-                  className="bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold px-4 py-2 rounded transition">
-                  📞 Call Us
-                </a>
-              </div>
             </div>
 
             {/* Quick Links */}
@@ -597,7 +710,6 @@ export default function Subscribe() {
                 <li><a href="/#why-us" className="hover:text-[#d4a017] transition">Why Choose Us</a></li>
                 <li><a href="/#faq" className="hover:text-[#d4a017] transition">FAQ</a></li>
                 <li><a href="/#products" className="hover:text-[#d4a017] transition">Our Products</a></li>
-                <li><a href="/#contact" className="hover:text-[#d4a017] transition">Contact Us</a></li>
               </ul>
             </div>
 
@@ -610,10 +722,8 @@ export default function Subscribe() {
                   <a href="tel:9980166221" className="hover:text-white transition">9980166221</a>
                 </li>
                 <li className="flex items-start gap-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4 mt-0.5 flex-shrink-0" fill="#25D366">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                  </svg>
-                  <a href="https://wa.me/919980166221" target="_blank" className="hover:text-white transition">WhatsApp Us</a>
+                  <span className="text-[#d4a017] mt-0.5">✉️</span>
+                  <a href="mailto:hello@srikrishnaadairy.in" className="hover:text-white transition">hello@srikrishnaadairy.in</a>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="text-[#d4a017] mt-0.5">📍</span>

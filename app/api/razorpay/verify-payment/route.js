@@ -17,13 +17,22 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, bottle_deposit } = await request.json()
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      // additional_deposit replaces bottle_deposit:
+      // only the INCREMENTAL deposit (new bottles beyond what customer already paid)
+      additional_deposit,
+      // subscription_id: pending subscription to activate after payment
+      subscription_id,
+    } = await request.json()
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json({ error: 'Missing payment details.' }, { status: 400 })
     }
 
-    const depositAmount = Math.max(0, Number(bottle_deposit) || 0)
+    const depositAmount = Math.max(0, Number(additional_deposit) || 0)
 
     // Verify signature: HMAC-SHA256 of "order_id|payment_id" using key_secret
     const expectedSignature = crypto
@@ -43,7 +52,7 @@ export async function POST(request) {
     const payment = await razorpay.payments.fetch(razorpay_payment_id)
     const amountPaid = payment.amount / 100 // paise → rupees
 
-    // Idempotency: skip if this payment was already credited
+    // Idempotency: skip wallet credit if this payment was already processed
     const { data: existing } = await supabase
       .from('wallet_transactions')
       .select('id')
@@ -61,20 +70,20 @@ export async function POST(request) {
       if (!wallet) {
         const { data: newWallet } = await supabase
           .from('wallet')
-          .insert({ user_id: user.id, balance: 0 })
+          .insert({ user_id: user.id, balance: 0, deposit_balance: 0 })
           .select()
           .single()
         wallet = newWallet
       }
 
-      // Credit spendable balance (excluding bottle deposit)
+      // Credit spendable balance (excluding the additional deposit portion)
       const spendableAmount = amountPaid - depositAmount
       await supabase
         .from('wallet')
         .update({ balance: (wallet.balance || 0) + spendableAmount })
         .eq('user_id', user.id)
 
-      // Credit deposit balance separately (never mixed with spendable balance)
+      // Credit only the incremental deposit to deposit_balance
       if (depositAmount > 0) {
         await supabase
           .from('wallet')
@@ -89,6 +98,23 @@ export async function POST(request) {
         type: 'credit',
         description: `Subscription payment [${razorpay_payment_id}]`,
       })
+    }
+
+    // ── Activate the pending subscription (Issue 1 fix) ──────────────────────
+    // The subscription was created with is_active = false before payment.
+    // Set it to true now that payment is verified.
+    if (subscription_id) {
+      const { error: activateError } = await supabase
+        .from('subscriptions')
+        .update({ is_active: true })
+        .eq('id', subscription_id)
+        .eq('user_id', user.id)    // ownership check — cannot activate another user's sub
+        .eq('is_active', false)    // only activate pending subs (idempotency)
+
+      if (activateError) {
+        // Log but don't fail the response — wallet was already credited
+        console.error('Subscription activation error:', activateError.message)
+      }
     }
 
     // Send payment confirmation email (non-blocking)

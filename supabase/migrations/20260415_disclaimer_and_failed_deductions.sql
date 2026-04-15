@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS failed_deductions (
 
 ALTER TABLE failed_deductions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins can view failed deductions" ON failed_deductions;
+DROP POLICY IF EXISTS "System can insert failed deductions" ON failed_deductions;
+
 CREATE POLICY "Admins can view failed deductions"
 ON failed_deductions FOR SELECT USING (
   exists (select 1 from profiles
