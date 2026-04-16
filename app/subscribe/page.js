@@ -144,19 +144,25 @@ export default function Subscribe() {
       return
     }
 
+    // Fetch profile fresh — do not rely on stale React state
+    const { data: freshProfile } = await supabase
+      .from('profiles')
+      .select('full_name, phone')
+      .eq('id', session.user.id)
+      .single()
+
     const rzp = new window.Razorpay({
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
       order_id: orderData.order_id,
       amount: orderData.amount,
       currency: 'INR',
-      name: 'Sri Krishnaa Dairy',
+      name: 'Sri Krishnaa Dairy Farms',
       description: 'Subscription Activation',
-      image: '/Logo.jpg',
       theme: { color: '#1a5c38' },
       prefill: {
-        name: profile?.full_name || '',
-        contact: profile?.phone || '',
-        email: user?.email || '',
+        name: freshProfile?.full_name || '',
+        email: session.user.email || '',
+        contact: freshProfile?.phone ? `+91${freshProfile.phone}` : '',
       },
       handler: async (response) => {
         // Verify payment — this also sets subscription.is_active = true
