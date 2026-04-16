@@ -61,13 +61,6 @@ export default function Wallet() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
 
-      // Fetch profile fresh with auth token to ensure RLS resolves correctly
-      const profileRes = await fetch('/api/profile/me', {
-        headers: { 'Authorization': `Bearer ${session?.access_token}` },
-      })
-      const freshProfile = profileRes.ok ? await profileRes.json() : null
-      const cleanPhone = (freshProfile?.phone || '').replace(/\D/g, '')
-
       const orderRes = await fetch('/api/razorpay/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
@@ -88,11 +81,6 @@ export default function Wallet() {
         name: 'Sri Krishnaa Dairy Farms',
         description: 'Wallet Recharge',
         theme: { color: '#1a5c38' },
-        prefill: {
-          name: freshProfile?.full_name || '',
-          email: session?.user?.email || '',
-          contact: cleanPhone.length === 10 ? `+91${cleanPhone}` : '',
-        },
         handler: async (response) => {
           const rechargeRes = await fetch('/api/wallet/recharge', {
             method: 'POST',

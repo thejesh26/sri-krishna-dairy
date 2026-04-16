@@ -144,13 +144,6 @@ export default function Subscribe() {
       return
     }
 
-    // Fetch profile fresh using service role bypasses RLS timing issues
-    const profileRes = await fetch(`/api/profile/me`, {
-      headers: { 'Authorization': `Bearer ${session.access_token}` },
-    })
-    const freshProfile = profileRes.ok ? await profileRes.json() : null
-    const cleanPhone = (freshProfile?.phone || '').replace(/\D/g, '')
-
     const rzp = new window.Razorpay({
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
       order_id: orderData.order_id,
@@ -159,11 +152,6 @@ export default function Subscribe() {
       name: 'Sri Krishnaa Dairy Farms',
       description: 'Subscription Activation',
       theme: { color: '#1a5c38' },
-      prefill: {
-        name: freshProfile?.full_name || '',
-        email: session.user.email || '',
-        contact: cleanPhone.length === 10 ? `+91${cleanPhone}` : '',
-      },
       handler: async (response) => {
         // Verify payment — this also sets subscription.is_active = true
         const verifyRes = await fetch('/api/razorpay/verify-payment', {
