@@ -144,12 +144,12 @@ export default function Subscribe() {
       return
     }
 
-    // Fetch profile fresh — do not rely on stale React state
-    const { data: freshProfile } = await supabase
-      .from('profiles')
-      .select('full_name, phone')
-      .eq('id', session.user.id)
-      .single()
+    // Fetch profile fresh using service role bypasses RLS timing issues
+    const profileRes = await fetch(`/api/profile/me`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` },
+    })
+    const freshProfile = profileRes.ok ? await profileRes.json() : null
+    const cleanPhone = (freshProfile?.phone || '').replace(/\D/g, '')
 
     const rzp = new window.Razorpay({
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
@@ -162,7 +162,7 @@ export default function Subscribe() {
       prefill: {
         name: freshProfile?.full_name || '',
         email: session.user.email || '',
-        contact: freshProfile?.phone ? `+91${freshProfile.phone}` : '',
+        contact: cleanPhone.length === 10 ? `+91${cleanPhone}` : '',
       },
       handler: async (response) => {
         // Verify payment — this also sets subscription.is_active = true
