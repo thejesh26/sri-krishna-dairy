@@ -196,9 +196,7 @@ export default function Order() {
                   <div className="text-3xl mb-1">🥛</div>
                   <p className="font-bold text-[#1c1c1c] text-sm">{product.size}</p>
                   <p className="text-[#1a5c38] font-extrabold">₹{product.price}</p>
-                  {isTrialOrder && (
-                    <span className="inline-block mt-1 text-[10px] bg-[#d4a017] text-white font-bold px-2 py-0.5 rounded-full">Trial · No Deposit</span>
-                  )}
+                  <span className="inline-block mt-1 text-[10px] bg-[#d4a017] text-white font-bold px-2 py-0.5 rounded-full">Trial · No Deposit</span>
                 </button>
               ))}
             </div>
@@ -245,50 +243,10 @@ export default function Order() {
           <div className="bg-white rounded-lg p-5 shadow-sm border border-[#e8e0d0]">
             <p className="text-sm font-bold text-[#1c1c1c] mb-1">Bottle Delivery Mode 🍼</p>
             <p className="text-xs text-gray-400 mb-3">Choose how you want to receive your milk</p>
-            {isTrialOrder ? (
-              <div className="bg-[#fdf6e3] border border-[#d4a017] rounded-lg p-4 text-center">
-                <p className="text-sm font-bold text-[#d4a017]">🎉 Trial Order — No Bottle Deposit!</p>
-                <p className="text-xs text-gray-500 mt-1">Our delivery person will collect the bottle after delivery. No deposit charged for your first trial order.</p>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <button type="button" onClick={() => setDeliveryMode('keep_bottle')}
-                    className={`border-2 rounded-lg p-4 text-center transition ${
-                      deliveryMode === 'keep_bottle' ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#1a5c38]'
-                    }`}>
-                    <div className="text-3xl mb-1">🏺</div>
-                    <p className="font-bold text-[#1c1c1c] text-sm">Keep Bottle</p>
-                    <p className="text-xs text-gray-400 mt-1">₹200 deposit/bottle</p>
-                    <p className="text-xs text-[#1a5c38] font-semibold mt-1">Refundable</p>
-                  </button>
-                  <button type="button" onClick={() => setDeliveryMode('direct')}
-                    className={`border-2 rounded-lg p-4 text-center transition ${
-                      deliveryMode === 'direct' ? 'border-[#d4a017] bg-[#fdf6e3]' : 'border-[#e8e0d0] hover:border-[#d4a017]'
-                    }`}>
-                    <div className="text-3xl mb-1">🔄</div>
-                    <p className="font-bold text-[#1c1c1c] text-sm">Direct Delivery</p>
-                    <p className="text-xs text-gray-400 mt-1">Bottle taken back</p>
-                    <p className="text-xs text-[#d4a017] font-semibold mt-1">No deposit</p>
-                  </button>
-                </div>
-                {deliveryMode === 'keep_bottle' && (
-                  <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-lg p-3 mt-3">
-                    <p className="text-xs text-[#1a5c38] font-semibold">
-                      🍼 Bottle deposit: ₹{BOTTLE_DEPOSIT} × {quantity} bottle{quantity !== 1 ? 's' : ''} = ₹{bottleDeposit}
-                    </p>
-                    <p className="text-xs text-[#1a5c38] mt-1">₹200 per bottle. Fully refundable when bottles are returned.</p>
-                  </div>
-                )}
-                {deliveryMode === 'direct' && (
-                  <div className="bg-[#fdf6e3] border border-[#f0dfa0] rounded-lg p-3 mt-3">
-                    <p className="text-xs text-[#d4a017] font-semibold">
-                      🔄 Our delivery person will collect the empty bottle immediately after delivery
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
+            <div className="bg-[#fdf6e3] border border-[#d4a017] rounded-lg p-4 text-center">
+              <p className="text-sm font-bold text-[#d4a017]">🎉 Trial Order — No Bottle Deposit!</p>
+              <p className="text-xs text-gray-500 mt-1">Our delivery person will collect the bottle after delivery. No deposit charged for your first trial order.</p>
+            </div>
           </div>
 
           {/* Delivery Date */}
@@ -300,20 +258,6 @@ export default function Order() {
               className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]" />
           </div>
 
-          {/* Discount Code */}
-          <div className="bg-white rounded-lg p-5 shadow-sm border border-[#e8e0d0]">
-            <p className="text-sm font-bold text-[#1c1c1c] mb-3">Discount Code</p>
-            <div className="flex gap-2">
-              <input type="text" placeholder="Enter code" value={discountCode}
-                onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
-                className="flex-1 border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]" />
-              <button type="button" onClick={applyDiscount}
-                className="bg-[#d4a017] text-white font-bold px-4 py-2 rounded-lg hover:bg-[#b8860b] transition text-sm">
-                Apply
-              </button>
-            </div>
-          </div>
-
           {/* Order Summary */}
           <div className="rounded-lg p-5 shadow-lg text-white"
             style={{background:'linear-gradient(135deg, #0d3320 0%, #1a5c38 100%)'}}>
@@ -322,25 +266,13 @@ export default function Order() {
               <span>{selectedProduct?.size} x {quantity}</span>
               <span>₹{selectedProduct?.price * quantity}</span>
             </div>
-            {discount > 0 && (
-              <div className="flex justify-between text-sm mb-1 text-yellow-300">
-                <span>Discount ({discount}%)</span>
-                <span>− ₹{Math.round(selectedProduct?.price * quantity * discount / 100)}</span>
-              </div>
-            )}
-            {bottleDeposit > 0 && (
-              <div className="flex justify-between text-sm mb-1 text-yellow-200">
-                <span>🍼 Bottle Deposit (refundable)</span>
-                <span>₹{bottleDeposit}</span>
-              </div>
-            )}
             <div className="flex justify-between text-sm mb-1">
               <span>Delivery Slot</span>
               <span>{deliverySlot === 'morning' ? '🌅 7AM–9AM' : '🌆 5PM–7PM'}</span>
             </div>
             <div className="flex justify-between text-sm mb-1">
               <span>Payment</span>
-              <span>{isTrialOrder ? 'Cash on Delivery (Trial)' : 'Wallet'}</span>
+              <span>Cash on Delivery (Trial)</span>
             </div>
             <div className="border-t border-green-600 mt-3 pt-3 flex justify-between font-bold text-lg">
               <span>Total</span>
