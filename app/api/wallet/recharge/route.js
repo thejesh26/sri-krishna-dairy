@@ -1,15 +1,12 @@
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
+import Razorpay from 'razorpay'
 import { createServerClient } from '../../../lib/supabase-server'
 import { sendWalletRechargeEmail } from '../../../lib/email'
 
-/**
- * Verifies Razorpay payment signature and credits the user's wallet.
- * Amount is re-read from the Razorpay order to prevent client-side tampering.
- */
 export async function POST(request) {
   try {
-    // Authenticate
+    // ── Auth ─────────────────────────────────────────────────────────────────
     const authHeader = request.headers.get('authorization')
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -20,18 +17,14 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, amount_rupees } = await request.json()
+    // ── Input ─────────────────────────────────────────────────────────────────
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = await request.json()
 
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !amount_rupees) {
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json({ error: 'Missing payment details.' }, { status: 400 })
     }
 
-    const amt = Number(amount_rupees)
-    if (!Number.isFinite(amt) || amt < 1 || amt > 100000) {
-      return NextResponse.json({ error: 'Invalid amount.' }, { status: 400 })
-    }
-
-    // Verify signature
+    // ── Verify HMAC-SHA256 signature ──────────────────────────────────────────
     const expectedSignature = crypto
       .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
@@ -41,7 +34,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Payment verification failed.' }, { status: 400 })
     }
 
-    // Idempotency: reject if this payment_id was already processed
+    // ── Idempotency — skip if already processed ───────────────────────────────
     const { data: existing } = await supabase
       .from('wallet_transactions')
       .select('id')
@@ -49,10 +42,18 @@ export async function POST(request) {
       .limit(1)
 
     if (existing?.length > 0) {
-      return NextResponse.json({ error: 'Payment already processed.' }, { status: 409 })
+      return NextResponse.json({ success: true })
     }
 
-    // Get or create wallet
+    // ── Fetch actual amount from Razorpay (never trust client-supplied amount) ─
+    const razorpay = new Razorpay({
+      key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    })
+    const payment = await razorpay.payments.fetch(razorpay_payment_id)
+    const amountPaid = payment.amount / 100 // paise → rupees
+
+    // ── Get or create wallet ──────────────────────────────────────────────────
     let { data: wallet } = await supabase
       .from('wallet')
       .select('id, balance')
@@ -62,29 +63,28 @@ export async function POST(request) {
     if (!wallet) {
       const { data: newWallet } = await supabase
         .from('wallet')
-        .insert({ user_id: user.id, balance: 0 })
+        .insert({ user_id: user.id, balance: 0, deposit_balance: 0 })
         .select()
         .single()
       wallet = newWallet
     }
 
-    // Credit wallet
+    // ── Credit wallet balance ─────────────────────────────────────────────────
+    const newBalance = (wallet.balance || 0) + amountPaid
     await supabase
       .from('wallet')
-      .update({ balance: wallet.balance + amt })
+      .update({ balance: newBalance })
       .eq('user_id', user.id)
 
-    // Record transaction
+    // ── Record transaction ────────────────────────────────────────────────────
     await supabase.from('wallet_transactions').insert({
       user_id: user.id,
-      amount: amt,
+      amount: amountPaid,
       type: 'credit',
       description: `Wallet recharge [${razorpay_payment_id}]`,
     })
 
-    // Send recharge confirmation email (non-blocking).
-    // Done here — not in the client — so it fires for all payment methods
-    // (UPI, card, netbanking) regardless of client-side handler reliability.
+    // ── Send confirmation email (non-blocking) ────────────────────────────────
     try {
       const { data: profile } = await supabase
         .from('profiles')
@@ -95,15 +95,13 @@ export async function POST(request) {
       await sendWalletRechargeEmail({
         to: user.email,
         name: profile?.full_name || user.email,
-        amountAdded: amt,
-        newBalance: wallet.balance + amt,
+        amountAdded: amountPaid,
+        newBalance,
         paymentId: razorpay_payment_id,
       })
-    } catch {
-      // Email failure must not block wallet credit response
-    }
+    } catch { /* non-blocking */ }
 
-    return NextResponse.json({ success: true, new_balance: wallet.balance + amt })
+    return NextResponse.json({ success: true, new_balance: newBalance })
   } catch (err) {
     return NextResponse.json({ error: err.message || 'Server error.' }, { status: 500 })
   }

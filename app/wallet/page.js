@@ -73,22 +73,32 @@ export default function Wallet() {
         return
       }
 
-      const sanitizedPhone = (profile?.phone || '').replace(/\D/g, '')
+      // 2. Fetch customer profile for prefill
+      const profileRes = await fetch('/api/profile/me', {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      })
+      const customerProfile = profileRes.ok ? await profileRes.json() : null
+      const rawPhone = (customerProfile?.phone || '').replace(/\D/g, '')
+      const sanitizedPhone = rawPhone.startsWith('91') && rawPhone.length === 12
+        ? rawPhone.slice(2) : rawPhone
+      const contact = sanitizedPhone.length === 10 ? `+91${sanitizedPhone}` : ''
 
-      const rzp = new window.Razorpay({
+      // 3. Open Razorpay checkout
+      const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        order_id: orderData.order_id,
         amount: orderData.amount,
-        currency: 'INR',
+        currency: orderData.currency,
         name: 'Sri Krishnaa Dairy Farms',
         description: 'Wallet Recharge',
+        image: '/Logo.jpg',
+        order_id: orderData.orderId,
         prefill: {
-          name: profile?.full_name || '',
-          email: user?.email || '',
-          contact: sanitizedPhone.length === 10 ? `+91${sanitizedPhone}` : '',
+          name: customerProfile?.full_name || '',
+          email: session?.user?.email || '',
+          contact,
         },
         theme: { color: '#1a5c38' },
-        handler: async (response) => {
+        handler: async function (response) {
           const rechargeRes = await fetch('/api/wallet/recharge', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
@@ -96,7 +106,6 @@ export default function Wallet() {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-              amount_rupees: amount,
             }),
           })
           const rechargeData = await rechargeRes.json()
@@ -104,17 +113,18 @@ export default function Wallet() {
             showError('Payment done but wallet credit failed. Contact support with payment ID: ' + response.razorpay_payment_id)
             setRechargeLoading(false)
           } else {
-            showSuccess('Wallet recharged successfully! Redirecting to dashboard...')
-            setTimeout(() => router.push('/dashboard'), 1500)
+            showSuccess('Wallet recharged successfully!')
+            router.push('/dashboard')
           }
         },
         modal: {
-          ondismiss: () => {
+          ondismiss: function () {
             showInfo('Payment cancelled.')
             setRechargeLoading(false)
           },
         },
-      })
+      }
+      const rzp = new window.Razorpay(options)
       rzp.open()
     } catch {
       showError('Something went wrong. Please try again.')

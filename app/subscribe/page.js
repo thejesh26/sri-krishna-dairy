@@ -132,6 +132,7 @@ export default function Subscribe() {
 
   // ── Path B: Razorpay payment → verify → activate ────────────────────────
   const openRazorpay = async (amountRupees, subscriptionId, session) => {
+    // 1. Create Razorpay order
     const orderRes = await fetch('/api/razorpay/create-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
@@ -144,23 +145,32 @@ export default function Subscribe() {
       return
     }
 
-    const sanitizedPhone = (profile?.phone || '').replace(/\D/g, '')
+    // 2. Fetch customer profile for prefill
+    const profileRes = await fetch('/api/profile/me', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+    const customerProfile = profileRes.ok ? await profileRes.json() : null
+    const rawPhone = (customerProfile?.phone || '').replace(/\D/g, '')
+    const sanitizedPhone = rawPhone.startsWith('91') && rawPhone.length === 12
+      ? rawPhone.slice(2) : rawPhone
+    const contact = sanitizedPhone.length === 10 ? `+91${sanitizedPhone}` : ''
 
-    const rzp = new window.Razorpay({
+    // 3. Open Razorpay checkout
+    const options = {
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-      order_id: orderData.order_id,
       amount: orderData.amount,
-      currency: 'INR',
+      currency: orderData.currency,
       name: 'Sri Krishnaa Dairy Farms',
       description: 'Subscription Activation',
+      image: '/Logo.jpg',
+      order_id: orderData.orderId,
       prefill: {
-        name: profile?.full_name || '',
-        email: user?.email || '',
-        contact: sanitizedPhone.length === 10 ? `+91${sanitizedPhone}` : '',
+        name: customerProfile?.full_name || '',
+        email: session.user.email || '',
+        contact,
       },
       theme: { color: '#1a5c38' },
-      handler: async (response) => {
-        // Verify payment — this also sets subscription.is_active = true
+      handler: async function (response) {
         const verifyRes = await fetch('/api/razorpay/verify-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
@@ -168,25 +178,25 @@ export default function Subscribe() {
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
-            additional_deposit: additionalDeposit,
             subscription_id: subscriptionId,
           }),
         })
         const verifyData = await verifyRes.json()
         if (!verifyRes.ok || !verifyData.success) {
-          showError('Payment verification failed. Please contact support with your payment ID.')
+          showError('Payment verification failed. Please contact support with your payment ID: ' + response.razorpay_payment_id)
           setLoading(false)
           return
         }
         router.push('/confirmation?type=subscription')
       },
       modal: {
-        ondismiss: () => {
+        ondismiss: function () {
           showInfo('Payment cancelled.')
           setLoading(false)
         },
       },
-    })
+    }
+    const rzp = new window.Razorpay(options)
     rzp.open()
   }
 
