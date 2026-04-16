@@ -12,6 +12,7 @@ export default function Wallet() {
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [rechargeLoading, setRechargeLoading] = useState(false)
+  const [rechargeAmount, setRechargeAmount] = useState('')
   const { showSuccess, showError, showInfo } = useToast()
   const [customAmount, setCustomAmount] = useState('')
   const [selectedAmount, setSelectedAmount] = useState(null)
@@ -50,84 +51,89 @@ export default function Wallet() {
     setTransactions(transactions || [])
   }
 
-  const handleRecharge = async () => {
-    const amount = selectedAmount === 'custom' ? parseInt(customAmount, 10) : selectedAmount
-    if (!amount || amount < 100 || amount > 50000) {
-      showError('Please enter a valid amount (₹100 – ₹50,000).')
-      return
-    }
-    setRechargeLoading(true)
-
+  const handleRecharge = async (amount) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      setRechargeLoading(true)
 
+      // Get current user
+      const { data: { session } } = await supabase.auth.getSession()
+      const userId = session.user.id
+
+      // Get customer profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, phone')
+        .eq('id', userId)
+        .single()
+
+      // Sanitize phone
+      const rawPhone = profile?.phone || ''
+      const digits = rawPhone.replace(/\D/g, '').slice(-10)
+      const phone = digits.length === 10 ? '+91' + digits : ''
+
+      // Create Razorpay order
       const orderRes = await fetch('/api/razorpay/create-order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ amount_rupees: amount }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount })
       })
       const orderData = await orderRes.json()
-      if (!orderRes.ok) {
-        showError('Could not initiate payment: ' + (orderData.error || 'Try again.'))
+
+      if (!orderData.orderId) {
+        showError('Failed to create payment order')
         setRechargeLoading(false)
         return
       }
 
-      // 2. Fetch customer profile for prefill
-      const profileRes = await fetch('/api/profile/me', {
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      })
-      const customerProfile = profileRes.ok ? await profileRes.json() : null
-      const rawPhone = (customerProfile?.phone || '').replace(/\D/g, '')
-      const sanitizedPhone = rawPhone.startsWith('91') && rawPhone.length === 12
-        ? rawPhone.slice(2) : rawPhone
-      const contact = sanitizedPhone.length === 10 ? `+91${sanitizedPhone}` : ''
-
-      // 3. Open Razorpay checkout
+      // Open Razorpay
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: orderData.amount,
-        currency: orderData.currency,
+        currency: 'INR',
         name: 'Sri Krishnaa Dairy Farms',
         description: 'Wallet Recharge',
         image: '/Logo.jpg',
         order_id: orderData.orderId,
         prefill: {
-          name: customerProfile?.full_name || '',
-          email: session?.user?.email || '',
-          contact,
+          name: profile?.full_name || '',
+          contact: phone,
         },
         theme: { color: '#1a5c38' },
         handler: async function (response) {
-          const rechargeRes = await fetch('/api/wallet/recharge', {
+          const verifyRes = await fetch('/api/wallet/recharge', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-            }),
+              userId: userId,
+              amount: amount
+            })
           })
-          const rechargeData = await rechargeRes.json()
-          if (!rechargeRes.ok || !rechargeData.success) {
-            showError('Payment done but wallet credit failed. Contact support with payment ID: ' + response.razorpay_payment_id)
-            setRechargeLoading(false)
-          } else {
+          const verifyData = await verifyRes.json()
+          if (verifyData.success) {
             showSuccess('Wallet recharged successfully!')
-            router.push('/dashboard')
+            setTimeout(() => {
+              window.location.href = '/dashboard'
+            }, 1500)
+          } else {
+            showError('Payment verification failed!')
           }
         },
         modal: {
           ondismiss: function () {
-            showInfo('Payment cancelled.')
             setRechargeLoading(false)
-          },
-        },
+          }
+        }
       }
+
       const rzp = new window.Razorpay(options)
       rzp.open()
-    } catch {
-      showError('Something went wrong. Please try again.')
+
+    } catch (error) {
+      console.error('Recharge error:', error)
+      showError('Something went wrong!')
       setRechargeLoading(false)
     }
   }
@@ -229,56 +235,41 @@ export default function Wallet() {
         </div>
 
         {/* Add Money to Wallet */}
-        <div id="add-money" className="bg-white border border-[#e8e0d0] rounded-xl p-5 mb-6 shadow-sm">
-          <p className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c] mb-1">Add Money to Wallet</p>
-          <p className="text-xs text-gray-400 mb-4">Instant credit via UPI, Card, or Net Banking</p>
+        <div id="add-money" className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm mb-6">
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-4">
+            Add Money to Wallet
+          </h3>
 
           {/* Preset amounts */}
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            {[500, 1000, 2000].map((amt) => (
-              <button key={amt}
-                onClick={() => { setSelectedAmount(amt); setCustomAmount('') }}
-                className={`border-2 rounded-lg py-3 text-sm font-bold transition ${
-                  selectedAmount === amt
-                    ? 'border-[#1a5c38] bg-[#f0faf4] text-[#1a5c38]'
-                    : 'border-[#e8e0d0] text-[#1c1c1c] hover:border-[#1a5c38]'
-                }`}>
-                ₹{amt}
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            {[500, 1000, 2000].map(amount => (
+              <button
+                key={amount}
+                onClick={() => handleRecharge(amount)}
+                disabled={rechargeLoading}
+                className="border-2 border-[#1a5c38] text-[#1a5c38] font-bold py-3 rounded-xl hover:bg-[#1a5c38] hover:text-white transition">
+                Rs.{amount}
               </button>
             ))}
           </div>
 
           {/* Custom amount */}
-          <div className="flex gap-2 mb-4">
+          <div className="flex gap-3">
             <input
               type="number"
               placeholder="Enter custom amount"
-              value={customAmount}
-              min={100}
-              onChange={(e) => { setCustomAmount(e.target.value); setSelectedAmount('custom') }}
-              onClick={() => setSelectedAmount('custom')}
-              className={`flex-1 border-2 rounded-lg px-4 py-3 text-sm focus:outline-none transition ${
-                selectedAmount === 'custom'
-                  ? 'border-[#1a5c38]'
-                  : 'border-[#e8e0d0] focus:border-[#1a5c38]'
-              }`}
+              value={rechargeAmount}
+              onChange={(e) => setRechargeAmount(e.target.value)}
+              className="flex-1 border border-[#e8e0d0] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
             />
+            <button
+              onClick={() => handleRecharge(parseFloat(rechargeAmount))}
+              disabled={rechargeLoading || !rechargeAmount}
+              className="text-white px-6 py-3 rounded-xl font-bold hover:opacity-90 transition"
+              style={{background: 'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
+              {rechargeLoading ? 'Processing...' : 'Pay'}
+            </button>
           </div>
-
-          <button
-            onClick={handleRecharge}
-            disabled={rechargeLoading || (!selectedAmount)}
-            className="w-full text-white py-3 rounded-lg font-bold text-sm transition shadow-md disabled:opacity-50"
-            style={{background: 'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
-            {rechargeLoading
-              ? 'Opening Payment...'
-              : selectedAmount && selectedAmount !== 'custom'
-                ? `Pay ₹${selectedAmount} via Razorpay`
-                : customAmount
-                  ? `Pay ₹${customAmount} via Razorpay`
-                  : 'Select an amount'}
-          </button>
-          <p className="text-center text-xs text-gray-400 mt-2">Secured by Razorpay · UPI · Cards · Net Banking</p>
         </div>
 
         {/* Wallet Benefits */}

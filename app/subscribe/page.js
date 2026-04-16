@@ -22,6 +22,7 @@ export default function Subscribe() {
   const [discountCode, setDiscountCode] = useState('')
   const [discount, setDiscount] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [paymentLoading, setPaymentLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [walletBalance, setWalletBalance] = useState(0)
   const [depositBalance, setDepositBalance] = useState(0)
@@ -130,74 +131,180 @@ export default function Subscribe() {
     }
   }
 
-  // ── Path B: Razorpay payment → verify → activate ────────────────────────
-  const openRazorpay = async (amountRupees, subscriptionId, session) => {
-    // 1. Create Razorpay order
-    const orderRes = await fetch('/api/razorpay/create-order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ amount_rupees: amountRupees }),
-    })
-    const orderData = await orderRes.json()
-    if (!orderRes.ok) {
-      showError('Could not initiate payment: ' + (orderData.error || 'Try again.'))
-      setLoading(false)
-      return
-    }
+  // ── Razorpay payment handler ─────────────────────────────────────────────
+  const handlePayment = async () => {
+    try {
+      setPaymentLoading(true)
 
-    // 2. Fetch customer profile for prefill
-    const profileRes = await fetch('/api/profile/me', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    })
-    const customerProfile = profileRes.ok ? await profileRes.json() : null
-    const rawPhone = (customerProfile?.phone || '').replace(/\D/g, '')
-    const sanitizedPhone = rawPhone.startsWith('91') && rawPhone.length === 12
-      ? rawPhone.slice(2) : rawPhone
-    const contact = sanitizedPhone.length === 10 ? `+91${sanitizedPhone}` : ''
+      // Get current user
+      const { data: { session } } = await supabase.auth.getSession()
+      const userId = session.user.id
 
-    // 3. Open Razorpay checkout
-    const options = {
-      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-      amount: orderData.amount,
-      currency: orderData.currency,
-      name: 'Sri Krishnaa Dairy Farms',
-      description: 'Subscription Activation',
-      image: '/Logo.jpg',
-      order_id: orderData.orderId,
-      prefill: {
-        name: customerProfile?.full_name || '',
-        email: session.user.email || '',
-        contact,
-      },
-      theme: { color: '#1a5c38' },
-      handler: async function (response) {
-        const verifyRes = await fetch('/api/razorpay/verify-payment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-          body: JSON.stringify({
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature,
-            subscription_id: subscriptionId,
-          }),
+      // Get customer profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, phone')
+        .eq('id', userId)
+        .single()
+
+      // Sanitize phone
+      const rawPhone = profile?.phone || ''
+      const digits = rawPhone.replace(/\D/g, '').slice(-10)
+      const phone = digits.length === 10 ? '+91' + digits : ''
+
+      // Calculate amounts
+      const depositAmount = deliveryMode === 'keep_bottle' ? quantity * 200 : 0
+      const subscriptionAmount = totalNeeded
+      const totalAmount = subscriptionAmount
+
+      // Check existing wallet balance
+      const { data: wallet } = await supabase
+        .from('wallet')
+        .select('balance, deposit_balance')
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      const existingBalance = wallet?.balance || 0
+      const existingDeposit = wallet?.deposit_balance || 0
+
+      // Calculate additional deposit needed
+      const additionalDeposit = Math.max(0, depositAmount - existingDeposit)
+
+      // Calculate payment needed
+      const paymentNeeded = Math.max(0, totalAmount - existingBalance - existingDeposit)
+
+      // First create subscription in DB (inactive)
+      const { data: subscription, error: subError } = await supabase
+        .from('subscriptions')
+        .insert({
+          user_id: userId,
+          product_id: selectedProduct.id,
+          quantity: quantity,
+          is_active: false,
+          start_date: startDate,
+          end_date: endDate || null,
+          delivery_slot: deliverySlot,
+          subscription_type: subscriptionType,
+          bottle_deposit: depositAmount,
+          delivery_mode: deliveryMode,
+          discount_percent: discount,
+          paused_dates: [],
         })
-        const verifyData = await verifyRes.json()
-        if (!verifyRes.ok || !verifyData.success) {
-          showError('Payment verification failed. Please contact support with your payment ID: ' + response.razorpay_payment_id)
-          setLoading(false)
-          return
-        }
-        router.push('/confirmation?type=subscription')
-      },
-      modal: {
-        ondismiss: function () {
-          showInfo('Payment cancelled.')
-          setLoading(false)
+        .select()
+        .single()
+
+      if (subError) {
+        showError('Failed to create subscription')
+        setPaymentLoading(false)
+        return
+      }
+
+      // If existing wallet balance is enough
+      if (existingBalance >= totalAmount) {
+        // Deduct from wallet directly
+        await supabase
+          .from('wallet')
+          .update({
+            balance: existingBalance - subscriptionAmount,
+            deposit_balance: existingDeposit + additionalDeposit
+          })
+          .eq('user_id', userId)
+
+        // Activate subscription
+        await supabase
+          .from('subscriptions')
+          .update({ is_active: true })
+          .eq('id', subscription.id)
+
+        // Add transaction
+        await supabase
+          .from('wallet_transactions')
+          .insert({
+            user_id: userId,
+            amount: totalAmount,
+            type: 'debit',
+            description: 'Subscription activated using wallet balance'
+          })
+
+        showSuccess('Subscription activated!')
+        setTimeout(() => {
+          window.location.href = '/confirmation?type=subscription'
+        }, 1500)
+        return
+      }
+
+      // Need Razorpay payment
+      const amountToPay = paymentNeeded > 0 ? paymentNeeded : totalAmount
+
+      // Create Razorpay order
+      const orderRes = await fetch('/api/razorpay/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: amountToPay })
+      })
+      const orderData = await orderRes.json()
+
+      if (!orderData.orderId) {
+        showError('Failed to create payment order')
+        setPaymentLoading(false)
+        return
+      }
+
+      // Open Razorpay
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: orderData.amount,
+        currency: 'INR',
+        name: 'Sri Krishnaa Dairy Farms',
+        description: 'Milk Subscription',
+        image: '/Logo.jpg',
+        order_id: orderData.orderId,
+        prefill: {
+          name: profile?.full_name || '',
+          contact: phone,
         },
-      },
+        theme: { color: '#1a5c38' },
+        handler: async function (response) {
+          const verifyRes = await fetch('/api/razorpay/verify-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              type: 'subscription',
+              subscriptionId: subscription.id,
+              userId: userId,
+              amount: amountToPay,
+              deposit: additionalDeposit
+            })
+          })
+          const verifyData = await verifyRes.json()
+          if (verifyData.success) {
+            showSuccess('Subscription activated!')
+            setTimeout(() => {
+              window.location.href = '/confirmation?type=subscription'
+            }, 1500)
+          } else {
+            showError('Payment verification failed!')
+            setPaymentLoading(false)
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setPaymentLoading(false)
+          }
+        }
+      }
+
+      const rzp = new window.Razorpay(options)
+      rzp.open()
+
+    } catch (error) {
+      console.error('Payment error:', error)
+      showError('Something went wrong!')
+      setPaymentLoading(false)
     }
-    const rzp = new window.Razorpay(options)
-    rzp.open()
   }
 
   // ── Main submit handler ──────────────────────────────────────────────────
@@ -241,29 +348,15 @@ export default function Subscribe() {
       return
     }
 
-    // ── Path A: wallet covers full cost — no Razorpay ──────────────────────
+    // Activate using wallet balance
     if (walletCovers) {
       await activateWithWallet(session)
       return
     }
 
-    // ── Path B: Razorpay for remaining amount ──────────────────────────────
-    // Step 1: Create pending subscription (is_active = false)
-    const pendingRes = await fetch('/api/subscriptions/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ ...subscriptionPayload(), wallet_only: false }),
-    })
-    const pendingData = await pendingRes.json()
-    if (!pendingRes.ok) {
-      showError(pendingData.error || 'Could not create subscription. Please try again.')
-      setLoading(false)
-      return
-    }
-
-    // Step 2: Open Razorpay for the remaining amount
-    // verify-payment will activate the subscription after successful payment
-    await openRazorpay(razorpayNeeded, pendingData.subscription_id, session)
+    // Not enough wallet balance — prompt to recharge
+    showError(`Insufficient wallet balance. Please recharge your wallet with at least ₹${razorpayNeeded} and try again.`)
+    setLoading(false)
   }
 
   return (
@@ -674,13 +767,13 @@ export default function Subscribe() {
             </label>
           </div>
 
-          <button type="submit" disabled={loading || !selectedProduct || !agreedToTerms || totalNeeded === 0}
-            className="text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition shadow-lg disabled:opacity-50"
-            style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
-            {loading ? 'Processing...' :
-              walletCovers ? '✅ Activate with Wallet Balance' :
-              walletBalance > 0 ? `Pay Rs.${razorpayNeeded} & Subscribe` :
-              `Pay Rs.${totalNeeded} & Subscribe`}
+          <button
+            type="button"
+            onClick={handlePayment}
+            disabled={paymentLoading || !selectedProduct || !agreedToTerms || totalNeeded === 0}
+            className="w-full text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition shadow-lg disabled:opacity-50"
+            style={{background: 'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
+            {paymentLoading ? 'Processing...' : `Pay Rs.${totalNeeded} & Subscribe`}
           </button>
 
         </form>

@@ -15,14 +15,9 @@ export default function Order() {
   const [quantity, setQuantity] = useState(1)
   const [deliveryDate, setDeliveryDate] = useState('')
   const [deliverySlot, setDeliverySlot] = useState('morning')
-  const [deliveryMode, setDeliveryMode] = useState('keep_bottle')
-  const [discountCode, setDiscountCode] = useState('')
-  const [discount, setDiscount] = useState(0)
   const [loading, setLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const { showSuccess, showError, showInfo } = useToast()
-
-  const BOTTLE_DEPOSIT = 200
 
   useEffect(() => {
     getUser()
@@ -39,6 +34,10 @@ export default function Order() {
     setUser(user)
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
     setProfile(profile)
+    if (profile?.has_used_cod) {
+      showInfo("You've already used your free trial! Please subscribe for daily delivery or recharge your wallet.")
+      router.push('/dashboard')
+    }
   }
 
   const getProducts = async () => {
@@ -47,37 +46,13 @@ export default function Order() {
     if (data && data.length > 0) setSelectedProduct(data[0])
   }
 
-  const applyDiscount = async () => {
-    if (!discountCode.trim()) return
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/validate-discount', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({ code: discountCode }),
-      })
-      const result = await res.json()
-      setDiscount(result.valid ? result.percent : 0)
-      result.valid ? showSuccess(result.message) : showError(result.message)
-    } catch {
-      showError('Could not validate discount code. Please try again.')
-    }
-  }
-
   const isValidBooking = () => {
-    const now = new Date()
-    // Treat delivery date as 7AM IST (start of morning slot) to allow booking up to 7PM IST previous day
     const deliveryStart = new Date(deliveryDate + 'T07:00:00+05:30')
-    return (deliveryStart - now) / (1000 * 60 * 60) >= 12
+    return (deliveryStart - new Date()) / (1000 * 60 * 60) >= 12
   }
 
-  const isTrialOrder = !profile?.has_used_cod
-  const bottleDeposit = !isTrialOrder && deliveryMode === 'keep_bottle' ? BOTTLE_DEPOSIT * quantity : 0
-  const milkPrice = selectedProduct ? Math.round(selectedProduct.price * quantity * (1 - discount / 100)) : 0
-  const totalPrice = milkPrice + bottleDeposit
+  const milkPrice = selectedProduct ? selectedProduct.price * quantity : 0
+  const totalPrice = milkPrice // no deposit for trial
 
   const handleOrder = async (e) => {
     e.preventDefault()
@@ -88,55 +63,46 @@ export default function Order() {
       setLoading(false)
       return
     }
-
     if (!isValidBooking()) {
       showError('Please book at least 12 hours in advance!')
       setLoading(false)
       return
     }
 
-    // Check if order already exists for this date
-const { data: existingOrder } = await supabase
-  .from('orders')
-  .select('id')
-  .eq('user_id', user.id)
-  .eq('delivery_date', deliveryDate)
-  .single()
+    // Prevent duplicate order on same date
+    const { data: existingOrder } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('delivery_date', deliveryDate)
+      .single()
 
-if (existingOrder) {
-  showInfo('You\'ve already placed an order for this date! You can place only one order per day. Please choose a different delivery date.')
-  setLoading(false)
-  return
-}
+    if (existingOrder) {
+      showInfo("You've already placed an order for this date. Please choose a different delivery date.")
+      setLoading(false)
+      return
+    }
 
-    // SECURITY: Order is created server-side so price/deposit cannot be injected
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/orders/create', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session?.access_token}`,
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
       body: JSON.stringify({
         product_id: selectedProduct.id,
         quantity,
         delivery_date: deliveryDate,
         delivery_slot: deliverySlot,
-        delivery_mode: deliveryMode,
-        discount_code: discountCode || null,
+        delivery_mode: 'direct',
       }),
     })
     const result = await res.json()
 
     if (!res.ok) {
       showError(result.error || 'Could not place order.')
+      setLoading(false)
     } else {
       router.push('/confirmation?type=order')
-      setQuantity(1)
-      setDiscount(0)
-      setDiscountCode('')
     }
-    setLoading(false)
   }
 
   return (
