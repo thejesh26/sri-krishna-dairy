@@ -144,6 +144,8 @@ export default function Subscribe() {
       return
     }
 
+    const sanitizedPhone = (profile?.phone || '').replace(/\D/g, '')
+
     const rzp = new window.Razorpay({
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
       order_id: orderData.order_id,
@@ -151,6 +153,11 @@ export default function Subscribe() {
       currency: 'INR',
       name: 'Sri Krishnaa Dairy Farms',
       description: 'Subscription Activation',
+      prefill: {
+        name: profile?.full_name || '',
+        email: user?.email || '',
+        contact: sanitizedPhone.length === 10 ? `+91${sanitizedPhone}` : '',
+      },
       theme: { color: '#1a5c38' },
       handler: async (response) => {
         // Verify payment — this also sets subscription.is_active = true
