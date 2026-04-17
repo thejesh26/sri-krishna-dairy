@@ -1,7 +1,7 @@
 import crypto from 'crypto'
-import { createServerClient } from '../../lib/supabase-server'
-import { sendSubscriptionConfirmationEmail } from '../../lib/email'
-import { notifySubscriptionActivated } from '../../lib/whatsapp'
+import { createServerClient } from '../../../lib/supabase-server'
+import { sendSubscriptionConfirmationEmail } from '../../../lib/email'
+import { notifySubscriptionActivated } from '../../../lib/whatsapp'
 
 export async function POST(request) {
   try {
