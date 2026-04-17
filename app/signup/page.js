@@ -296,7 +296,7 @@ export default function SignUp() {
                 </div>
               </div>
               <p className="text-gray-400 text-sm leading-relaxed mb-4">
-                Pure, fresh cow milk delivered straight from our farm to your doorstep every morning.
+                Pure, fresh cow milk delivered straight from our farm to your doorstep every day.
               </p>
               <div className="flex gap-3">
                 <a href="https://wa.me/919980166221" target="_blank"

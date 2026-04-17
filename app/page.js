@@ -13,6 +13,8 @@ export default function Home() {
   const [bulkForm, setBulkForm] = useState({ name: '', phone: '', institution: '', quantity: '', message: '' })
   const [bulkSubmitting, setBulkSubmitting] = useState(false)
   const [bulkSubmitted, setBulkSubmitted] = useState(false)
+  const [bulkModal, setBulkModal] = useState(false)
+  const [bulkPhoneError, setBulkPhoneError] = useState('')
 
   useEffect(() => {
     const checkUser = async () => {
@@ -55,6 +57,11 @@ export default function Home() {
 
   const handleBulkEnquiry = async (e) => {
     e.preventDefault()
+    if (!/^[0-9]{10}$/.test(bulkForm.phone)) {
+      setBulkPhoneError('Please enter a valid 10-digit phone number.')
+      return
+    }
+    setBulkPhoneError('')
     setBulkSubmitting(true)
     try {
       await fetch('/api/bulk-enquiry', {
@@ -62,17 +69,38 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bulkForm),
       })
-      setBulkSubmitted(true)
     } catch {
-      // still show success — form data is best-effort
-      setBulkSubmitted(true)
+      // best-effort — still show success
     } finally {
       setBulkSubmitting(false)
+      setBulkModal(true)
+      setBulkForm({ name: '', phone: '', institution: '', quantity: '', message: '' })
+      setTimeout(() => setBulkModal(false), 5000)
     }
   }
 
   return (
     <div className="min-h-screen bg-[#fdfbf7] font-[family-name:var(--font-inter)]">
+
+      {/* Bulk Enquiry Success Modal */}
+      {bulkModal && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center px-4" style={{background:'rgba(0,0,0,0.5)'}}>
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center border border-[#e8e0d0]">
+            <div className="text-5xl mb-4">🎉</div>
+            <h3 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">
+              Thank you for your enquiry!
+            </h3>
+            <p className="text-gray-500 text-sm leading-relaxed mb-4">
+              We'll contact you within 24 hours to discuss your bulk milk requirements.
+            </p>
+            <p className="text-[#d4a017] font-semibold text-sm">— Sri Krishnaa Dairy Team</p>
+            <button onClick={() => setBulkModal(false)}
+              className="mt-5 text-xs text-gray-400 hover:text-[#1a5c38] transition underline">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <header className="bg-[#fdfbf7] px-4 py-3 flex items-center justify-between shadow-sm sticky top-0 z-50 border-b border-[#e8e0d0]">
@@ -115,14 +143,14 @@ export default function Home() {
 
         <div className="relative z-10 max-w-6xl mx-auto px-6 py-16 sm:py-24 grid grid-cols-1 sm:grid-cols-2 gap-12 items-center">
           <div>
-            <p style={{color:'#d4a017', fontWeight:'600', fontSize:'12px', letterSpacing:'2px', textTransform:'uppercase', marginBottom:'16px'}}>Pure. Fresh. Delivered.</p>
+            <p style={{color:'#d4a017', fontWeight:'600', fontSize:'12px', letterSpacing:'2px', textTransform:'uppercase', marginBottom:'16px'}}>Pure. Fresh. Delivered to You.</p>
             <h2 className="font-[family-name:var(--font-playfair)] text-5xl sm:text-6xl font-bold text-white mb-6 leading-tight">
               Farm-Fresh Milk,<br />
               <span className="text-[#d4a017]">Straight to</span><br />
               Your Doorstep
             </h2>
             <p className="text-green-100 text-base mb-2 leading-relaxed max-w-md">
-              No middlemen. No preservatives. Pure, fresh cow milk delivered to your doorstep every morning and evening.
+              No middlemen. No preservatives. Pure, fresh cow milk delivered to your doorstep every day.
             </p>
             <p className="text-green-300 text-sm font-medium mb-8">
               📍 Serving homes & apartments in North &amp; East Bangalore
@@ -221,7 +249,7 @@ export default function Home() {
             <div>
               <div className="w-14 h-14 rounded-full bg-[#1a5c38] text-white text-xl font-bold flex items-center justify-center mx-auto mb-5">3</div>
               <h4 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-2">Get Fresh Milk</h4>
-              <p className="text-gray-500 text-sm">Fresh milk delivered to your doorstep every morning. Pure & natural.</p>
+              <p className="text-gray-500 text-sm">Fresh milk delivered to your doorstep every day. Pure & natural.</p>
             </div>
           </div>
         </div>
@@ -268,11 +296,11 @@ export default function Home() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
           {[
             { icon: '🌿', title: '100% Pure', desc: 'No additives or preservatives' },
-            { icon: '🍼', title: 'Delivered by 8AM', desc: 'Fresh at your door every morning' },
+            { icon: '🍼', title: 'Delivered on Time', desc: 'Fresh at your door every day' },
             { icon: '🐄', title: 'Farm to Door in 2hrs', desc: 'Straight from our farm' },
             { icon: '📅', title: 'Pause Anytime', desc: 'Flexible subscriptions' },
             { icon: '💳', title: 'Flexible Payment', desc: 'First order COD, then easy wallet top-ups' },
-            { icon: '🛵', title: 'Reliable Delivery', desc: 'Every morning without fail' },
+            { icon: '🛵', title: 'Reliable Delivery', desc: 'Every day without fail' },
             { icon: '🧪', title: 'Quality Tested', desc: 'Every batch checked' },
             { icon: '💚', title: 'Ethical Farming', desc: 'Cows treated with love' },
           ].map(({ icon, title, desc }) => (
@@ -351,7 +379,7 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
             {[
               { icon: '✅', title: 'Quality Guarantee', desc: 'Report within 2 hours — we replace it next delivery' },
-              { icon: '⏰', title: 'On-Time Guarantee', desc: 'Delivered between 7AM–9AM every morning, guaranteed' },
+              { icon: '⏰', title: 'On-Time Guarantee', desc: 'Delivered within your chosen slot (7AM–9AM or 5PM–7PM), guaranteed' },
               { icon: '🔄', title: 'Flexibility Guarantee', desc: 'Pause or cancel anytime with 12 hours notice' },
             ].map(({ icon, title, desc }) => (
               <div key={title} className="bg-[#14472c] rounded-lg p-6">
@@ -377,7 +405,7 @@ export default function Home() {
             </p>
             <p className="text-gray-500 leading-relaxed mb-4">
               We believe you deserve to know exactly where your milk comes from. No processing units,
-              no long supply chains — just pure, fresh milk from our farm to your doorstep every single morning.
+              no long supply chains — just pure, fresh milk from our farm to your doorstep every single day.
             </p>
             <p className="text-[#1a5c38] font-semibold leading-relaxed">
               🐄 Coming Soon — Our A2 Desi Cow Dairy, where you can visit our farm,
@@ -425,7 +453,7 @@ export default function Home() {
         { icon: '🏥', title: 'Hospitals & Clinics', desc: 'Reliable supply' },
         { icon: '🏢', title: 'Offices & Corporates', desc: 'Bulk subscription' },
         { icon: '🏠', title: 'Hostels & PGs', desc: 'Daily delivery' },
-        { icon: '🍽️', title: 'Restaurants & Cafes', desc: 'Fresh every morning' },
+        { icon: '🍽️', title: 'Restaurants & Cafes', desc: 'Fresh daily' },
       ].map(({ icon, title, desc }) => (
         <div key={title} className="bg-white border border-[#e8e0d0] rounded-xl p-5 text-center hover:shadow-md transition">
           <div className="text-4xl mb-3">{icon}</div>
@@ -482,13 +510,16 @@ export default function Home() {
             <div>
               <label className="text-xs font-semibold text-gray-600 mb-1 block">Phone Number *</label>
               <input required type="tel" placeholder="9876543210"
-                value={bulkForm.phone} onChange={e => setBulkForm(f => ({...f, phone: e.target.value}))}
-                className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
+                pattern="[0-9]{10}" maxLength={10} inputMode="numeric"
+                value={bulkForm.phone}
+                onChange={e => { const v = e.target.value.replace(/\D/g, ''); setBulkForm(f => ({...f, phone: v})); setBulkPhoneError('') }}
+                className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none ${bulkPhoneError ? 'border-red-400 focus:border-red-400' : 'border-[#e8e0d0] focus:border-[#1a5c38]'}`} />
+              {bulkPhoneError && <p className="text-red-500 text-xs mt-1">{bulkPhoneError}</p>}
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">Institution / Business Name</label>
-            <input type="text" placeholder="Hotel Sunshine, ABC School, etc."
+            <label className="text-xs font-semibold text-gray-600 mb-1 block">Institution / Business Name *</label>
+            <input required type="text" placeholder="Hotel Sunshine, ABC School, etc."
               value={bulkForm.institution} onChange={e => setBulkForm(f => ({...f, institution: e.target.value}))}
               className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
           </div>
@@ -523,14 +554,13 @@ export default function Home() {
     <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-8">Frequently Asked Questions</h3>
     <div className="flex flex-col gap-3">
       {[
-        { q: 'Where do you deliver?', a: 'We deliver to homes, apartments, gated communities, and housing societies across North & East Bangalore. We also accept bulk orders for schools, hotels, resorts, offices and other institutions — on separate bulk delivery timings. Contact us for bulk enquiries.' },
+        { q: 'Where do we deliver?', a: 'We deliver to homes, apartments, gated communities, and housing societies across North & East Bangalore. We also accept bulk orders for schools, hotels, resorts, offices and other institutions — on separate bulk delivery timings. Contact us for bulk enquiries.' },
         { q: 'What time is milk delivered?', a: 'Morning slot: 7AM – 9AM. Evening slot: 5PM – 7PM. We always aim to deliver within your chosen slot. Bulk institutional orders may have different delivery timings.' },
         { q: 'Can I pause my subscription?', a: 'Yes! You can pause delivery for any specific date directly from your dashboard, at least 12 hours in advance. You can also resume anytime.' },
         { q: 'What is the bottle deposit?', a: 'We charge a refundable bottle deposit of ₹200 per bottle. The full deposit is returned when bottles are given back in good condition. Our 500ml trial pack has no deposit required. Choose Direct Delivery mode to skip the deposit — our delivery person collects the bottle right after delivery.' },
         { q: 'How do I pay?', a: 'Your first order can be paid via Cash on Delivery (COD). For subscriptions and subsequent orders, we use a prepaid wallet system — add balance once and enjoy uninterrupted daily delivery without cash hassles!' },
         { q: 'What is the minimum wallet balance?', a: 'Your wallet must maintain a minimum balance of ₹300 for subscriptions to remain active. If your balance is insufficient for the day\'s delivery, your subscription will be automatically deactivated. Top up your wallet in advance to avoid interruptions — we send a low-balance alert email when your balance drops below ₹300.' },
-        { q: 'Is the milk safe to drink directly?', a: '⚠️ Health Advisory: Our milk is farm-fresh and raw — it is NOT pasteurized or homogenized. We strongly recommend boiling the milk before consumption, especially for children, elderly, pregnant women, and immunocompromised individuals. We comply with FSSAI guidelines (Lic. No: 21225008004544) and follow strict hygiene at every step of the process.' },
-        { q: 'Is the milk pasteurized?', a: 'Our milk is farm-fresh and pure — it is NOT pasteurized. It comes straight from our farm. We follow strict hygiene and quality standards, but please boil before drinking as a precaution. Compliant with FSSAI Lic. No: 21225008004544.' },
+        { q: 'Is the milk pasteurised and safe to drink directly?', a: 'Our milk is farm-fresh and pure, delivered straight from our farm. It is NOT pasteurised — it is raw, natural cow milk. We strongly recommend boiling the milk before consumption for safety. Boiling ensures any harmful bacteria are eliminated while preserving the natural goodness of the milk.' },
         { q: 'Do you take bulk orders?', a: 'Yes! We supply bulk milk to schools, hotels, resorts, hostels, canteens and other institutions. Bulk orders have special pricing and dedicated delivery timings. Please contact us on WhatsApp or call us for bulk order enquiries.' },
         { q: 'How do I install this as an app on my phone?', a: 'On iPhone: Open the website in Safari, tap the Share button (box with arrow) at the bottom, then tap "Add to Home Screen". On Android: Open in Chrome, tap the 3 dots menu, then tap "Add to Home Screen". The app icon will appear on your home screen!' },
         { q: 'Do I need to download an app from Play Store?', a: 'No! Our website works like an app directly from your browser. Just add it to your home screen and it opens instantly like a native app — no Play Store download needed!' },
@@ -599,7 +629,7 @@ export default function Home() {
             Start Your Daily Milk<br />Subscription Today
           </h3>
           <p className="text-green-200 text-lg mb-8">
-            Join happy families in Kattigenahalli getting fresh, pure milk every morning
+            Join happy families in Kattigenahalli getting fresh, pure milk every day
           </p>
           <div className="flex justify-center gap-4 flex-wrap">
             <Link href="/subscribe" className="bg-[#d4a017] text-white px-10 py-4 rounded font-bold text-lg hover:bg-[#b8860b] transition shadow-lg">
@@ -626,7 +656,7 @@ export default function Home() {
                 </div>
               </div>
               <p className="text-gray-400 text-sm leading-relaxed">
-                Pure, fresh cow milk delivered straight from our farm to your doorstep every morning.
+                Pure, fresh cow milk delivered straight from our farm to your doorstep every day.
               </p>
             </div>
 

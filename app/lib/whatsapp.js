@@ -172,7 +172,7 @@ async function notifyCodUpsell({ phone, name }) {
   await sendWhatsAppMessage(phone,
     `Hi ${name}! 🥛 Loved our fresh milk?\n\n` +
     `Subscribe now for daily delivery and save!\n` +
-    `✅ Farm fresh every morning\n` +
+    `✅ Farm fresh every day\n` +
     `✅ Automatic daily delivery\n` +
     `✅ Easy wallet-based payment\n\n` +
     `Subscribe here: srikrishnaadairy.in/subscribe\n\n` +
