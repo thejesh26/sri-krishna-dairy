@@ -1,13 +1,19 @@
 import crypto from 'crypto'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
+import { createServerClient } from '../../../lib/supabase-server'
 
 export async function POST(request) {
   try {
+    // Authenticate
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+    const supabase = createServerClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
+    if (authError || !user) {
+      return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     const {
       razorpay_order_id,
       razorpay_payment_id,
@@ -15,6 +21,10 @@ export async function POST(request) {
       userId,
       amount
     } = await request.json()
+
+    if (user.id !== userId) {
+      return Response.json({ success: false, error: 'Forbidden' }, { status: 403 })
+    }
 
     // Verify signature
     const body = razorpay_order_id + '|' + razorpay_payment_id

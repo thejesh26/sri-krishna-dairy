@@ -526,7 +526,7 @@ export default function Home() {
         { q: 'Where do you deliver?', a: 'We deliver to homes, apartments, gated communities, and housing societies across North & East Bangalore. We also accept bulk orders for schools, hotels, resorts, offices and other institutions — on separate bulk delivery timings. Contact us for bulk enquiries.' },
         { q: 'What time is milk delivered?', a: 'Morning slot: 7AM – 9AM. Evening slot: 5PM – 7PM. We always aim to deliver within your chosen slot. Bulk institutional orders may have different delivery timings.' },
         { q: 'Can I pause my subscription?', a: 'Yes! You can pause delivery for any specific date directly from your dashboard, at least 12 hours in advance. You can also resume anytime.' },
-        { q: 'What is the bottle deposit?', a: 'We charge a refundable bottle deposit of ₹100 per bottle (minimum ₹200 for 2 bottles). The full deposit is returned when bottles are given back in good condition. Our 500ml trial pack has no deposit required. Choose Direct Delivery mode to skip the deposit — our delivery person collects the bottle right after delivery.' },
+        { q: 'What is the bottle deposit?', a: 'We charge a refundable bottle deposit of ₹200 per bottle. The full deposit is returned when bottles are given back in good condition. Our 500ml trial pack has no deposit required. Choose Direct Delivery mode to skip the deposit — our delivery person collects the bottle right after delivery.' },
         { q: 'How do I pay?', a: 'Your first order can be paid via Cash on Delivery (COD). For subscriptions and subsequent orders, we use a prepaid wallet system — add balance once and enjoy uninterrupted daily delivery without cash hassles!' },
         { q: 'What is the minimum wallet balance?', a: 'Your wallet must maintain a minimum balance of ₹300 for subscriptions to remain active. If your balance is insufficient for the day\'s delivery, your subscription will be automatically deactivated. Top up your wallet in advance to avoid interruptions — we send a low-balance alert email when your balance drops below ₹300.' },
         { q: 'Is the milk safe to drink directly?', a: '⚠️ Health Advisory: Our milk is farm-fresh and raw — it is NOT pasteurized or homogenized. We strongly recommend boiling the milk before consumption, especially for children, elderly, pregnant women, and immunocompromised individuals. We comply with FSSAI guidelines (Lic. No: 21225008004544) and follow strict hygiene at every step of the process.' },
@@ -710,7 +710,7 @@ export default function Home() {
           {/* Bottom Footer */}
           <div className="pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-gray-500">
             <div className="text-center sm:text-left">
-              <p>© 2025 Sri Krishnaa Dairy Farms. All rights reserved.</p>
+              <p>© 2026 Sri Krishnaa Dairy Farms. All rights reserved.</p>
               <p className="text-gray-600 mt-0.5">FSSAI Lic. No: <span className="text-gray-400">21225008004544</span></p>
             </div>
             <p className="text-gray-600">Made with ❤️ in Bangalore</p>

@@ -1,13 +1,21 @@
 import crypto from 'crypto'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
+import { createServerClient } from '../../lib/supabase-server'
+import { sendSubscriptionConfirmationEmail } from '../../lib/email'
+import { notifySubscriptionActivated } from '../../lib/whatsapp'
 
 export async function POST(request) {
   try {
+    // Authenticate
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+    const supabase = createServerClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
+    if (authError || !user) {
+      return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     const {
       razorpay_order_id,
       razorpay_payment_id,
@@ -18,6 +26,10 @@ export async function POST(request) {
       amount,
       deposit
     } = await request.json()
+
+    if (user.id !== userId) {
+      return Response.json({ success: false, error: 'Forbidden' }, { status: 403 })
+    }
 
     // Verify signature
     const body = razorpay_order_id + '|' + razorpay_payment_id
@@ -77,6 +89,34 @@ export async function POST(request) {
           type: 'credit',
           description: `Subscription payment [${razorpay_payment_id}]`
         })
+
+      // Send activation notifications (non-blocking)
+      try {
+        const { data: sub } = await supabase
+          .from('subscriptions')
+          .select('start_date, delivery_slot, quantity, discount_percent, products(size, price)')
+          .eq('id', subscriptionId)
+          .single()
+        const { data: profile } = await supabase.from('profiles').select('full_name, phone').eq('id', userId).single()
+        const { data: authUser } = await supabase.auth.admin.getUserById(userId)
+        const name = profile?.full_name || authUser?.user?.email || ''
+        const email = authUser?.user?.email || ''
+        const product = sub?.products
+        const qty = sub?.quantity || 1
+        const dailyAmount = product
+          ? Math.round(product.price * qty * (1 - (sub.discount_percent || 0) / 100))
+          : 0
+        if (email) {
+          await sendSubscriptionConfirmationEmail({
+            to: email, name, product: product?.size, quantity: qty,
+            startDate: sub?.start_date, deliverySlot: sub?.delivery_slot, dailyAmount,
+          })
+        }
+        await notifySubscriptionActivated({
+          phone: profile?.phone, name, size: product?.size, quantity: qty,
+          startDate: sub?.start_date, slot: sub?.delivery_slot, dailyAmount,
+        })
+      } catch { /* non-blocking */ }
 
     } else if (type === 'wallet') {
       if (wallet) {

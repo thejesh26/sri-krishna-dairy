@@ -173,7 +173,7 @@ export default function PrivacyPolicy() {
       <footer className="bg-[#0d1f13] text-white px-6 pt-10 pb-6 mt-6">
         <div className="max-w-4xl mx-auto">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-gray-500">
-            <p>© 2025 Sri Krishnaa Dairy Farms. All rights reserved.</p>
+            <p>© 2026 Sri Krishnaa Dairy Farms. All rights reserved.</p>
             <div className="flex flex-wrap justify-center gap-4">
               <Link href="/privacy-policy" className="hover:text-[#d4a017] transition text-[#d4a017]">Privacy Policy</Link>
               <Link href="/terms-of-service" className="hover:text-[#d4a017] transition">Terms of Service</Link>

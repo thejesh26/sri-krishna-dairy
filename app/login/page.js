@@ -247,7 +247,7 @@ export default function Login() {
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="text-[#d4a017] mt-0.5">🕐</span>
-                  <span>Morning: 5AM – 8AM<br />Evening: 5PM – 7PM</span>
+                  <span>Morning: 7AM – 9AM<br />Evening: 5PM – 7PM</span>
                 </li>
               </ul>
             </div>
@@ -273,7 +273,7 @@ export default function Login() {
           {/* Bottom Footer */}
           <div className="pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-gray-500">
             <div className="text-center sm:text-left">
-              <p>© 2025 Sri Krishnaa Dairy Farms. All rights reserved.</p>
+              <p>© 2026 Sri Krishnaa Dairy Farms. All rights reserved.</p>
               <p className="text-gray-600 mt-0.5">FSSAI Lic. No: <span className="text-gray-400">21225008004544</span></p>
             </div>
             <p className="text-gray-600">Made with ❤️ in Bangalore</p>

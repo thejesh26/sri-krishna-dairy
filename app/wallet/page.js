@@ -102,7 +102,7 @@ export default function Wallet() {
         handler: async function (response) {
           const verifyRes = await fetch('/api/wallet/recharge', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
             body: JSON.stringify({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
@@ -115,7 +115,7 @@ export default function Wallet() {
           if (verifyData.success) {
             showSuccess('Wallet recharged successfully!')
             setTimeout(() => {
-              window.location.href = '/dashboard'
+              window.location.reload()
             }, 1500)
           } else {
             showError('Payment verification failed!')
@@ -432,7 +432,7 @@ export default function Wallet() {
           {/* Bottom Footer */}
           <div className="pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-gray-500">
             <div className="text-center sm:text-left">
-              <p>© 2025 Sri Krishnaa Dairy Farms. All rights reserved.</p>
+              <p>© 2026 Sri Krishnaa Dairy Farms. All rights reserved.</p>
               <p className="text-gray-600 mt-0.5">FSSAI Lic. No: <span className="text-gray-400">21225008004544</span></p>
             </div>
             <p className="text-gray-600">Made with ❤️ in Bangalore</p>
