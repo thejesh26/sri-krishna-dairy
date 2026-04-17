@@ -104,13 +104,13 @@ export default function Home() {
 
       {/* Header */}
       <header className="bg-[#fdfbf7] px-4 py-3 flex items-center justify-between shadow-sm sticky top-0 z-50 border-b border-[#e8e0d0]">
-  <Link href="/" className="flex items-center gap-2">
+  <a href="/" onClick={(e) => { if (window.location.pathname === '/') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }) } }} className="flex items-center gap-2">
     <img src="/Logo.jpg" alt="Sri Krishnaa Dairy" className="h-10 w-10 sm:h-14 sm:w-14 rounded-full object-cover shadow border-2 border-[#d4a017]" />
     <div>
       <h1 className="text-sm sm:text-lg font-bold text-[#1a5c38] font-[family-name:var(--font-playfair)] leading-tight">Sri Krishnaa Dairy</h1>
       <p className="text-xs text-[#d4a017] font-medium tracking-wide hidden sm:block">FARM FRESH • PURE • NATURAL</p>
     </div>
-  </Link>
+  </a>
   <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-[#1c1c1c]">
     <a href="#about" className="hover:text-[#1a5c38] transition">About</a>
     <a href="#how-it-works" className="hover:text-[#1a5c38] transition">How It Works</a>
