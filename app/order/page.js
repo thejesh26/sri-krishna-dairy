@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ToastContext'
 import { SkeletonProductCard } from '../components/Skeleton'
+import Footer from '../components/Footer'
 
 function getMinDate() {
   const now = new Date()
@@ -144,7 +145,7 @@ export default function Order() {
         {/* COD Trial Used — show restriction */}
         {profile?.has_used_cod && (
           <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-6 mb-6 text-center">
-            <div className="text-5xl mb-3">🥛</div>
+            <div className="flex justify-center mb-3"><img src="/bottle.png" alt="Milk" className="h-16 object-contain" /></div>
             <h3 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c] mb-2">You've already used your free trial!</h3>
             <p className="text-gray-600 text-sm mb-5">
               Cash on Delivery is available for one-time trial orders only.<br/>
@@ -166,25 +167,34 @@ export default function Order() {
 
         {/* Ordering window notice */}
         {!profile?.has_used_cod && (() => {
-          const { primary, secondary } = getDateHelperText()
+          const now = new Date()
+          const ist = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+          const isLate = ist.getHours() >= 18
+          if (isLate) {
+            const deliveryDate = new Date(ist)
+            deliveryDate.setDate(deliveryDate.getDate() + 2)
+            const label = deliveryDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })
+            return (
+              <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-xl p-4 mb-4 flex items-start gap-3">
+                <span className="text-2xl mt-0.5">🌙</span>
+                <div>
+                  <p className="text-[#1a5c38] text-sm font-bold">You can still order tonight!</p>
+                  <p className="text-[#1a5c38] text-xs mt-0.5">
+                    Today's 6PM window has passed, but your order will be confirmed for <strong>{label}</strong>. Select your date below and place your order now.
+                  </p>
+                </div>
+              </div>
+            )
+          }
           return (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4 text-center">
-              <p className="text-yellow-700 text-sm font-semibold">⏰ {primary}</p>
-              {secondary && <p className="text-yellow-600 text-xs mt-1">{secondary}</p>}
+              <p className="text-yellow-700 text-sm font-semibold">⏰ Order before 6PM today for tomorrow's delivery</p>
             </div>
           )
         })()}
 
         {/* Health disclaimer + order form — hidden if COD trial already used */}
         {!profile?.has_used_cod && <>
-
-        {/* Health Disclaimer Banner */}
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
-          <p className="text-orange-800 text-sm font-bold mb-1">⚠️ Raw Milk Health Advisory</p>
-          <p className="text-orange-700 text-xs leading-relaxed">
-            Our milk is farm-fresh and <strong>not pasteurized</strong>. <strong>Please boil before consumption</strong>, especially for children, elderly, and pregnant women. FSSAI Lic. No: 21225008004544.
-          </p>
-        </div>
 
         {/* Delivery Address */}
         {profile && (
@@ -210,7 +220,7 @@ export default function Order() {
                       ? 'border-[#1a5c38] bg-[#f0faf4]'
                       : 'border-[#e8e0d0] hover:border-[#1a5c38]'
                   }`}>
-                  <div className="text-3xl mb-1">🥛</div>
+                  <div className="flex justify-center mb-1"><img src="/bottle.png" alt="Milk" className="h-14 object-contain" /></div>
                   <p className="font-bold text-[#1c1c1c] text-sm">{product.size}</p>
                   <p className="text-[#1a5c38] font-extrabold">₹{product.price}</p>
                   <span className="inline-block mt-1 text-[10px] bg-[#d4a017] text-white font-bold px-2 py-0.5 rounded-full">Trial · No Deposit</span>
@@ -335,105 +345,7 @@ export default function Order() {
         </>}
       </div>
 
-      {/* Footer */}
-      <footer className="bg-[#0d1f13] text-white px-6 pt-16 pb-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-10 pb-12 border-b border-gray-800">
-
-            {/* Brand */}
-            <div className="sm:col-span-1">
-              <div className="flex items-center gap-3 mb-4">
-                <img src="/Logo.jpg" alt="Logo" className="h-14 w-14 rounded-full object-cover border-2 border-[#d4a017]" />
-                <div>
-                  <p className="font-[family-name:var(--font-playfair)] font-bold text-lg leading-tight">Sri Krishnaa<br />Dairy Farms</p>
-                </div>
-              </div>
-              <p className="text-gray-400 text-sm leading-relaxed">
-                Pure, fresh cow milk delivered straight from our farm to your doorstep every day.
-              </p>
-            </div>
-
-            {/* Quick Links */}
-            <div>
-              <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Quick Links</p>
-              <ul className="flex flex-col gap-3 text-sm text-gray-400">
-                <li><a href="/dashboard" className="hover:text-[#d4a017] transition">Dashboard</a></li>
-                <li><a href="/subscribe" className="hover:text-[#d4a017] transition">Subscribe</a></li>
-                <li><a href="/order" className="hover:text-[#d4a017] transition">Order Now</a></li>
-                <li><a href="/wallet" className="hover:text-[#d4a017] transition">Wallet</a></li>
-                <li><a href="/profile" className="hover:text-[#d4a017] transition">My Profile</a></li>
-              </ul>
-            </div>
-
-            {/* Explore */}
-            <div>
-              <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Explore</p>
-              <ul className="flex flex-col gap-3 text-sm text-gray-400">
-                <li><a href="/#how-it-works" className="hover:text-[#d4a017] transition">How It Works</a></li>
-                <li><a href="/#why-us" className="hover:text-[#d4a017] transition">Why Choose Us</a></li>
-                <li><a href="/#faq" className="hover:text-[#d4a017] transition">FAQ</a></li>
-                <li><a href="/#products" className="hover:text-[#d4a017] transition">Our Products</a></li>
-                <li><a href="/#contact" className="hover:text-[#d4a017] transition">Contact Us</a></li>
-              </ul>
-            </div>
-
-            {/* Contact */}
-            <div>
-              <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Contact Us</p>
-              <ul className="flex flex-col gap-4 text-sm text-gray-400">
-                <li className="flex items-start gap-3">
-                  <span className="text-[#d4a017] mt-0.5">📞</span>
-                  <a href="tel:9980166221" className="hover:text-white transition">9980166221</a>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-[#d4a017] mt-0.5">✉️</span>
-                  <a href="mailto:hello@srikrishnaadairy.in" className="hover:text-white transition">hello@srikrishnaadairy.in</a>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-[#d4a017] mt-0.5">📍</span>
-                  <span>Kattigenahalli,<br />Bangalore, Karnataka</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-[#d4a017] mt-0.5">🕐</span>
-                  <span>Morning: 7AM – 9AM<br />Evening: 5PM – 7PM</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Middle Footer */}
-          <div className="py-8 border-b border-gray-800">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
-              {[
-                { icon: '🌿', text: 'No Preservatives' },
-                { icon: '🐄', text: 'Farm Direct' },
-                { icon: '✅', text: 'Quality Tested' },
-                { icon: '💚', text: 'Ethically Farmed' },
-              ].map(({ icon, text }) => (
-                <div key={text} className="flex items-center justify-center gap-2">
-                  <span>{icon}</span>
-                  <span className="text-gray-400 text-sm">{text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Bottom Footer */}
-          <div className="pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-gray-500">
-            <div className="text-center sm:text-left">
-              <p>© 2026 Sri Krishnaa Dairy Farms. All rights reserved.</p>
-              <p className="text-gray-600 mt-0.5">FSSAI Lic. No: <span className="text-gray-400">21225008004544</span></p>
-            </div>
-            <p className="text-gray-600">Made with ❤️ in Bangalore</p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <a href="/privacy-policy" className="hover:text-gray-300 transition">Privacy Policy</a>
-              <a href="/terms-of-service" className="hover:text-gray-300 transition">Terms of Service</a>
-              <a href="/refund-policy" className="hover:text-gray-300 transition">Refund Policy</a>
-              <a href="/health-disclaimer" className="hover:text-gray-300 transition">Health Disclaimer</a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer variant="app" />
 
     </div>
   )

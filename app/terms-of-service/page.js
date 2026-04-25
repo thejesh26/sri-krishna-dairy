@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Footer from '../components/Footer'
 
 export const metadata = {
   title: 'Terms of Service | Sri Krishnaa Dairy Farms',
@@ -118,7 +119,7 @@ export default function TermsOfService() {
             <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">5. Bottle Deposit System</h2>
             <ul className="flex flex-col gap-3 text-sm text-[#4a4a4a]">
               {[
-                'If you opt for the "keep bottle" delivery mode, a refundable deposit of ₹100 per bottle (minimum ₹200 for two bottles) is charged at the start of your subscription.',
+                'If you opt for the "keep bottle" delivery mode, a refundable deposit of ₹200 per bottle is charged at the start of your subscription.',
                 'Bottles remain the property of Sri Krishnaa Dairy Farms and must be returned in clean, undamaged condition upon cancellation.',
                 'The bottle deposit is refunded in full when bottles are returned in acceptable condition.',
                 'Broken, lost, or heavily damaged bottles will not be eligible for deposit refund.',
@@ -227,20 +228,7 @@ export default function TermsOfService() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-[#0d1f13] text-white px-6 pt-10 pb-6 mt-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-gray-500">
-            <p>© 2026 Sri Krishnaa Dairy Farms. All rights reserved.</p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <Link href="/privacy-policy" className="hover:text-[#d4a017] transition">Privacy Policy</Link>
-              <Link href="/terms-of-service" className="hover:text-[#d4a017] transition text-[#d4a017]">Terms of Service</Link>
-              <Link href="/refund-policy" className="hover:text-[#d4a017] transition">Refund Policy</Link>
-              <Link href="/health-disclaimer" className="hover:text-[#d4a017] transition">Health Disclaimer</Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer variant="public" />
 
     </div>
   )

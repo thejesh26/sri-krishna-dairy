@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ToastContext'
 import { SkeletonProductCard } from '../components/Skeleton'
+import Footer from '../components/Footer'
 
 function getMinDate() {
   const now = new Date()
@@ -432,13 +433,15 @@ export default function Subscribe() {
           )
         })()}
 
-        {/* Health Disclaimer Banner */}
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6">
-          <p className="text-orange-800 text-sm font-bold mb-1">⚠️ Raw Milk Health Advisory</p>
-          <p className="text-orange-700 text-xs leading-relaxed">
-            Our milk is farm-fresh and <strong>not pasteurized</strong>. <strong>Please boil before consumption</strong>, especially for children, elderly, and pregnant women. FSSAI Lic. No: 21225008004544.
-          </p>
-        </div>
+        {/* Wallet transparency note */}
+        {!subscriberLimitReached && (
+          <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-xl p-4 mb-2 flex items-start gap-3">
+            <span className="text-xl mt-0.5">💳</span>
+            <p className="text-[#1a5c38] text-sm leading-relaxed">
+              <strong>How payment works:</strong> Subscription uses a simple prepaid wallet — top up once, we deduct daily as milk is delivered. No surprises, full control. Your first order can be COD.
+            </p>
+          </div>
+        )}
 
         {/* Subscriber limit reached */}
         {subscriberLimitReached && (
@@ -504,7 +507,7 @@ export default function Subscribe() {
                   className={`border-2 rounded-xl p-4 text-center transition ${
                     selectedProduct?.id === product.id ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#1a5c38]'
                   }`}>
-                  <div className="text-3xl mb-2">🥛</div>
+                  <div className="flex justify-center mb-2"><img src="/bottle.png" alt="Milk" className="h-14 object-contain" /></div>
                   <p className="font-bold text-[#1c1c1c] text-sm">{product.size}</p>
                   <p className="text-[#1a5c38] font-extrabold">₹{product.price}/day</p>
                 </button>
@@ -579,12 +582,9 @@ export default function Subscribe() {
                   </button>
                 </div>
                 {deliveryMode === 'keep_bottle' && (
-                  <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-lg p-3 mt-3">
-                    <p className="text-xs text-[#1a5c38] font-semibold">
-                      Bottle deposit: ₹{BOTTLE_DEPOSIT} × {quantity} bottle{quantity !== 1 ? 's' : ''} = ₹{bottleDeposit}
-                    </p>
-                    <p className="text-xs text-[#1a5c38] mt-1">₹200 per bottle. Fully refundable when bottles are returned.</p>
-                  </div>
+                  <p className="text-xs text-[#1a5c38] mt-3 px-1">
+                    🔒 One-time refundable deposit — collected with your first payment, returned in full when you cancel.
+                  </p>
                 )}
             </>
           </div>
@@ -843,104 +843,7 @@ export default function Subscribe() {
         </form>}
       </div>
 
-      {/* Footer */}
-      <footer className="bg-[#0d1f13] text-white px-6 pt-16 pb-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-10 pb-12 border-b border-gray-800">
-
-            {/* Brand */}
-            <div className="sm:col-span-1">
-              <div className="flex items-center gap-3 mb-4">
-                <img src="/Logo.jpg" alt="Logo" className="h-14 w-14 rounded-full object-cover border-2 border-[#d4a017]" />
-                <div>
-                  <p className="font-[family-name:var(--font-playfair)] font-bold text-lg leading-tight">Sri Krishnaa<br />Dairy Farms</p>
-                </div>
-              </div>
-              <p className="text-gray-400 text-sm leading-relaxed">
-                Pure, fresh cow milk delivered straight from our farm to your doorstep every day.
-              </p>
-            </div>
-
-            {/* Quick Links */}
-            <div>
-              <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Quick Links</p>
-              <ul className="flex flex-col gap-3 text-sm text-gray-400">
-                <li><a href="/dashboard" className="hover:text-[#d4a017] transition">Dashboard</a></li>
-                <li><a href="/subscribe" className="hover:text-[#d4a017] transition">Subscribe</a></li>
-                <li><a href="/order" className="hover:text-[#d4a017] transition">Order Now</a></li>
-                <li><a href="/wallet" className="hover:text-[#d4a017] transition">Wallet</a></li>
-                <li><a href="/profile" className="hover:text-[#d4a017] transition">My Profile</a></li>
-              </ul>
-            </div>
-
-            {/* Explore */}
-            <div>
-              <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Explore</p>
-              <ul className="flex flex-col gap-3 text-sm text-gray-400">
-                <li><a href="/#how-it-works" className="hover:text-[#d4a017] transition">How It Works</a></li>
-                <li><a href="/#why-us" className="hover:text-[#d4a017] transition">Why Choose Us</a></li>
-                <li><a href="/#faq" className="hover:text-[#d4a017] transition">FAQ</a></li>
-                <li><a href="/#products" className="hover:text-[#d4a017] transition">Our Products</a></li>
-              </ul>
-            </div>
-
-            {/* Contact */}
-            <div>
-              <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Contact Us</p>
-              <ul className="flex flex-col gap-4 text-sm text-gray-400">
-                <li className="flex items-start gap-3">
-                  <span className="text-[#d4a017] mt-0.5">📞</span>
-                  <a href="tel:9980166221" className="hover:text-white transition">9980166221</a>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-[#d4a017] mt-0.5">✉️</span>
-                  <a href="mailto:hello@srikrishnaadairy.in" className="hover:text-white transition">hello@srikrishnaadairy.in</a>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-[#d4a017] mt-0.5">📍</span>
-                  <span>Kattigenahalli,<br />Bangalore, Karnataka</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-[#d4a017] mt-0.5">🕐</span>
-                  <span>Morning: 7AM – 9AM<br />Evening: 5PM – 7PM</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Middle Footer */}
-          <div className="py-8 border-b border-gray-800">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
-              {[
-                { icon: '🌿', text: 'No Preservatives' },
-                { icon: '🐄', text: 'Farm Direct' },
-                { icon: '✅', text: 'Quality Tested' },
-                { icon: '💚', text: 'Ethically Farmed' },
-              ].map(({ icon, text }) => (
-                <div key={text} className="flex items-center justify-center gap-2">
-                  <span>{icon}</span>
-                  <span className="text-gray-400 text-sm">{text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Bottom Footer */}
-          <div className="pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-gray-500">
-            <div className="text-center sm:text-left">
-              <p>© 2026 Sri Krishnaa Dairy Farms. All rights reserved.</p>
-              <p className="text-gray-600 mt-0.5">FSSAI Lic. No: <span className="text-gray-400">21225008004544</span></p>
-            </div>
-            <p className="text-gray-600">Made with ❤️ in Bangalore</p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <a href="/privacy-policy" className="hover:text-gray-300 transition">Privacy Policy</a>
-              <a href="/terms-of-service" className="hover:text-gray-300 transition">Terms of Service</a>
-              <a href="/refund-policy" className="hover:text-gray-300 transition">Refund Policy</a>
-              <a href="/health-disclaimer" className="hover:text-gray-300 transition">Health Disclaimer</a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer variant="app" />
 
     </div>
   )

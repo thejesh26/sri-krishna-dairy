@@ -696,7 +696,9 @@ setWallets(allWallets || [])
                 {todaySubscriptions.map((sub) => (
                   <div key={sub.id}
                     className={`px-6 py-5 flex items-center gap-4 border-b border-[#f5f0e8]`}>
-                    <div className="w-12 h-12 rounded-xl bg-[#f0faf4] flex items-center justify-center text-2xl flex-shrink-0">🥛</div>
+                    <div className="w-12 h-12 rounded-xl bg-[#f0faf4] flex items-center justify-center flex-shrink-0 p-1.5">
+                      <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain" />
+                    </div>
                     <div className="flex-1">
                       <p className="font-semibold text-[#1c1c1c]">{sub.profiles?.full_name}</p>
                       <p className="text-sm text-gray-400">{sub.profiles?.apartment_name}, Flat {sub.profiles?.flat_number}</p>
@@ -923,7 +925,9 @@ setWallets(allWallets || [])
                 {subscriptions.map((sub, index) => (
                   <div key={sub.id}
                     className={`px-6 py-5 flex items-center gap-4 ${index !== subscriptions.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
-                    <div className="w-12 h-12 rounded-xl bg-[#f5f0e8] flex items-center justify-center text-2xl flex-shrink-0">🥛</div>
+                    <div className="w-12 h-12 rounded-xl bg-[#f5f0e8] flex items-center justify-center flex-shrink-0 p-1.5">
+                      <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain" />
+                    </div>
                     <div className="flex-1">
                       <p className="font-semibold text-[#1c1c1c]">{sub.profiles?.full_name}</p>
                       <p className="text-sm text-gray-400">{sub.profiles?.area}, {sub.profiles?.apartment_name}</p>
@@ -1336,7 +1340,9 @@ setWallets(allWallets || [])
             .map((order, index) => (
             <div key={order.id}
               className={`px-6 py-4 flex items-center gap-4 ${index !== orders.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
-              <div className="w-12 h-12 rounded-xl bg-[#f5f0e8] flex items-center justify-center text-2xl flex-shrink-0">🥛</div>
+              <div className="w-12 h-12 rounded-xl bg-[#f5f0e8] flex items-center justify-center flex-shrink-0 p-1.5">
+                <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain" />
+              </div>
               <div className="flex-1">
                 <p className="font-semibold text-[#1c1c1c]">{order.profiles?.full_name}</p>
                 <p className="text-sm text-gray-400">{order.profiles?.apartment_name}, {order.profiles?.area}</p>
@@ -1421,7 +1427,9 @@ setWallets(allWallets || [])
         {products.map((product, index) => (
           <div key={product.id}
             className={`px-6 py-5 flex items-center gap-4 ${index !== products.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
-            <div className="w-12 h-12 rounded-xl bg-[#f0faf4] flex items-center justify-center text-2xl flex-shrink-0">🥛</div>
+            <div className="w-12 h-12 rounded-xl bg-[#f0faf4] flex items-center justify-center flex-shrink-0 p-1.5">
+              <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain" />
+            </div>
             <div className="flex-1">
               <p className="font-semibold text-[#1c1c1c]">{product.name || `Fresh Cow Milk ${product.size}`}</p>
               <p className="text-xs text-gray-400 mt-0.5">Size: {product.size}</p>

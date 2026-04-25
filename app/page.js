@@ -152,9 +152,30 @@ export default function Home() {
             <p className="text-green-100 text-base mb-2 leading-relaxed max-w-md">
               No middlemen. No preservatives. Pure, fresh cow milk delivered to your doorstep every day.
             </p>
-            <p className="text-green-300 text-sm font-medium mb-8">
+            <p className="text-green-300 text-sm font-medium mb-6">
               📍 Serving homes & apartments in North &amp; East Bangalore
             </p>
+
+            {/* Key stats row */}
+            <div className="flex gap-6 mb-8">
+              <div className="text-center">
+                <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#d4a017]">2 hrs</p>
+                <p className="text-green-300 text-xs mt-0.5">Farm to your door</p>
+              </div>
+              <div className="w-px bg-white opacity-20" />
+              <div className="text-center">
+                <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#d4a017]">4 AM</p>
+                <p className="text-green-300 text-xs mt-0.5">Milked fresh daily</p>
+              </div>
+              <div className="w-px bg-white opacity-20" />
+              <div className="text-center">
+                <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#d4a017]">
+                  {products.length > 0 ? `₹${Math.min(...products.map(p => p.price))}/day` : '₹50/day'}
+                </p>
+                <p className="text-green-300 text-xs mt-0.5">Starting from</p>
+              </div>
+            </div>
+
             <div className="flex gap-4 flex-wrap">
               <Link href="/order" className="bg-[#d4a017] text-white px-8 py-4 rounded font-bold text-base hover:bg-[#b8860b] transition shadow-lg">
                 Order Now →
@@ -163,7 +184,7 @@ export default function Home() {
                 Subscribe Now
               </Link>
             </div>
-            <p className="text-green-300 text-xs mt-3">No contract &bull; Cancel anytime</p>
+            <p className="text-green-300 text-xs mt-3">No contract &bull; Cancel anytime &bull; First order COD</p>
             <p className="text-green-400 text-xs mt-1">
               Slots full in your area?{' '}
               <Link href="/waitlist" className="text-[#d4a017] font-semibold hover:underline">Join priority list →</Link>
@@ -210,7 +231,7 @@ export default function Home() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
           {products.length > 0 ? products.map((product) => (
             <div key={product.id} className="border border-[#e8e0d0] rounded-lg p-8 hover:shadow-lg transition bg-white">
-              <div className="text-5xl mb-5 text-center">🥛</div>
+              <div className="flex justify-center mb-5"><img src="/bottle.png" alt="Fresh Cow Milk" className="h-28 object-contain drop-shadow-sm" /></div>
               <h4 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c] text-center mb-1">Fresh Cow Milk</h4>
               <p className="text-center text-[#d4a017] font-semibold text-sm mb-3">{product.size} Bottle</p>
               <p className="text-gray-400 text-center text-sm mb-5">{product.size === '500ml' ? 'Perfect trial · No deposit · COD' : 'Best value for families'}</p>
@@ -370,6 +391,36 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Refer a Friend */}
+      <section className="bg-white px-6 py-12">
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase mb-3">Spread the Goodness</p>
+          <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#1c1c1c] mb-4">
+            Refer a Friend, Earn a Free Delivery 🎁
+          </h3>
+          <p className="text-gray-500 text-base leading-relaxed mb-8 max-w-xl mx-auto">
+            Love your milk? Share Sri Krishnaa with a friend. When they subscribe, you both get a free delivery credited to your wallet — no codes, no hassle.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+            {[
+              { icon: '📲', step: '1', title: 'Share Your Link', desc: 'Send your referral link to a friend via WhatsApp or any app' },
+              { icon: '✅', step: '2', title: 'They Subscribe', desc: 'Your friend signs up and starts their first subscription' },
+              { icon: '🎉', step: '3', title: 'You Both Win', desc: 'A free delivery is credited to both your wallets automatically' },
+            ].map(({ icon, step, title, desc }) => (
+              <div key={step} className="bg-[#f5f0e8] rounded-xl p-6 text-center border border-[#e8e0d0]">
+                <div className="text-4xl mb-3">{icon}</div>
+                <p className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c] mb-1">{title}</p>
+                <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
+              </div>
+            ))}
+          </div>
+          <Link href="/dashboard" className="inline-block bg-[#1a5c38] text-white font-bold px-8 py-3 rounded hover:bg-[#14472c] transition shadow-md">
+            Get Your Referral Link →
+          </Link>
+          <p className="text-xs text-gray-400 mt-3">Log in to your dashboard to find your personal referral link.</p>
+        </div>
+      </section>
+
       {/* Our Guarantee */}
       <section className="bg-[#1a5c38] px-6 py-12 text-white text-center">
         <div className="max-w-3xl mx-auto">
@@ -377,12 +428,12 @@ export default function Home() {
           <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold mb-6">The Sri Krishnaa Guarantee 🛡️</h3>
           <p className="text-green-100 text-lg mb-8 leading-relaxed">
             We take quality seriously. If you ever receive milk that doesn't meet our freshness standards —
-            spoiled, sour, or incorrectly delivered — report it to us within 2 hours of delivery
+            spoiled, sour, or incorrectly delivered — report it to us by 6PM the same day
             and we will replace it the very next delivery at no charge.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
             {[
-              { icon: '✅', title: 'Quality Guarantee', desc: 'Report within 2 hours — we replace it next delivery' },
+              { icon: '✅', title: 'Quality Guarantee', desc: 'Report by 6PM the same day — we replace it next delivery' },
               { icon: '⏰', title: 'On-Time Guarantee', desc: 'Delivered within your chosen slot (7AM–9AM or 5PM–7PM), guaranteed' },
               { icon: '🔄', title: 'Flexibility Guarantee', desc: 'Pause or cancel anytime with 12 hours notice' },
             ].map(({ icon, title, desc }) => (
@@ -410,10 +461,6 @@ export default function Home() {
             <p className="text-gray-500 leading-relaxed mb-4">
               We believe you deserve to know exactly where your milk comes from. No processing units,
               no long supply chains — just pure, fresh milk from our farm to your doorstep every single day.
-            </p>
-            <p className="text-[#1a5c38] font-semibold leading-relaxed">
-              🐄 Coming Soon — Our A2 Desi Cow Dairy, where you can visit our farm,
-              meet our cows and experience the true meaning of pure milk.
             </p>
           </div>
           <div className="bg-[#f5f0e8] rounded-lg p-8 text-center">
@@ -583,6 +630,122 @@ export default function Home() {
   </div>
 </section>
       
+      {/* Delivery Zones */}
+      <section className="bg-[#fdfbf7] px-6 py-12">
+        <div className="max-w-4xl mx-auto">
+          <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">Where We Deliver</p>
+          <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-2">Our Delivery Zones</h3>
+          <p className="text-center text-gray-500 text-sm mb-8 max-w-lg mx-auto">
+            We currently serve North Bangalore — Yelahanka and surrounding neighbourhoods. Not sure if we cover your area? <a href="https://wa.me/919980166221" target="_blank" className="text-[#1a5c38] font-semibold hover:underline">WhatsApp us</a>.
+          </p>
+
+          {/* Map-style graphic */}
+          <div className="relative rounded-2xl overflow-hidden border border-[#e8e0d0] shadow-md"
+            style={{background: 'linear-gradient(160deg, #eef7f0 0%, #f5f0e8 50%, #eef7f0 100%)'}}>
+
+            {/* Grid lines for map feel */}
+            <svg className="absolute inset-0 w-full h-full opacity-10" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                  <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1a5c38" strokeWidth="0.5"/>
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#grid)" />
+            </svg>
+
+            {/* Compass rose */}
+            <div className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white border border-[#e8e0d0] shadow flex items-center justify-center text-xs font-bold text-[#1a5c38] flex-col leading-none select-none">
+              <span className="text-[10px]">N</span>
+              <span className="text-[8px] text-gray-400">↑</span>
+            </div>
+
+            {/* Farm origin badge */}
+            <div className="absolute top-4 left-4 bg-[#1a5c38] text-white text-xs font-bold px-3 py-1.5 rounded-full shadow flex items-center gap-1.5">
+              <span>🐄</span> Our Farm · Kattigenahalli
+            </div>
+
+            {/* Zone pins laid out geographically */}
+            <div className="relative pt-16 pb-8 px-6">
+              {/* Row 1 — North */}
+              <div className="flex justify-center gap-4 mb-4">
+                {['Bagalur Cross', 'Hunasamaranahalli'].map(area => (
+                  <div key={area} className="flex flex-col items-center">
+                    <div className="bg-white border-2 border-[#1a5c38] rounded-xl px-3 py-2 text-center shadow-sm hover:shadow-md transition hover:-translate-y-0.5">
+                      <p className="text-[#1a5c38] font-bold text-xs">📍 {area}</p>
+                    </div>
+                    <div className="w-0.5 h-3 bg-[#1a5c38] opacity-30 mt-1" />
+                    <div className="w-2 h-2 rounded-full bg-[#1a5c38]" />
+                  </div>
+                ))}
+              </div>
+
+              {/* Row 2 */}
+              <div className="flex justify-center gap-4 mb-4">
+                {['Srinivasapura', 'Sathanur', 'Kogilu'].map(area => (
+                  <div key={area} className="flex flex-col items-center">
+                    <div className="bg-white border-2 border-[#1a5c38] rounded-xl px-3 py-2 text-center shadow-sm hover:shadow-md transition hover:-translate-y-0.5">
+                      <p className="text-[#1a5c38] font-bold text-xs">📍 {area}</p>
+                    </div>
+                    <div className="w-0.5 h-3 bg-[#1a5c38] opacity-30 mt-1" />
+                    <div className="w-2 h-2 rounded-full bg-[#1a5c38]" />
+                  </div>
+                ))}
+              </div>
+
+              {/* Row 3 — Centre (farm cluster) */}
+              <div className="flex justify-center gap-4 mb-4 relative">
+                {/* Pulse ring on farm area */}
+                <div className="flex flex-col items-center relative">
+                  <div className="absolute -inset-2 rounded-2xl animate-pulse opacity-20 bg-[#1a5c38]" />
+                  <div className="relative bg-[#1a5c38] text-white border-2 border-[#d4a017] rounded-xl px-4 py-2.5 text-center shadow-lg">
+                    <p className="font-bold text-xs">⭐ Kattigenahalli</p>
+                    <p className="text-[10px] opacity-80 mt-0.5">Farm Origin</p>
+                  </div>
+                  <div className="w-0.5 h-3 bg-[#d4a017] opacity-60 mt-1" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#d4a017]" />
+                </div>
+                {['Venkatala', 'Palahalli'].map(area => (
+                  <div key={area} className="flex flex-col items-center">
+                    <div className="bg-white border-2 border-[#1a5c38] rounded-xl px-3 py-2 text-center shadow-sm hover:shadow-md transition hover:-translate-y-0.5">
+                      <p className="text-[#1a5c38] font-bold text-xs">📍 {area}</p>
+                    </div>
+                    <div className="w-0.5 h-3 bg-[#1a5c38] opacity-30 mt-1" />
+                    <div className="w-2 h-2 rounded-full bg-[#1a5c38]" />
+                  </div>
+                ))}
+              </div>
+
+              {/* Row 4 — South */}
+              <div className="flex justify-center gap-4 mb-6">
+                {['Chidananda Reddy Layout', 'Niranthara Layout', 'Muneshwar Nagar'].map(area => (
+                  <div key={area} className="flex flex-col items-center">
+                    <div className="bg-white border-2 border-[#1a5c38] rounded-xl px-3 py-2 text-center shadow-sm hover:shadow-md transition hover:-translate-y-0.5">
+                      <p className="text-[#1a5c38] font-bold text-xs">📍 {area}</p>
+                    </div>
+                    <div className="w-0.5 h-3 bg-[#1a5c38] opacity-30 mt-1" />
+                    <div className="w-2 h-2 rounded-full bg-[#1a5c38]" />
+                  </div>
+                ))}
+              </div>
+
+              {/* Legend */}
+              <div className="flex justify-center gap-6 text-xs text-gray-500">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-[#1a5c38] inline-block" /> Active delivery area
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-[#d4a017] inline-block" /> Farm origin
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-center text-xs text-gray-400 mt-4">
+            Expanding soon — <a href="/waitlist" className="text-[#1a5c38] font-semibold hover:underline">join the priority list</a> to be first in your area.
+          </p>
+        </div>
+      </section>
+
       {/* Contact */}
 <section id="contact" className="bg-[#f5f0e8] px-6 py-12">
 <div className="max-w-4xl mx-auto text-center">
@@ -657,14 +820,23 @@ export default function Home() {
             <div>
               <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Our Products</p>
               <ul className="flex flex-col gap-3 text-sm text-gray-400">
-                <li className="flex justify-between">
-                  <span>Fresh Cow Milk 500ml</span>
-                  <span className="text-[#d4a017] font-semibold">₹42</span>
-                </li>
-                <li className="flex justify-between">
-                  <span>Fresh Cow Milk 1000ml</span>
-                  <span className="text-[#d4a017] font-semibold">₹78</span>
-                </li>
+                {products.length > 0 ? products.map(p => (
+                  <li key={p.id} className="flex justify-between">
+                    <span>Fresh Cow Milk {p.size}</span>
+                    <span className="text-[#d4a017] font-semibold">₹{p.price}</span>
+                  </li>
+                )) : (
+                  <>
+                    <li className="flex justify-between">
+                      <span>Fresh Cow Milk 500ml</span>
+                      <span className="text-[#d4a017] font-semibold animate-pulse">—</span>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>Fresh Cow Milk 1000ml</span>
+                      <span className="text-[#d4a017] font-semibold animate-pulse">—</span>
+                    </li>
+                  </>
+                )}
                 <li className="border-t border-gray-800 pt-3 mt-1">
                   <p className="text-gray-500 text-xs uppercase tracking-widest mb-2">Coming Soon</p>
                 </li>
