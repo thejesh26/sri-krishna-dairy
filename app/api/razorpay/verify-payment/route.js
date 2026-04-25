@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 import { createServerClient } from '../../../lib/supabase-server'
-import { sendSubscriptionConfirmationEmail } from '../../../lib/email'
-import { notifySubscriptionActivated } from '../../../lib/whatsapp'
+import { sendEmail, sendSubscriptionConfirmationEmail } from '../../../lib/email'
+import { sendSubscriptionActivated } from '../../../lib/whatsapp'
 
 export async function POST(request) {
   try {
@@ -98,9 +98,9 @@ export async function POST(request) {
           .eq('id', subscriptionId)
           .single()
         const { data: profile } = await supabase.from('profiles').select('full_name, phone').eq('id', userId).single()
-        const { data: authUser } = await supabase.auth.admin.getUserById(userId)
-        const name = profile?.full_name || authUser?.user?.email || ''
-        const email = authUser?.user?.email || ''
+        // user.email is already available from JWT auth — no admin API call needed
+        const email = user.email || ''
+        const name = profile?.full_name || email
         const product = sub?.products
         const qty = sub?.quantity || 1
         const dailyAmount = product
@@ -112,10 +112,13 @@ export async function POST(request) {
             startDate: sub?.start_date, deliverySlot: sub?.delivery_slot, dailyAmount,
           })
         }
-        await notifySubscriptionActivated({
-          phone: profile?.phone, name, size: product?.size, quantity: qty,
-          startDate: sub?.start_date, slot: sub?.delivery_slot, dailyAmount,
-        })
+        await sendSubscriptionActivated(
+          profile?.phone, name,
+          product?.size ? `${product.size} x${qty}` : `x${qty}`,
+          sub?.start_date,
+          sub?.delivery_slot === 'morning' ? '7AM–9AM' : '5PM–7PM',
+          dailyAmount,
+        )
       } catch { /* non-blocking */ }
 
     } else if (type === 'wallet') {

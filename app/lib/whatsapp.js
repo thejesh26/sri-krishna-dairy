@@ -223,9 +223,89 @@ async function notifyPointsExpiring({ phone, name, points, expiryDate }) {
   )
 }
 
+// ── Template message helpers ──────────────────────────────────────────────────
+
+async function sendTemplate(phone, templateName, parameters) {
+  try {
+    const to = formatPhone(phone)
+    if (!to) {
+      console.warn('[WhatsApp] Invalid phone number:', phone)
+      return false
+    }
+
+    const res = await fetch(WA_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to,
+        type: 'template',
+        template: {
+          name: templateName,
+          language: { code: 'en' },
+          components: [{
+            type: 'body',
+            parameters: parameters.map(text => ({ type: 'text', text: String(text) })),
+          }],
+        },
+      }),
+    })
+
+    if (!res.ok) {
+      const err = await res.text()
+      console.error('[WhatsApp] Template send failed:', res.status, err)
+      return false
+    }
+
+    return true
+  } catch (err) {
+    console.error('[WhatsApp] Template exception:', err.message)
+    return false
+  }
+}
+
+async function sendOrderConfirmed(phone, name, product, date, slot, amount) {
+  return sendTemplate(phone, 'order_confirmed', [name, product, date, slot, amount])
+}
+
+async function sendSubscriptionActivated(phone, name, product, startDate, slot, dailyAmount) {
+  return sendTemplate(phone, 'subscription_activated', [name, product, startDate, slot, dailyAmount])
+}
+
+async function sendLowBalanceAlert(phone, name, balance) {
+  return sendTemplate(phone, 'low_balance_alert', [name, balance])
+}
+
+async function sendDeliveryConfirmed(phone, name, date, product) {
+  return sendTemplate(phone, 'delivery_confirmed', [name, date, product])
+}
+
+async function sendSubscriptionExpiry(phone, name, endDate, product) {
+  return sendTemplate(phone, 'subscription_expiry', [name, endDate, product])
+}
+
+async function sendDeliveryStopped(phone, name, balance) {
+  return sendTemplate(phone, 'delivery_stopped', [name, balance])
+}
+
+async function sendAdminAlert(message) {
+  return sendWhatsAppToAdmin(message)
+}
+
 export {
   sendWhatsAppMessage,
   sendWhatsAppToAdmin,
+  sendTemplate,
+  sendOrderConfirmed,
+  sendSubscriptionActivated,
+  sendLowBalanceAlert,
+  sendDeliveryConfirmed,
+  sendSubscriptionExpiry,
+  sendDeliveryStopped,
+  sendAdminAlert,
   notifyOrderPlaced,
   notifySubscriptionActivated,
   notifyOrderDelivered,

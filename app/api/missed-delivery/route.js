@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../lib/supabase-server'
 import { createClient } from '@supabase/supabase-js'
-import { sendWhatsAppToAdmin } from '../../lib/whatsapp'
+import { sendAdminAlert } from '../../lib/whatsapp'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -71,7 +71,7 @@ export async function POST(request) {
     const dateStr = new Date(order.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
     const slot = order.delivery_slot === 'morning' ? 'Morning (7AM–9AM)' : 'Evening (5PM–7PM)'
 
-    await sendWhatsAppToAdmin(
+    await sendAdminAlert(
       `⚠️ *Missed Delivery Report*\n👤 Customer: ${name}\n📞 Phone: ${profile?.phone || 'N/A'}\n📍 Address: ${address}\n📦 Order: ${order.products?.size || 'Milk'} on ${dateStr}\n⏰ Slot: ${slot}`
     )
 

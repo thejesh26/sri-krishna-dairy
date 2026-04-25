@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
 import { sendLowBalanceEmail, sendCronFailureAlert, sendSubscriptionExpiryReminderEmail, sendReferralCompletedEmail, sendPointsExpiryEmail } from '../../../lib/email'
-import { notifyLowBalance, notifySubscriptionStopped, notifySubscriptionExpiryReminder, notifyReferralCompleted, notifyPointsExpiring } from '../../../lib/whatsapp'
+import { sendDeliveryStopped, sendSubscriptionExpiry, notifyReferralCompleted, notifyPointsExpiring } from '../../../lib/whatsapp'
 
 // Called daily by Vercel Cron at 18:30 UTC (midnight IST)
 // GET /api/cron/deduct-subscriptions
@@ -94,11 +94,7 @@ async function runDeductions() {
           .eq('id', sub.user_id)
           .single()
         if (stoppedProfile?.phone) {
-          await notifySubscriptionStopped({
-            phone: stoppedProfile.phone,
-            name: stoppedProfile.full_name || 'Customer',
-            balance,
-          })
+          await sendDeliveryStopped(stoppedProfile.phone, stoppedProfile.full_name || 'Customer', balance)
         }
       } catch { /* non-blocking */ }
 
@@ -295,7 +291,7 @@ async function runDeductions() {
           await sendSubscriptionExpiryReminderEmail({ to: email, name, product, endDate: endDateLabel, daysLeft: 3 })
         }
         if (expiryProfile?.phone) {
-          await notifySubscriptionExpiryReminder({ phone: expiryProfile.phone, name, product, endDate: endDateLabel, daysLeft: 3 })
+          await sendSubscriptionExpiry(expiryProfile.phone, name, endDateLabel, product)
         }
       } catch {
         // Expiry notification failure must not block cron

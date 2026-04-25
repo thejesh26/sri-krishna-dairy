@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
-import { notifyOrderDelivered, notifyCodUpsell, notifyLowBalance, sendWhatsAppMessage, sendWhatsAppToAdmin } from '../../../lib/whatsapp'
+import { sendDeliveryConfirmed, notifyCodUpsell, sendLowBalanceAlert, sendWhatsAppMessage, sendWhatsAppToAdmin } from '../../../lib/whatsapp'
 import { sendLowBalanceEmail } from '../../../lib/email'
 
 /**
@@ -48,10 +48,12 @@ export async function POST(request) {
           .eq('id', orderRow.user_id)
           .single()
         if (customerProfile?.phone) {
-          await notifyOrderDelivered({
-            phone: customerProfile.phone,
-            name: customerProfile.full_name || 'Customer',
-          })
+          await sendDeliveryConfirmed(
+            customerProfile.phone,
+            customerProfile.full_name || 'Customer',
+            new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+            'Milk',
+          )
           // COD post-delivery upsell — send 5 minutes after delivery confirmation
           if (orderRow.payment_method === 'COD') {
             await notifyCodUpsell({
@@ -183,7 +185,7 @@ export async function POST(request) {
               const email = authUser?.user?.email || userProfile?.email
               const name = userProfile?.full_name || email
               if (email) await sendLowBalanceEmail({ to: email, name, balance: newBalance })
-              if (userProfile?.phone) await notifyLowBalance({ phone: userProfile.phone, name, balance: newBalance })
+              if (userProfile?.phone) await sendLowBalanceAlert(userProfile.phone, name, newBalance)
             } catch { /* non-blocking */ }
           }
         } else if (wallet && balance < dailyAmount) {

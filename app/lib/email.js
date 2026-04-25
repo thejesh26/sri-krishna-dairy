@@ -9,7 +9,7 @@ function getResend() {
 }
 
 // ── Shared send wrapper — applies common headers to every email ───────────────
-function sendEmail({ to, subject, html, text }) {
+export function sendEmail({ to, subject, html, text }) {
   return getResend().emails.send({
     from: FROM,
     to,
@@ -214,7 +214,7 @@ ${TEXT_FOOTER}`
 
   return sendEmail({
     to,
-    subject: 'Your daily milk delivery has started - Sri Krishnaa Dairy',
+    subject: 'Subscription Activated - Sri Krishnaa Dairy',
     html,
     text,
   })

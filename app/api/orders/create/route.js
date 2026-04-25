@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
 import { sendOrderConfirmationEmail } from '../../../lib/email'
-import { notifyOrderPlaced } from '../../../lib/whatsapp'
+import { sendOrderConfirmed } from '../../../lib/whatsapp'
 
 /**
  * SECURITY: Server-side order creation.
@@ -237,15 +237,14 @@ export async function POST(request) {
         totalAmount: totalPrice,
       })
 
-      await notifyOrderPlaced({
-        phone: profile?.phone,
+      await sendOrderConfirmed(
+        profile?.phone,
         name,
-        size,
-        quantity: qty,
-        deliveryDate: delivery_date,
-        slot: delivery_slot,
-        amount: totalPrice,
-      })
+        `${size} x${qty}`,
+        delivery_date,
+        delivery_slot === 'morning' ? '7AM–9AM' : '5PM–7PM',
+        totalPrice,
+      )
     } catch {
       // Notification failure must not block order creation
     }

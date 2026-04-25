@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendWhatsAppToAdmin } from '../../lib/whatsapp'
+import { sendAdminAlert } from '../../lib/whatsapp'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -39,7 +39,7 @@ export async function POST(request) {
       message?.trim() ? `💬 Message: ${message.trim()}` : null,
     ].filter(Boolean).join('\n')
 
-    await sendWhatsAppToAdmin(lines)
+    await sendAdminAlert(lines)
 
     return NextResponse.json({ success: true })
   } catch {
