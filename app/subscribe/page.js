@@ -6,6 +6,28 @@ import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ToastContext'
 import { SkeletonProductCard } from '../components/Skeleton'
 
+function getMinDate() {
+  const now = new Date()
+  const istTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+  const hours = istTime.getHours()
+  const minDate = new Date(istTime)
+  if (hours >= 18) {
+    minDate.setDate(minDate.getDate() + 2)
+  } else {
+    minDate.setDate(minDate.getDate() + 1)
+  }
+  return minDate.toISOString().split('T')[0]
+}
+
+function getDateHelperText() {
+  const now = new Date()
+  const istTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+  if (istTime.getHours() >= 18) {
+    return { primary: "Today's ordering closed.", secondary: "Next available: Day after tomorrow" }
+  }
+  return { primary: "Order before 6PM today for tomorrow's delivery", secondary: null }
+}
+
 export default function Subscribe() {
   const router = useRouter()
   const [user, setUser] = useState(null)
@@ -26,6 +48,7 @@ export default function Subscribe() {
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [walletBalance, setWalletBalance] = useState(0)
   const [depositBalance, setDepositBalance] = useState(0)
+  const [subscriberLimitReached, setSubscriberLimitReached] = useState(false)
   const { showSuccess, showError, showInfo } = useToast()
 
   const BOTTLE_DEPOSIT = 200
@@ -33,10 +56,25 @@ export default function Subscribe() {
   useEffect(() => {
     getUser()
     getProducts()
-    const minDate = new Date()
-    minDate.setHours(minDate.getHours() + 12)
-    setStartDate(minDate.toISOString().split('T')[0])
+    setStartDate(getMinDate())
+    checkSubscriberLimit()
   }, [])
+
+  const checkSubscriberLimit = async () => {
+    const { data: settings } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'max_subscribers')
+      .maybeSingle()
+    const maxSubs = parseInt(settings?.value || '0')
+    if (maxSubs > 0) {
+      const { count } = await supabase
+        .from('subscriptions')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_active', true)
+      if ((count || 0) >= maxSubs) setSubscriberLimitReached(true)
+    }
+  }
 
   const getUser = async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -317,11 +355,6 @@ export default function Subscribe() {
       setLoading(false)
       return
     }
-    if (!isValidBooking()) {
-      showError('Please book at least 12 hours in advance!')
-      setLoading(false)
-      return
-    }
     if (subscriptionType === 'fixed' && !endDate) {
       showError('Please select a duration (1 Week, 2 Weeks, 1 Month, or 3 Months)!')
       setLoading(false)
@@ -385,14 +418,19 @@ export default function Subscribe() {
           <p className="text-gray-400 text-sm mt-1">Fresh milk delivered to your doorstep every day</p>
         </div>
 
-        {/* 12 hour notice */}
-        <div className="bg-[#fdf6e3] border border-[#f0dfa0] rounded-xl p-4 mb-4 flex items-center gap-3">
-          <span className="text-2xl">⏰</span>
-          <div>
-            <p className="text-[#d4a017] text-sm font-semibold">Book at least 12 hours in advance</p>
-            <p className="text-yellow-600 text-xs mt-0.5">Orders placed after 8PM will be delivered day after tomorrow</p>
-          </div>
-        </div>
+        {/* Ordering window notice */}
+        {(() => {
+          const { primary, secondary } = getDateHelperText()
+          return (
+            <div className="bg-[#fdf6e3] border border-[#f0dfa0] rounded-xl p-4 mb-4 flex items-center gap-3">
+              <span className="text-2xl">⏰</span>
+              <div>
+                <p className="text-[#d4a017] text-sm font-semibold">{primary}</p>
+                {secondary && <p className="text-yellow-600 text-xs mt-0.5">{secondary}</p>}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Health Disclaimer Banner */}
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6">
@@ -402,8 +440,26 @@ export default function Subscribe() {
           </p>
         </div>
 
-        {/* Delivery Address */}
-        {profile && (
+        {/* Subscriber limit reached */}
+        {subscriberLimitReached && (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">🏠</div>
+            <h3 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1c1c1c] mb-3">
+              Slots are currently full in your area!
+            </h3>
+            <p className="text-gray-500 text-sm leading-relaxed mb-8 max-w-sm mx-auto">
+              We're growing fast! Register on our priority list and we'll WhatsApp you the moment a slot opens near you.
+            </p>
+            <a href="/waitlist"
+              className="inline-block text-white font-bold px-8 py-4 rounded-xl text-base hover:opacity-90 transition shadow-lg"
+              style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
+              Join Priority List 🎉
+            </a>
+          </div>
+        )}
+
+        {/* Delivery Address + Form — hidden when subscriber limit is reached */}
+        {!subscriberLimitReached && profile && (
           <div className="bg-white rounded-xl p-4 mb-6 border border-[#e8e0d0] shadow-sm flex items-center gap-3">
             <span className="text-2xl">📍</span>
             <div>
@@ -414,7 +470,7 @@ export default function Subscribe() {
           </div>
         )}
 
-        <form onSubmit={handleSubscribe} className="flex flex-col gap-5">
+        {!subscriberLimitReached && <form onSubmit={handleSubscribe} className="flex flex-col gap-5">
 
           {/* Subscription Type */}
           <div className="bg-white rounded-xl p-5 shadow-sm border border-[#e8e0d0]">
@@ -540,8 +596,16 @@ export default function Subscribe() {
             </p>
             <input type="date" value={startDate}
               onChange={(e) => { setStartDate(e.target.value); setFixedPreset(null); setEndDate('') }}
-              min={new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString().split('T')[0]}
+              min={getMinDate()}
               className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+            {(() => {
+              const { primary, secondary } = getDateHelperText()
+              return (
+                <p className="text-xs text-gray-500 mt-2">
+                  ⏰ {primary}{secondary && <><br /><span className="text-gray-400">{secondary}</span></>}
+                </p>
+              )
+            })()}
             {subscriptionType === 'fixed' && (
               <>
                 <p className="text-sm font-bold text-[#1c1c1c] mb-3 mt-4 font-[family-name:var(--font-playfair)]">Duration</p>
@@ -776,7 +840,7 @@ export default function Subscribe() {
             {paymentLoading ? 'Processing...' : `Pay ₹${totalNeeded} & Subscribe`}
           </button>
 
-        </form>
+        </form>}
       </div>
 
       {/* Footer */}

@@ -164,6 +164,10 @@ export default function Home() {
               </Link>
             </div>
             <p className="text-green-300 text-xs mt-3">No contract &bull; Cancel anytime</p>
+            <p className="text-green-400 text-xs mt-1">
+              Slots full in your area?{' '}
+              <Link href="/waitlist" className="text-[#d4a017] font-semibold hover:underline">Join priority list →</Link>
+            </p>
           </div>
 
           <div className="flex flex-col items-center justify-center gap-6">

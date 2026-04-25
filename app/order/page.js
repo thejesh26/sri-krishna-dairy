@@ -6,6 +6,28 @@ import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ToastContext'
 import { SkeletonProductCard } from '../components/Skeleton'
 
+function getMinDate() {
+  const now = new Date()
+  const istTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+  const hours = istTime.getHours()
+  const minDate = new Date(istTime)
+  if (hours >= 18) {
+    minDate.setDate(minDate.getDate() + 2)
+  } else {
+    minDate.setDate(minDate.getDate() + 1)
+  }
+  return minDate.toISOString().split('T')[0]
+}
+
+function getDateHelperText() {
+  const now = new Date()
+  const istTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+  if (istTime.getHours() >= 18) {
+    return { primary: "Today's ordering closed.", secondary: "Next available: Day after tomorrow" }
+  }
+  return { primary: "Order before 6PM today for tomorrow's delivery", secondary: null }
+}
+
 export default function Order() {
   const router = useRouter()
   const [user, setUser] = useState(null)
@@ -22,9 +44,7 @@ export default function Order() {
   useEffect(() => {
     getUser()
     getProducts()
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    setDeliveryDate(tomorrow.toISOString().split('T')[0])
+    setDeliveryDate(getMinDate())
   }, [])
 
   const getUser = async () => {
@@ -63,12 +83,6 @@ export default function Order() {
       setLoading(false)
       return
     }
-    if (!isValidBooking()) {
-      showError('Please book at least 12 hours in advance!')
-      setLoading(false)
-      return
-    }
-
     // Prevent duplicate order on same date
     const { data: existingOrder } = await supabase
       .from('orders')
@@ -150,13 +164,16 @@ export default function Order() {
           </div>
         )}
 
-        {/* 12 hour notice */}
-        {!profile?.has_used_cod && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4 text-center">
-          <p className="text-yellow-700 text-sm font-semibold">⏰ Book at least 12 hours in advance</p>
-          <p className="text-yellow-600 text-xs mt-1">Orders placed after 8PM will be delivered day after tomorrow</p>
-        </div>
-        )}
+        {/* Ordering window notice */}
+        {!profile?.has_used_cod && (() => {
+          const { primary, secondary } = getDateHelperText()
+          return (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4 text-center">
+              <p className="text-yellow-700 text-sm font-semibold">⏰ {primary}</p>
+              {secondary && <p className="text-yellow-600 text-xs mt-1">{secondary}</p>}
+            </div>
+          )
+        })()}
 
         {/* Health disclaimer + order form — hidden if COD trial already used */}
         {!profile?.has_used_cod && <>
@@ -254,8 +271,16 @@ export default function Order() {
             <p className="text-sm font-bold text-[#1c1c1c] mb-3">Delivery Date</p>
             <input type="date" value={deliveryDate}
               onChange={(e) => setDeliveryDate(e.target.value)}
-              min={new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString().split('T')[0]}
+              min={getMinDate()}
               className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]" />
+            {(() => {
+              const { primary, secondary } = getDateHelperText()
+              return (
+                <p className="text-xs text-gray-500 mt-2">
+                  ⏰ {primary}{secondary && <><br /><span className="text-gray-400">{secondary}</span></>}
+                </p>
+              )
+            })()}
           </div>
 
           {/* Order Summary */}

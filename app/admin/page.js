@@ -7,7 +7,7 @@ import { SkeletonStatCard } from '../components/Skeleton'
 
 export default function AdminDashboard() {
   const router = useRouter()
-  const { showSuccess } = useToast()
+  const { showSuccess, showError } = useToast()
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -53,6 +53,34 @@ const [assigningOrder, setAssigningOrder] = useState(null)
     todayRevenue: 0,
     monthlyRevenue: 0,
   })
+  // Settings tab state
+  const [appSettings, setAppSettings] = useState({
+    max_subscribers: '',
+    delivery_cutoff_time: '18:00',
+    waitlist_enabled: 'true',
+    maintenance_mode: 'false',
+    min_wallet_balance: '300',
+    pause_limit_per_month: '5',
+    morning_slot_enabled: 'true',
+    evening_slot_enabled: 'true',
+    trial_order_enabled: 'true',
+    bottle_deposit_amount: '200',
+    holidays: '[]',
+  })
+  const [settingsSaving, setSettingsSaving] = useState({})
+  const [editProducts, setEditProducts] = useState({})
+  const [newProduct, setNewProduct] = useState({ name: '', size: '', price: '', is_available: true })
+  const [productAddLoading, setProductAddLoading] = useState(false)
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [settingsCustomers, setSettingsCustomers] = useState([])
+  const [extendDaysMap, setExtendDaysMap] = useState({})
+  const [pauseDateMap, setPauseDateMap] = useState({})
+  const [broadcastMessage, setBroadcastMessage] = useState('')
+  const [broadcastLoading, setBroadcastLoading] = useState(false)
+  const [broadcastConfirm, setBroadcastConfirm] = useState(false)
+  const [waitlistEntries, setWaitlistEntries] = useState([])
+  const [newHoliday, setNewHoliday] = useState('')
+  const [invitingId, setInvitingId] = useState(null)
 
   useEffect(() => { checkAdmin() }, [])
 
@@ -214,6 +242,16 @@ setWallets(allWallets || [])
       todayRevenue,
       monthlyRevenue,
     })
+
+    // Load settings tab data
+    const { data: settingsData } = await supabase.from('app_settings').select('key, value')
+    if (settingsData) {
+      const map = {}
+      settingsData.forEach(row => { map[row.key] = row.value })
+      setAppSettings(prev => ({ ...prev, ...map }))
+    }
+    const { data: waitlist } = await supabase.from('priority_waitlist').select('*').order('created_at', { ascending: false })
+    setWaitlistEntries(waitlist || [])
   }
 
   const saveProductPrice = async (productId, newPrice, newAvailable) => {
@@ -282,6 +320,175 @@ setWallets(allWallets || [])
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/')
+  }
+
+  // ── Settings helpers ─────────────────────────────────────────────────────────
+
+  const loadAppSettings = async () => {
+    const { data } = await supabase.from('app_settings').select('key, value')
+    if (data) {
+      const map = {}
+      data.forEach(row => { map[row.key] = row.value })
+      setAppSettings(prev => ({ ...prev, ...map }))
+    }
+  }
+
+  const loadWaitlist = async () => {
+    const { data } = await supabase.from('priority_waitlist').select('*').order('created_at', { ascending: false })
+    setWaitlistEntries(data || [])
+  }
+
+  const saveSetting = async (key, value) => {
+    setSettingsSaving(prev => ({ ...prev, [key]: true }))
+    await supabase.from('app_settings').upsert({ key, value: String(value) }, { onConflict: 'key' })
+    setAppSettings(prev => ({ ...prev, [key]: String(value) }))
+    setSettingsSaving(prev => ({ ...prev, [key]: false }))
+    showSuccess('Saved!')
+  }
+
+  const addHoliday = async () => {
+    if (!newHoliday) return
+    const holidays = JSON.parse(appSettings.holidays || '[]')
+    if (!holidays.includes(newHoliday)) holidays.push(newHoliday)
+    holidays.sort()
+    await saveSetting('holidays', JSON.stringify(holidays))
+    setNewHoliday('')
+  }
+
+  const removeHoliday = async (date) => {
+    const holidays = JSON.parse(appSettings.holidays || '[]').filter(d => d !== date)
+    await saveSetting('holidays', JSON.stringify(holidays))
+  }
+
+  const addNewProduct = async () => {
+    if (!newProduct.name || !newProduct.size || !newProduct.price) return
+    setProductAddLoading(true)
+    const { data, error } = await supabase.from('products').insert({
+      name: newProduct.name,
+      size: newProduct.size,
+      price: parseFloat(newProduct.price),
+      is_available: newProduct.is_available,
+    }).select().single()
+    if (data && !error) {
+      setProducts(prev => [...prev, data])
+      setNewProduct({ name: '', size: '', price: '', is_available: true })
+      showSuccess('Product added!')
+    }
+    setProductAddLoading(false)
+  }
+
+  const saveProductEdit = async (productId) => {
+    const edit = editProducts[productId]
+    if (!edit) return
+    const { error } = await supabase.from('products').update({
+      name: edit.name,
+      size: edit.size,
+      price: parseFloat(edit.price),
+      is_available: edit.is_available,
+    }).eq('id', productId)
+    if (!error) {
+      setProducts(prev => prev.map(p => p.id === productId ? { ...p, ...edit, price: parseFloat(edit.price) } : p))
+      setEditProducts(prev => { const n = { ...prev }; delete n[productId]; return n })
+      showSuccess('Product saved!')
+    }
+  }
+
+  const handleCustomerSearch = (query) => {
+    setCustomerSearch(query)
+    if (!query.trim()) { setSettingsCustomers([]); return }
+    const q = query.toLowerCase()
+    setSettingsCustomers(customers.filter(c =>
+      c.full_name?.toLowerCase().includes(q) || c.phone?.includes(q)
+    ).slice(0, 5))
+  }
+
+  const resetCod = async (userId, name) => {
+    await supabase.from('profiles').update({ has_used_cod: false }).eq('id', userId)
+    setCustomers(prev => prev.map(c => c.id === userId ? { ...c, has_used_cod: false } : c))
+    setSettingsCustomers(prev => prev.map(c => c.id === userId ? { ...c, has_used_cod: false } : c))
+    showSuccess(`COD reset for ${name}`)
+  }
+
+  const toggleBan = async (userId, isBanned, name) => {
+    await supabase.from('profiles').update({ is_banned: !isBanned }).eq('id', userId)
+    setCustomers(prev => prev.map(c => c.id === userId ? { ...c, is_banned: !isBanned } : c))
+    setSettingsCustomers(prev => prev.map(c => c.id === userId ? { ...c, is_banned: !isBanned } : c))
+    showSuccess(`${name} ${!isBanned ? 'banned' : 'unbanned'}`)
+  }
+
+  const extendSubscription = async (userId, name, days) => {
+    if (!days || isNaN(parseInt(days))) return
+    const { data: sub } = await supabase.from('subscriptions').select('id, end_date').eq('user_id', userId).eq('is_active', true).maybeSingle()
+    if (!sub) { showError('No active subscription found'); return }
+    const base = sub.end_date ? new Date(sub.end_date) : new Date()
+    base.setDate(base.getDate() + parseInt(days))
+    await supabase.from('subscriptions').update({ end_date: base.toISOString().split('T')[0] }).eq('id', sub.id)
+    showSuccess(`${name}'s subscription extended by ${days} days`)
+  }
+
+  const pauseDelivery = async (userId, name, date) => {
+    if (!date) return
+    const { data: sub } = await supabase.from('subscriptions').select('id, paused_dates').eq('user_id', userId).eq('is_active', true).maybeSingle()
+    if (!sub) { showError('No active subscription found'); return }
+    const paused = sub.paused_dates || []
+    if (!paused.includes(date)) paused.push(date)
+    await supabase.from('subscriptions').update({ paused_dates: paused }).eq('id', sub.id)
+    showSuccess(`Delivery paused for ${name} on ${date}`)
+  }
+
+  const sendBroadcast = async () => {
+    if (!broadcastMessage.trim()) return
+    setBroadcastLoading(true)
+    setBroadcastConfirm(false)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ message: broadcastMessage }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      showSuccess(`Broadcast sent to ${data.sent} customers!`)
+      setBroadcastMessage('')
+    }
+    setBroadcastLoading(false)
+  }
+
+  const inviteWaitlistEntry = async (entry) => {
+    setInvitingId(entry.id)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/invite-waitlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ entryId: entry.id, phone: entry.phone, name: entry.name }),
+    })
+    if (res.ok) {
+      setWaitlistEntries(prev => prev.map(e => e.id === entry.id ? { ...e, invited: true } : e))
+      showSuccess(`Invite sent to ${entry.name}!`)
+    }
+    setInvitingId(null)
+  }
+
+  const deleteWaitlistEntry = async (id) => {
+    await supabase.from('priority_waitlist').delete().eq('id', id)
+    setWaitlistEntries(prev => prev.filter(e => e.id !== id))
+    showSuccess('Entry removed')
+  }
+
+  const exportWaitlistCSV = () => {
+    const headers = ['Name', 'Phone', 'Area', 'Email', 'Date Joined', 'Invited']
+    const rows = waitlistEntries.map(e => [
+      e.name, e.phone, e.area, e.email || '',
+      new Date(e.created_at).toLocaleDateString('en-IN'), e.invited ? 'Yes' : 'No',
+    ])
+    const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'priority_waitlist.csv'
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   if (loading) return (
@@ -432,6 +639,7 @@ setWallets(allWallets || [])
     { id: 'reviews', label: 'Reviews', icon: '⭐' },
     { id: 'discounts', label: 'Discount Codes', icon: '🏷️' },
     { id: 'reports', label: 'Issue Reports', icon: '⚠️' },
+    { id: 'settings', label: 'Settings', icon: '⚙️' },
   ].map(({ id, label, icon }) => (
             <button key={id} onClick={() => setActiveTab(id)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition whitespace-nowrap ${
@@ -1569,6 +1777,335 @@ setWallets(allWallets || [])
     </div>
   </div>
 )}
+
+    {/* ── Settings Tab ── */}
+    {activeTab === 'settings' && (
+      <div className="flex flex-col gap-6">
+
+        {/* A. Business Controls */}
+        <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-5">⚙️ Business Controls</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
+            {[
+              { key: 'max_subscribers', label: 'Max Subscribers', type: 'number', placeholder: '100' },
+              { key: 'delivery_cutoff_time', label: 'Delivery Cutoff Time', type: 'time', placeholder: '18:00' },
+              { key: 'min_wallet_balance', label: 'Min Wallet Balance (₹)', type: 'number', placeholder: '300' },
+              { key: 'pause_limit_per_month', label: 'Pause Limit per Month', type: 'number', placeholder: '5' },
+            ].map(({ key, label, type, placeholder }) => (
+              <div key={key}>
+                <label className="block text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2">{label}</label>
+                <div className="flex gap-2">
+                  <input type={type} value={appSettings[key] || ''}
+                    onChange={e => setAppSettings(p => ({ ...p, [key]: e.target.value }))}
+                    placeholder={placeholder}
+                    className="flex-1 border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
+                  <button onClick={() => saveSetting(key, appSettings[key])} disabled={settingsSaving[key]}
+                    className="bg-[#1a5c38] text-white font-bold px-4 py-2 rounded-lg text-sm hover:bg-[#14472c] transition disabled:opacity-50">
+                    Save
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              { key: 'waitlist_enabled', label: 'Waitlist Enabled', defaultOn: true },
+              { key: 'maintenance_mode', label: 'Maintenance Mode', defaultOn: false },
+            ].map(({ key, label, defaultOn }) => {
+              const isOn = appSettings[key] !== undefined ? appSettings[key] === 'true' : defaultOn
+              return (
+                <div key={key} className="flex items-center justify-between bg-[#f5f0e8] rounded-xl px-4 py-3">
+                  <span className="text-sm font-semibold text-[#1c1c1c]">{label}</span>
+                  <button onClick={() => saveSetting(key, isOn ? 'false' : 'true')}
+                    className={`relative w-12 h-6 rounded-full transition-colors ${isOn ? 'bg-[#1a5c38]' : 'bg-gray-300'}`}>
+                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${isOn ? 'translate-x-7' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* B. Product Controls */}
+        <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-5">🥛 Product Controls</h3>
+          <div className="flex flex-col gap-3 mb-6">
+            {products.map(product => {
+              const edit = editProducts[product.id] !== undefined ? editProducts[product.id] : product
+              return (
+                <div key={product.id} className="bg-[#f5f0e8] rounded-xl p-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                    {[
+                      { field: 'name', label: 'Name', type: 'text' },
+                      { field: 'size', label: 'Size', type: 'text' },
+                      { field: 'price', label: 'Price (₹)', type: 'number' },
+                    ].map(({ field, label, type }) => (
+                      <div key={field}>
+                        <label className="block text-xs text-gray-400 mb-1">{label}</label>
+                        <input type={type} value={edit[field] || ''}
+                          onChange={e => setEditProducts(p => ({ ...p, [product.id]: { ...edit, [field]: e.target.value } }))}
+                          className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#1a5c38] bg-white" />
+                      </div>
+                    ))}
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">Available</label>
+                      <button
+                        onClick={() => setEditProducts(p => ({ ...p, [product.id]: { ...edit, is_available: !edit.is_available } }))}
+                        className={`w-full py-2 rounded-lg text-xs font-bold transition ${edit.is_available ? 'bg-[#1a5c38] text-white' : 'bg-gray-200 text-gray-500'}`}>
+                        {edit.is_available ? '✅ Available' : '❌ Disabled'}
+                      </button>
+                    </div>
+                  </div>
+                  <button onClick={() => saveProductEdit(product.id)}
+                    className="bg-[#d4a017] text-white font-bold px-4 py-2 rounded-lg text-sm hover:bg-[#b8860b] transition">
+                    Save Changes
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+          <div className="border-2 border-dashed border-[#e8e0d0] rounded-xl p-5">
+            <p className="text-sm font-bold text-[#1c1c1c] mb-4">+ Add New Product</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+              {[
+                { field: 'name', label: 'Name', placeholder: 'Fresh Cow Milk', type: 'text' },
+                { field: 'size', label: 'Size', placeholder: '500ml', type: 'text' },
+                { field: 'price', label: 'Price (₹)', placeholder: '50', type: 'number' },
+              ].map(({ field, label, placeholder, type }) => (
+                <div key={field}>
+                  <label className="block text-xs text-gray-400 mb-1">{label}</label>
+                  <input type={type} value={newProduct[field]}
+                    onChange={e => setNewProduct(p => ({ ...p, [field]: e.target.value }))}
+                    placeholder={placeholder}
+                    className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#1a5c38]" />
+                </div>
+              ))}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Available</label>
+                <button onClick={() => setNewProduct(p => ({ ...p, is_available: !p.is_available }))}
+                  className={`w-full py-2 rounded-lg text-xs font-bold transition ${newProduct.is_available ? 'bg-[#1a5c38] text-white' : 'bg-gray-200 text-gray-500'}`}>
+                  {newProduct.is_available ? '✅ Available' : '❌ Disabled'}
+                </button>
+              </div>
+            </div>
+            <button onClick={addNewProduct} disabled={productAddLoading || !newProduct.name || !newProduct.size || !newProduct.price}
+              className="bg-[#1a5c38] text-white font-bold px-5 py-2.5 rounded-lg text-sm hover:bg-[#14472c] transition disabled:opacity-50">
+              {productAddLoading ? 'Adding...' : 'Add Product'}
+            </button>
+          </div>
+        </div>
+
+        {/* C. Delivery Controls */}
+        <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-5">🚴 Delivery Controls</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+            {[
+              { key: 'morning_slot_enabled', label: '🌅 Morning Slot' },
+              { key: 'evening_slot_enabled', label: '🌆 Evening Slot' },
+              { key: 'trial_order_enabled', label: '🎁 Trial Orders' },
+            ].map(({ key, label }) => {
+              const isOn = appSettings[key] !== 'false'
+              return (
+                <div key={key} className="flex items-center justify-between bg-[#f5f0e8] rounded-xl px-4 py-3">
+                  <span className="text-sm font-semibold text-[#1c1c1c]">{label}</span>
+                  <button onClick={() => saveSetting(key, isOn ? 'false' : 'true')}
+                    className={`relative w-12 h-6 rounded-full transition-colors ${isOn ? 'bg-[#1a5c38]' : 'bg-gray-300'}`}>
+                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${isOn ? 'translate-x-7' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+          <div className="mb-6">
+            <label className="block text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2">Bottle Deposit Amount (₹)</label>
+            <div className="flex gap-2 max-w-xs">
+              <input type="number" min="0" value={appSettings.bottle_deposit_amount || '200'}
+                onChange={e => setAppSettings(p => ({ ...p, bottle_deposit_amount: e.target.value }))}
+                className="flex-1 border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
+              <button onClick={() => saveSetting('bottle_deposit_amount', appSettings.bottle_deposit_amount)} disabled={settingsSaving.bottle_deposit_amount}
+                className="bg-[#1a5c38] text-white font-bold px-4 py-2 rounded-lg text-sm hover:bg-[#14472c] transition disabled:opacity-50">
+                Save
+              </button>
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-3">Holiday / No-Delivery Dates</p>
+            <div className="flex gap-2 mb-4 max-w-sm">
+              <input type="date" value={newHoliday}
+                onChange={e => setNewHoliday(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+                className="flex-1 border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
+              <button onClick={addHoliday} disabled={!newHoliday}
+                className="bg-[#d4a017] text-white font-bold px-4 py-2 rounded-lg text-sm hover:bg-[#b8860b] transition disabled:opacity-50">
+                Add
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {(() => {
+                const today = new Date().toISOString().split('T')[0]
+                const upcoming = JSON.parse(appSettings.holidays || '[]').filter(d => d >= today)
+                return upcoming.length === 0
+                  ? <p className="text-xs text-gray-400 italic">No upcoming holidays scheduled</p>
+                  : upcoming.map(date => (
+                    <div key={date} className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                      <span className="text-sm font-semibold text-red-700">
+                        🚫 {new Date(date + 'T12:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                      </span>
+                      <button onClick={() => removeHoliday(date)}
+                        className="text-xs text-red-500 hover:text-red-700 font-bold transition">Remove</button>
+                    </div>
+                  ))
+              })()}
+            </div>
+          </div>
+        </div>
+
+        {/* D. Customer Controls */}
+        <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-5">👥 Customer Controls</h3>
+          <input type="text" placeholder="Search by name or phone..."
+            value={customerSearch}
+            onChange={e => handleCustomerSearch(e.target.value)}
+            className="w-full border border-[#e8e0d0] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] mb-4" />
+          {settingsCustomers.map(customer => (
+            <div key={customer.id} className="bg-[#f5f0e8] rounded-xl p-4 mb-3">
+              <div className="mb-3">
+                <p className="font-bold text-[#1c1c1c]">{customer.full_name}</p>
+                <p className="text-xs text-gray-500">📞 {customer.phone} · {customer.area}</p>
+                {customer.is_banned && <span className="inline-block mt-1 text-xs bg-red-100 text-red-700 font-semibold px-2 py-0.5 rounded-full">Banned</span>}
+                {customer.has_used_cod && <span className="inline-block mt-1 ml-1 text-xs bg-orange-100 text-orange-700 font-semibold px-2 py-0.5 rounded-full">COD used</span>}
+              </div>
+              <div className="flex flex-wrap gap-2 mb-3">
+                <button onClick={() => resetCod(customer.id, customer.full_name)}
+                  className="bg-[#fdf6e3] border border-[#f0dfa0] text-[#d4a017] font-bold px-3 py-1.5 rounded-lg text-xs hover:bg-[#f0dfa0] transition">
+                  Reset COD
+                </button>
+                <button onClick={() => toggleBan(customer.id, customer.is_banned, customer.full_name)}
+                  className={`font-bold px-3 py-1.5 rounded-lg text-xs transition ${customer.is_banned ? 'bg-[#f0faf4] border border-[#c8e6d4] text-[#1a5c38] hover:bg-[#d4eddf]' : 'bg-red-50 border border-red-200 text-red-600 hover:bg-red-100'}`}>
+                  {customer.is_banned ? 'Unban' : 'Ban'}
+                </button>
+              </div>
+              <div className="flex gap-2 mb-2">
+                <input type="number" min="1" placeholder="Days to extend"
+                  value={extendDaysMap[customer.id] || ''}
+                  onChange={e => setExtendDaysMap(p => ({ ...p, [customer.id]: e.target.value }))}
+                  className="flex-1 border border-[#e8e0d0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#1a5c38] bg-white" />
+                <button onClick={() => extendSubscription(customer.id, customer.full_name, extendDaysMap[customer.id])}
+                  className="bg-[#1a5c38] text-white font-bold px-3 py-2 rounded-lg text-xs hover:bg-[#14472c] transition whitespace-nowrap">
+                  Extend Sub
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <input type="date"
+                  value={pauseDateMap[customer.id] || ''}
+                  onChange={e => setPauseDateMap(p => ({ ...p, [customer.id]: e.target.value }))}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="flex-1 border border-[#e8e0d0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#1a5c38] bg-white" />
+                <button onClick={() => pauseDelivery(customer.id, customer.full_name, pauseDateMap[customer.id])}
+                  className="bg-[#d4a017] text-white font-bold px-3 py-2 rounded-lg text-xs hover:bg-[#b8860b] transition whitespace-nowrap">
+                  Pause Date
+                </button>
+              </div>
+            </div>
+          ))}
+          {customerSearch && settingsCustomers.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-4">No customers found</p>
+          )}
+          {!customerSearch && (
+            <p className="text-sm text-gray-400 text-center py-4">Type a name or phone number to search</p>
+          )}
+        </div>
+
+        {/* E. Notification Controls */}
+        <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-2">📣 Broadcast Message</h3>
+          <p className="text-sm text-gray-500 mb-4">Send a WhatsApp message to all {customers.filter(c => c.phone).length} customers</p>
+          <textarea
+            value={broadcastMessage}
+            onChange={e => setBroadcastMessage(e.target.value)}
+            rows={4}
+            placeholder="Type your message here..."
+            className="w-full border border-[#e8e0d0] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] resize-none mb-3" />
+          {!broadcastConfirm ? (
+            <button onClick={() => setBroadcastConfirm(true)} disabled={!broadcastMessage.trim()}
+              className="bg-[#d4a017] text-white font-bold px-6 py-3 rounded-xl text-sm hover:bg-[#b8860b] transition disabled:opacity-50">
+              Send to All via WhatsApp
+            </button>
+          ) : (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <p className="text-sm font-bold text-amber-800 mb-3">⚠️ Confirm: Send to {customers.filter(c => c.phone).length} customers?</p>
+              <div className="flex gap-2">
+                <button onClick={sendBroadcast} disabled={broadcastLoading}
+                  className="bg-[#1a5c38] text-white font-bold px-5 py-2.5 rounded-lg text-sm hover:bg-[#14472c] transition disabled:opacity-50">
+                  {broadcastLoading ? 'Sending...' : '✅ Confirm Send'}
+                </button>
+                <button onClick={() => setBroadcastConfirm(false)}
+                  className="border border-gray-300 text-gray-600 font-bold px-5 py-2.5 rounded-lg text-sm hover:bg-gray-50 transition">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* F. Priority Waitlist */}
+        <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">⏳ Priority Waitlist</h3>
+            <div className="flex items-center gap-2">
+              <span className="bg-[#fdf6e3] border border-[#f0dfa0] text-[#d4a017] font-bold text-xs px-3 py-1.5 rounded-full">
+                {waitlistEntries.length} total
+              </span>
+              <button onClick={exportWaitlistCSV}
+                className="bg-[#f5f0e8] text-[#1c1c1c] font-bold px-3 py-1.5 rounded-lg text-xs hover:bg-[#e8e0d0] transition">
+                Export CSV
+              </button>
+            </div>
+          </div>
+          {waitlistEntries.length === 0 ? (
+            <p className="text-gray-400 text-sm text-center py-8">No waitlist entries yet</p>
+          ) : (
+            Object.entries(
+              waitlistEntries.reduce((groups, entry) => {
+                const area = entry.area || 'Other'
+                if (!groups[area]) groups[area] = []
+                groups[area].push(entry)
+                return groups
+              }, {})
+            ).sort(([a], [b]) => a.localeCompare(b)).map(([area, entries]) => (
+              <div key={area} className="mb-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-sm font-bold text-[#1a5c38]">📍 {area}</span>
+                  <span className="bg-[#f0faf4] border border-[#c8e6d4] text-[#1a5c38] font-bold text-xs px-2 py-0.5 rounded-full">{entries.length}</span>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {entries.map(entry => (
+                    <div key={entry.id} className={`flex items-center justify-between gap-4 px-4 py-3 rounded-xl border ${entry.invited ? 'bg-[#f0faf4] border-[#c8e6d4]' : 'bg-[#f5f0e8] border-[#e8e0d0]'}`}>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm text-[#1c1c1c] truncate">{entry.name}</p>
+                        <p className="text-xs text-gray-400">📞 {entry.phone} · {new Date(entry.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                        {entry.invited && <span className="text-xs text-[#1a5c38] font-semibold">✅ Invited</span>}
+                      </div>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <button onClick={() => inviteWaitlistEntry(entry)} disabled={entry.invited || invitingId === entry.id}
+                          className="bg-[#25D366] text-white font-bold px-3 py-1.5 rounded-lg text-xs hover:bg-[#1da851] transition disabled:opacity-40 whitespace-nowrap">
+                          {invitingId === entry.id ? '…' : 'Invite'}
+                        </button>
+                        <button onClick={() => deleteWaitlistEntry(entry.id)}
+                          className="bg-red-50 border border-red-200 text-red-600 font-bold px-3 py-1.5 rounded-lg text-xs hover:bg-red-100 transition">
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+      </div>
+    )}
 
     {/* ── Deposit Refund Modal ── */}
     {refundModal && (() => {
