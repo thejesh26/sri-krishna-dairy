@@ -141,76 +141,79 @@ export default function Home() {
         <div className="absolute top-[40%] right-[10%] w-3 h-3 rounded-full bg-[#d4a017] opacity-30"></div>
         <div className="absolute bottom-[30%] left-[15%] w-2 h-2 rounded-full bg-white opacity-20"></div>
 
-        <div className="relative z-10 max-w-6xl mx-auto px-6 py-16 sm:py-24 grid grid-cols-1 sm:grid-cols-2 gap-16 items-center">
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-8 sm:px-16 py-12 sm:py-20 grid grid-cols-1 sm:grid-cols-[1fr_1.2fr] gap-8 sm:gap-4 items-center">
 
           {/* Left — lean copy + CTAs */}
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-7">
             <p style={{color:'#d4a017', fontWeight:'700', fontSize:'11px', letterSpacing:'3px', textTransform:'uppercase'}}>Pure · Fresh · Delivered Daily</p>
-            <h2 className="font-[family-name:var(--font-playfair)] text-5xl sm:text-6xl font-bold text-white leading-[1.1]">
+            <h2 className="font-[family-name:var(--font-playfair)] text-5xl sm:text-7xl font-bold text-white leading-[1.05]">
               Farm-Fresh<br />
-              Milk, <span className="text-[#d4a017]">Straight<br />to Your Door</span>
+              Milk,{' '}
+              <span className="text-[#d4a017]">Straight<br />to Your Door</span>
             </h2>
-            <p className="text-green-200 text-base leading-relaxed max-w-sm">
+            <p className="text-green-200 text-base sm:text-lg leading-relaxed max-w-sm">
               Direct from our cows at 4 AM. No middlemen, no preservatives — at your doorstep by 9 AM.
             </p>
             <div className="flex gap-3 flex-wrap">
-              <Link href="/order" className="bg-[#d4a017] text-white px-7 py-3.5 rounded-lg font-bold text-sm hover:bg-[#b8860b] transition shadow-lg">
+              <Link href="/order" className="bg-[#d4a017] text-white px-8 py-4 rounded-xl font-bold text-base hover:bg-[#b8860b] transition shadow-lg">
                 Order Now →
               </Link>
-              <Link href="/subscribe" className="border-2 border-white border-opacity-60 text-white px-7 py-3.5 rounded-lg font-bold text-sm hover:bg-white hover:text-[#1a5c38] transition">
+              <Link href="/subscribe" className="border-2 border-white text-white px-8 py-4 rounded-xl font-bold text-base hover:bg-white hover:text-[#1a5c38] transition" style={{borderColor:'rgba(255,255,255,0.55)'}}>
                 Subscribe
               </Link>
             </div>
-            <div className="flex items-center gap-4 pt-2">
+            <div className="flex items-center gap-4">
               <div className="flex -space-x-2">
                 {['#2d7a50','#1a5c38','#14472c'].map((c,i) => (
-                  <div key={i} style={{width:28, height:28, borderRadius:'50%', background:c, border:'2px solid rgba(255,255,255,0.4)'}} />
+                  <div key={i} style={{width:30, height:30, borderRadius:'50%', background:c, border:'2px solid rgba(255,255,255,0.35)'}} />
                 ))}
               </div>
-              <p className="text-green-300 text-xs">
+              <p className="text-green-300 text-sm">
                 <span className="text-white font-semibold">100+ families</span> trust us in Bangalore
               </p>
             </div>
           </div>
 
-          {/* Right — product image with floating chips */}
+          {/* Right — product image, no card background */}
           <div className="flex items-center justify-center relative">
-            {/* Golden glow */}
-            <div style={{position:'absolute', inset:'-40px', background:'radial-gradient(ellipse at center, rgba(212,160,23,0.15) 0%, transparent 65%)', pointerEvents:'none'}} />
+            {/* Golden glow behind image */}
+            <div style={{position:'absolute', width:'480px', height:'480px', borderRadius:'50%', background:'radial-gradient(circle, rgba(212,160,23,0.22) 0%, transparent 70%)', pointerEvents:'none', top:'50%', left:'50%', transform:'translate(-50%,-50%)'}} />
 
-            <div className="relative">
-              {/* Image card */}
-              <div style={{
-                background:'rgba(255,255,255,0.08)',
-                backdropFilter:'blur(20px)',
-                borderRadius:'2.5rem',
-                padding:'28px 28px 16px',
-                border:'1px solid rgba(255,255,255,0.16)',
-                boxShadow:'0 40px 80px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.12)',
-              }}>
-                <img src="/product-hero.png" alt="Sri Krishnaa Dairy — Fresh Milk Bottle and Glass"
-                  style={{height:'300px', width:'auto', objectFit:'contain', filter:'drop-shadow(0 16px 40px rgba(0,0,0,0.5))', display:'block'}} />
-              </div>
+            <div className="relative flex items-center justify-center">
+              {/* Image — no card, just drop shadow on the green bg */}
+              <img
+                src="/product-hero.png"
+                alt="Sri Krishnaa Dairy — Fresh Milk Bottle and Glass"
+                style={{
+                  height:'420px',
+                  width:'auto',
+                  objectFit:'contain',
+                  filter:'drop-shadow(0 24px 60px rgba(0,0,0,0.5)) drop-shadow(0 0 40px rgba(212,160,23,0.15))',
+                  display:'block',
+                  position:'relative',
+                  zIndex:1,
+                }}
+              />
 
-              {/* Floating chips */}
-              <div style={{position:'absolute', top:'-18px', left:'50%', transform:'translateX(-50%)', background:'linear-gradient(135deg,#d4a017,#f0c040)', borderRadius:'999px', padding:'7px 20px', fontSize:'12px', fontWeight:'800', color:'white', boxShadow:'0 4px 16px rgba(212,160,23,0.55)', whiteSpace:'nowrap', letterSpacing:'0.05em'}}>
+              {/* Floating chips — positioned relative to image center */}
+              <div style={{position:'absolute', top:'-10px', left:'50%', transform:'translateX(-50%)', zIndex:2, background:'linear-gradient(135deg,#d4a017,#f0c040)', borderRadius:'999px', padding:'8px 22px', fontSize:'13px', fontWeight:'800', color:'white', boxShadow:'0 6px 20px rgba(212,160,23,0.6)', whiteSpace:'nowrap', letterSpacing:'0.05em'}}>
                 ✦ Fresh Daily
               </div>
 
-              <div style={{position:'absolute', top:'28px', right:'-48px', background:'rgba(255,255,255,0.1)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.22)', borderRadius:'999px', padding:'8px 14px', fontSize:'11px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
+              <div style={{position:'absolute', top:'80px', right:'-60px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
                 🐄 Farm Direct
               </div>
 
-              <div style={{position:'absolute', bottom:'60px', right:'-52px', background:'rgba(255,255,255,0.1)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.22)', borderRadius:'999px', padding:'8px 14px', fontSize:'11px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
+              <div style={{position:'absolute', bottom:'100px', right:'-56px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
                 ⏰ By 9 AM
               </div>
 
-              <div style={{position:'absolute', bottom:'16px', left:'50%', transform:'translateX(-50%)', background:'rgba(255,255,255,0.1)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.22)', borderRadius:'999px', padding:'6px 14px', fontSize:'10px', fontWeight:'700', color:'rgba(255,255,255,0.9)', whiteSpace:'nowrap'}}>
-                ✅ FSSAI Lic. 21225008004544
+              <div style={{position:'absolute', top:'80px', left:'-56px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
+                🌿 No Additives
               </div>
 
-              <div style={{position:'absolute', top:'28px', left:'-44px', background:'rgba(255,255,255,0.1)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.22)', borderRadius:'999px', padding:'8px 14px', fontSize:'11px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
-                🌿 No Additives
+              <div style={{position:'absolute', bottom:'30px', left:'50%', transform:'translateX(-50%)', zIndex:2, background:'rgba(255,255,255,0.1)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'999px', padding:'6px 16px', fontSize:'10px', fontWeight:'700', color:'rgba(255,255,255,0.85)', whiteSpace:'nowrap'}}>
+                ✅ FSSAI Lic. 21225008004544
               </div>
             </div>
           </div>
