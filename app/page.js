@@ -141,99 +141,77 @@ export default function Home() {
         <div className="absolute top-[40%] right-[10%] w-3 h-3 rounded-full bg-[#d4a017] opacity-30"></div>
         <div className="absolute bottom-[30%] left-[15%] w-2 h-2 rounded-full bg-white opacity-20"></div>
 
-        <div className="relative z-10 max-w-6xl mx-auto px-6 py-16 sm:py-24 grid grid-cols-1 sm:grid-cols-2 gap-12 items-center">
-          <div>
-            <p style={{color:'#d4a017', fontWeight:'600', fontSize:'12px', letterSpacing:'2px', textTransform:'uppercase', marginBottom:'16px'}}>Pure. Fresh. Delivered to You.</p>
-            <h2 className="font-[family-name:var(--font-playfair)] text-5xl sm:text-6xl font-bold text-white mb-6 leading-tight">
-              Farm-Fresh Milk,<br />
-              <span className="text-[#d4a017]">Straight to</span><br />
-              Your Doorstep
+        <div className="relative z-10 max-w-6xl mx-auto px-6 py-16 sm:py-24 grid grid-cols-1 sm:grid-cols-2 gap-16 items-center">
+
+          {/* Left — lean copy + CTAs */}
+          <div className="flex flex-col gap-6">
+            <p style={{color:'#d4a017', fontWeight:'700', fontSize:'11px', letterSpacing:'3px', textTransform:'uppercase'}}>Pure · Fresh · Delivered Daily</p>
+            <h2 className="font-[family-name:var(--font-playfair)] text-5xl sm:text-6xl font-bold text-white leading-[1.1]">
+              Farm-Fresh<br />
+              Milk, <span className="text-[#d4a017]">Straight<br />to Your Door</span>
             </h2>
-            <p className="text-green-100 text-base mb-2 leading-relaxed max-w-md">
-              No middlemen. No preservatives. Pure, fresh cow milk delivered to your doorstep every day.
+            <p className="text-green-200 text-base leading-relaxed max-w-sm">
+              Direct from our cows at 4 AM. No middlemen, no preservatives — at your doorstep by 9 AM.
             </p>
-            <p className="text-green-300 text-sm font-medium mb-6">
-              📍 Serving homes & apartments in North &amp; East Bangalore
-            </p>
-
-            {/* Key stats row */}
-            <div className="flex gap-6 mb-8">
-              <div className="text-center">
-                <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#d4a017]">2 hrs</p>
-                <p className="text-green-300 text-xs mt-0.5">Farm to your door</p>
-              </div>
-              <div className="w-px bg-white opacity-20" />
-              <div className="text-center">
-                <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#d4a017]">4 AM</p>
-                <p className="text-green-300 text-xs mt-0.5">Milked fresh daily</p>
-              </div>
-              <div className="w-px bg-white opacity-20" />
-              <div className="text-center">
-                <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#d4a017]">
-                  {products.length > 0 ? `₹${Math.min(...products.map(p => p.price))}/day` : '₹50/day'}
-                </p>
-                <p className="text-green-300 text-xs mt-0.5">Starting from</p>
-              </div>
-            </div>
-
-            <div className="flex gap-4 flex-wrap">
-              <Link href="/order" className="bg-[#d4a017] text-white px-8 py-4 rounded font-bold text-base hover:bg-[#b8860b] transition shadow-lg">
+            <div className="flex gap-3 flex-wrap">
+              <Link href="/order" className="bg-[#d4a017] text-white px-7 py-3.5 rounded-lg font-bold text-sm hover:bg-[#b8860b] transition shadow-lg">
                 Order Now →
               </Link>
-              <Link href="/subscribe" className="border-2 border-white text-white px-8 py-4 rounded font-bold text-base hover:bg-white hover:text-[#1a5c38] transition">
-                Subscribe Now
+              <Link href="/subscribe" className="border-2 border-white border-opacity-60 text-white px-7 py-3.5 rounded-lg font-bold text-sm hover:bg-white hover:text-[#1a5c38] transition">
+                Subscribe
               </Link>
             </div>
-            <p className="text-green-300 text-xs mt-3">No contract &bull; Cancel anytime &bull; First order COD</p>
-            <p className="text-green-400 text-xs mt-1">
-              Slots full in your area?{' '}
-              <Link href="/waitlist" className="text-[#d4a017] font-semibold hover:underline">Join priority list →</Link>
-            </p>
+            <div className="flex items-center gap-4 pt-2">
+              <div className="flex -space-x-2">
+                {['#2d7a50','#1a5c38','#14472c'].map((c,i) => (
+                  <div key={i} style={{width:28, height:28, borderRadius:'50%', background:c, border:'2px solid rgba(255,255,255,0.4)'}} />
+                ))}
+              </div>
+              <p className="text-green-300 text-xs">
+                <span className="text-white font-semibold">100+ families</span> trust us in Bangalore
+              </p>
+            </div>
           </div>
 
-          {/* Hero Product Visual */}
-          <div className="flex flex-col items-center justify-center gap-6 relative">
-            {/* Glow backdrop */}
-            <div style={{position:'absolute', inset:0, background:'radial-gradient(ellipse at center, rgba(212,160,23,0.18) 0%, transparent 70%)', pointerEvents:'none'}} />
+          {/* Right — product image with floating chips */}
+          <div className="flex items-center justify-center relative">
+            {/* Golden glow */}
+            <div style={{position:'absolute', inset:'-40px', background:'radial-gradient(ellipse at center, rgba(212,160,23,0.15) 0%, transparent 65%)', pointerEvents:'none'}} />
 
-            <div className="relative flex items-end justify-center">
-              {/* Product hero image — bottle + glass */}
-              <div className="relative">
-                <div style={{
-                  background:'rgba(255,255,255,0.07)',
-                  backdropFilter:'blur(16px)',
-                  borderRadius:'2.5rem',
-                  padding:'20px 24px 8px',
-                  border:'1px solid rgba(255,255,255,0.18)',
-                  boxShadow:'0 32px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(212,160,23,0.25), inset 0 1px 0 rgba(255,255,255,0.15)',
-                }}>
-                  <img src="/product-hero.png" alt="Sri Krishnaa Dairy Fresh Milk — Bottle and Glass"
-                    style={{height:'260px', width:'auto', objectFit:'contain', filter:'drop-shadow(0 12px 32px rgba(0,0,0,0.45))', display:'block'}} />
-                </div>
-                {/* Fresh Daily badge */}
-                <div style={{position:'absolute', top:'-14px', right:'-20px', background:'linear-gradient(135deg,#d4a017,#f0c040)', borderRadius:'999px', padding:'7px 18px', fontSize:'12px', fontWeight:'800', color:'white', boxShadow:'0 4px 16px rgba(212,160,23,0.5)', letterSpacing:'0.06em', whiteSpace:'nowrap'}}>
-                  ✦ Fresh Daily
-                </div>
-                {/* FSSAI badge bottom-left */}
-                <div style={{position:'absolute', bottom:'-14px', left:'-10px', background:'rgba(255,255,255,0.12)', backdropFilter:'blur(8px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'5px 12px', fontSize:'10px', fontWeight:'700', color:'rgba(255,255,255,0.9)', whiteSpace:'nowrap'}}>
-                  ✅ FSSAI Licensed
-                </div>
+            <div className="relative">
+              {/* Image card */}
+              <div style={{
+                background:'rgba(255,255,255,0.08)',
+                backdropFilter:'blur(20px)',
+                borderRadius:'2.5rem',
+                padding:'28px 28px 16px',
+                border:'1px solid rgba(255,255,255,0.16)',
+                boxShadow:'0 40px 80px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.12)',
+              }}>
+                <img src="/product-hero.png" alt="Sri Krishnaa Dairy — Fresh Milk Bottle and Glass"
+                  style={{height:'300px', width:'auto', objectFit:'contain', filter:'drop-shadow(0 16px 40px rgba(0,0,0,0.5))', display:'block'}} />
               </div>
-            </div>
 
-            {/* Trust badges */}
-            <div className="flex flex-wrap gap-2 justify-center">
-              {[
-                {icon:'🌿', text:'No Preservatives'},
-                {icon:'🐄', text:'Farm Direct'},
-                {icon:'⏰', text:'By 9AM'},
-                {icon:'💳', text:'Flexible Payment'},
-              ].map(({icon, text}) => (
-                <span key={text}
-                  style={{background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.22)', color:'white', fontSize:'13px', fontWeight:'600', padding:'9px 16px', borderRadius:'999px', whiteSpace:'nowrap', backdropFilter:'blur(6px)'}}>
-                  {icon} {text}
-                </span>
-              ))}
+              {/* Floating chips */}
+              <div style={{position:'absolute', top:'-18px', left:'50%', transform:'translateX(-50%)', background:'linear-gradient(135deg,#d4a017,#f0c040)', borderRadius:'999px', padding:'7px 20px', fontSize:'12px', fontWeight:'800', color:'white', boxShadow:'0 4px 16px rgba(212,160,23,0.55)', whiteSpace:'nowrap', letterSpacing:'0.05em'}}>
+                ✦ Fresh Daily
+              </div>
+
+              <div style={{position:'absolute', top:'28px', right:'-48px', background:'rgba(255,255,255,0.1)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.22)', borderRadius:'999px', padding:'8px 14px', fontSize:'11px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
+                🐄 Farm Direct
+              </div>
+
+              <div style={{position:'absolute', bottom:'60px', right:'-52px', background:'rgba(255,255,255,0.1)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.22)', borderRadius:'999px', padding:'8px 14px', fontSize:'11px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
+                ⏰ By 9 AM
+              </div>
+
+              <div style={{position:'absolute', bottom:'16px', left:'50%', transform:'translateX(-50%)', background:'rgba(255,255,255,0.1)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.22)', borderRadius:'999px', padding:'6px 14px', fontSize:'10px', fontWeight:'700', color:'rgba(255,255,255,0.9)', whiteSpace:'nowrap'}}>
+                ✅ FSSAI Lic. 21225008004544
+              </div>
+
+              <div style={{position:'absolute', top:'28px', left:'-44px', background:'rgba(255,255,255,0.1)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.22)', borderRadius:'999px', padding:'8px 14px', fontSize:'11px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
+                🌿 No Additives
+              </div>
             </div>
           </div>
         </div>
