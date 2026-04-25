@@ -94,14 +94,6 @@ export default function DisclaimerPopup() {
             </p>
           </div>
 
-          <div className="bg-[#fdf6e3] border border-[#f0dfa0] rounded-xl p-4">
-            <p className="text-xs text-[#8a6e0a] leading-relaxed">
-              By clicking "Accept & Continue", you confirm that you have read, understood, and agree to our
-              Terms of Service, Privacy Policy, Refund Policy, and Health Disclaimer.
-              You also acknowledge that fresh farm milk is not commercially pasteurized.
-            </p>
-          </div>
-
         </div>
 
         {/* Footer */}

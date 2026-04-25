@@ -191,21 +191,47 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="flex flex-col items-center justify-center gap-6">
-            <div className="relative">
-              <div className="w-80 h-80 rounded-full border-4 border-[#d4a017] border-opacity-60 flex items-center justify-center shadow-2xl overflow-hidden"
-                style={{background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)'}}>
-                <img src="/Logo.jpg" alt="Sri Krishnaa Dairy" className="w-72 h-72 rounded-full object-cover" />
-              </div>
-              <div style={{position:'absolute', top:'8px', right:'-16px', background:'#d4a017', borderRadius:'999px', padding:'8px 20px', fontSize:'14px', fontWeight:'700', color:'white', boxShadow:'0 4px 12px rgba(0,0,0,0.3)'}}>
-                Fresh Daily
+          {/* Hero Product Visual */}
+          <div className="flex flex-col items-center justify-center gap-6 relative">
+            {/* Glow backdrop */}
+            <div style={{position:'absolute', inset:0, background:'radial-gradient(ellipse at center, rgba(212,160,23,0.18) 0%, transparent 70%)', pointerEvents:'none'}} />
+
+            <div className="relative flex items-end justify-center">
+              {/* Product hero image — bottle + glass */}
+              <div className="relative">
+                <div style={{
+                  background:'rgba(255,255,255,0.07)',
+                  backdropFilter:'blur(16px)',
+                  borderRadius:'2.5rem',
+                  padding:'20px 24px 8px',
+                  border:'1px solid rgba(255,255,255,0.18)',
+                  boxShadow:'0 32px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(212,160,23,0.25), inset 0 1px 0 rgba(255,255,255,0.15)',
+                }}>
+                  <img src="/product-hero.png" alt="Sri Krishnaa Dairy Fresh Milk — Bottle and Glass"
+                    style={{height:'260px', width:'auto', objectFit:'contain', filter:'drop-shadow(0 12px 32px rgba(0,0,0,0.45))', display:'block'}} />
+                </div>
+                {/* Fresh Daily badge */}
+                <div style={{position:'absolute', top:'-14px', right:'-20px', background:'linear-gradient(135deg,#d4a017,#f0c040)', borderRadius:'999px', padding:'7px 18px', fontSize:'12px', fontWeight:'800', color:'white', boxShadow:'0 4px 16px rgba(212,160,23,0.5)', letterSpacing:'0.06em', whiteSpace:'nowrap'}}>
+                  ✦ Fresh Daily
+                </div>
+                {/* FSSAI badge bottom-left */}
+                <div style={{position:'absolute', bottom:'-14px', left:'-10px', background:'rgba(255,255,255,0.12)', backdropFilter:'blur(8px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'5px 12px', fontSize:'10px', fontWeight:'700', color:'rgba(255,255,255,0.9)', whiteSpace:'nowrap'}}>
+                  ✅ FSSAI Licensed
+                </div>
               </div>
             </div>
-            <div className="flex flex-wrap gap-3 justify-center mt-4">
-              {['🌿 No Preservatives', '🐄 Farm Direct', '⏰ By 9AM', '💳 Flexible Payment'].map((item) => (
-                <span key={item}
-                  style={{background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'white', fontSize:'15px', fontWeight:'600', padding:'12px 22px', borderRadius:'999px', whiteSpace:'nowrap'}}>
-                  {item}
+
+            {/* Trust badges */}
+            <div className="flex flex-wrap gap-2 justify-center">
+              {[
+                {icon:'🌿', text:'No Preservatives'},
+                {icon:'🐄', text:'Farm Direct'},
+                {icon:'⏰', text:'By 9AM'},
+                {icon:'💳', text:'Flexible Payment'},
+              ].map(({icon, text}) => (
+                <span key={text}
+                  style={{background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.22)', color:'white', fontSize:'13px', fontWeight:'600', padding:'9px 16px', borderRadius:'999px', whiteSpace:'nowrap', backdropFilter:'blur(6px)'}}>
+                  {icon} {text}
                 </span>
               ))}
             </div>
@@ -837,14 +863,6 @@ export default function Home() {
                     </li>
                   </>
                 )}
-                <li className="border-t border-gray-800 pt-3 mt-1">
-                  <p className="text-gray-500 text-xs uppercase tracking-widest mb-2">Coming Soon</p>
-                </li>
-                <li className="text-green-500 text-xs flex items-center gap-2">🐄 A2 Desi Cow Milk</li>
-                <li className="text-green-500 text-xs flex items-center gap-2">🧈 Pure Desi Ghee</li>
-                <li className="text-green-500 text-xs flex items-center gap-2">🍼 Fresh Curd</li>
-                <li className="text-green-500 text-xs flex items-center gap-2">🧀 Homemade Paneer</li>
-                <li className="text-green-500 text-xs flex items-center gap-2">🍦 Fresh Butter</li>
               </ul>
             </div>
 
