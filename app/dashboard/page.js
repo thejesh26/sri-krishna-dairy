@@ -390,7 +390,7 @@ export default function Dashboard() {
               </div>
               {subscriptions.length === 0 ? (
                 <div className="px-6 py-10 text-center">
-                  <div className="flex justify-center mb-3"><img src="/bottle.png" alt="Milk" className="h-20 object-contain opacity-50" /></div>
+                  <div className="flex justify-center mb-3"><img src="/bottle.png" alt="Milk" className="h-20 object-contain opacity-40 drop-shadow" /></div>
                   <p className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-2">No Active Subscriptions</p>
                   <p className="text-gray-400 text-sm mb-5">Subscribe for daily fresh milk delivery</p>
                   <a href="/subscribe" className="inline-block text-white px-8 py-3 rounded-xl font-semibold hover:opacity-90 transition shadow"

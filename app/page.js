@@ -238,7 +238,7 @@ export default function Home() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
           {products.length > 0 ? products.map((product) => (
             <div key={product.id} className="border border-[#e8e0d0] rounded-lg p-8 hover:shadow-lg transition bg-white">
-              <div className="flex justify-center mb-5"><img src="/bottle.png" alt="Fresh Cow Milk" className="h-28 object-contain drop-shadow-sm" /></div>
+              <div className="flex justify-center mb-5"><img src="/bottle.png" alt="Fresh Cow Milk" className="h-28 object-contain drop-shadow-md" /></div>
               <h4 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c] text-center mb-1">Fresh Cow Milk</h4>
               <p className="text-center text-[#d4a017] font-semibold text-sm mb-3">{product.size} Bottle</p>
               <p className="text-gray-400 text-center text-sm mb-5">{product.size === '500ml' ? 'Perfect trial · No deposit · COD' : 'Best value for families'}</p>

@@ -403,7 +403,7 @@ export default function PauseSubscription() {
                           isCurrent ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#d4a017]'
                         }`}>
                         <div className="flex items-center gap-3">
-                          <img src="/bottle.png" alt="Milk" className="w-8 h-8 object-contain flex-shrink-0" />
+                          <img src="/bottle.png" alt="Milk" className="w-8 h-8 object-contain flex-shrink-0 drop-shadow" />
                           <div>
                             <p className="font-semibold text-[#1c1c1c] text-sm">{product.name} — {product.size}</p>
                             <p className="text-xs text-gray-400">

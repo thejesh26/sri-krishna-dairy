@@ -507,7 +507,7 @@ export default function Subscribe() {
                   className={`border-2 rounded-xl p-4 text-center transition ${
                     selectedProduct?.id === product.id ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#1a5c38]'
                   }`}>
-                  <div className="flex justify-center mb-2"><img src="/bottle.png" alt="Milk" className="h-14 object-contain" /></div>
+                  <div className="flex justify-center mb-2"><img src="/bottle.png" alt="Milk" className="h-14 object-contain drop-shadow-md" /></div>
                   <p className="font-bold text-[#1c1c1c] text-sm">{product.size}</p>
                   <p className="text-[#1a5c38] font-extrabold">₹{product.price}/day</p>
                 </button>

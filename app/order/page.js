@@ -145,7 +145,7 @@ export default function Order() {
         {/* COD Trial Used — show restriction */}
         {profile?.has_used_cod && (
           <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-6 mb-6 text-center">
-            <div className="flex justify-center mb-3"><img src="/bottle.png" alt="Milk" className="h-16 object-contain" /></div>
+            <div className="flex justify-center mb-3"><img src="/bottle.png" alt="Milk" className="h-16 object-contain drop-shadow-md" /></div>
             <h3 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c] mb-2">You've already used your free trial!</h3>
             <p className="text-gray-600 text-sm mb-5">
               Cash on Delivery is available for one-time trial orders only.<br/>
@@ -220,7 +220,7 @@ export default function Order() {
                       ? 'border-[#1a5c38] bg-[#f0faf4]'
                       : 'border-[#e8e0d0] hover:border-[#1a5c38]'
                   }`}>
-                  <div className="flex justify-center mb-1"><img src="/bottle.png" alt="Milk" className="h-14 object-contain" /></div>
+                  <div className="flex justify-center mb-1"><img src="/bottle.png" alt="Milk" className="h-14 object-contain drop-shadow-md" /></div>
                   <p className="font-bold text-[#1c1c1c] text-sm">{product.size}</p>
                   <p className="text-[#1a5c38] font-extrabold">₹{product.price}</p>
                   <span className="inline-block mt-1 text-[10px] bg-[#d4a017] text-white font-bold px-2 py-0.5 rounded-full">Trial · No Deposit</span>
