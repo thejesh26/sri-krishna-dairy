@@ -131,78 +131,75 @@ export default function Home() {
 
 
       {/* Hero */}
-      <section className="relative overflow-hidden min-h-[90vh] flex items-center"
-        style={{background: 'linear-gradient(135deg, #0d3320 0%, #1a5c38 40%, #2d7a50 70%, #1a5c38 100%)'}}>
-        <div className="absolute top-[-100px] right-[-100px] w-[500px] h-[500px] rounded-full opacity-10"
-          style={{background: 'radial-gradient(circle, #d4a017, transparent)'}}></div>
-        <div className="absolute bottom-[-150px] left-[-150px] w-[600px] h-[600px] rounded-full opacity-10"
-          style={{background: 'radial-gradient(circle, #d4a017, transparent)'}}></div>
-        <div className="absolute top-[20%] left-[5%] w-2 h-2 rounded-full bg-[#d4a017] opacity-40"></div>
-        <div className="absolute top-[40%] right-[10%] w-3 h-3 rounded-full bg-[#d4a017] opacity-30"></div>
-        <div className="absolute bottom-[30%] left-[15%] w-2 h-2 rounded-full bg-white opacity-20"></div>
+      <section className="relative overflow-hidden"
+        style={{background:'linear-gradient(135deg, #0d3320 0%, #1a5c38 40%, #2d7a50 70%, #1a5c38 100%)', minHeight:'90vh', display:'grid', gridTemplateColumns:'1fr 1fr'}}>
 
-        {/* Image — starts at 42% so it leans into center, fills full height */}
-        <div className="absolute inset-y-0 right-0 z-10" style={{left:'42%'}}>
-          {/* Golden glow behind bottle */}
-          <div style={{position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width:'600px', height:'600px', borderRadius:'50%', background:'radial-gradient(circle, rgba(212,160,23,0.2) 0%, transparent 65%)', pointerEvents:'none'}} />
-          <img
-            src="/product-hero.png"
-            alt="Sri Krishnaa Dairy — Fresh Milk Bottle and Glass"
-            style={{
-              height:'100%',
-              width:'100%',
-              objectFit:'contain',
-              objectPosition:'center bottom',
-              filter:'drop-shadow(0 32px 80px rgba(0,0,0,0.4)) drop-shadow(0 0 60px rgba(212,160,23,0.1))',
-              display:'block',
-              position:'relative',
-              zIndex:1,
-            }}
-          />
-        </div>
+        {/* Decorative glows */}
+        <div className="absolute top-[-100px] right-[-100px] w-[500px] h-[500px] rounded-full opacity-10" style={{background:'radial-gradient(circle, #d4a017, transparent)'}} />
+        <div className="absolute bottom-[-150px] left-[-150px] w-[600px] h-[600px] rounded-full opacity-10" style={{background:'radial-gradient(circle, #d4a017, transparent)'}} />
+        <div className="absolute top-[20%] left-[5%] w-2 h-2 rounded-full bg-[#d4a017] opacity-40" />
+        <div className="absolute bottom-[30%] left-[15%] w-2 h-2 rounded-full bg-white opacity-20" />
 
-        {/* Left — text content */}
-        <div className="absolute inset-y-0 left-0 z-20 flex items-center" style={{width:'48%', paddingLeft:'5%', paddingRight:'0'}}>
-          <div className="flex flex-col gap-6" style={{maxWidth:'480px'}}>
-            <p style={{color:'#d4a017', fontWeight:'700', fontSize:'11px', letterSpacing:'3px', textTransform:'uppercase'}}>Pure · Fresh · Delivered Daily</p>
-            <h2 className="font-[family-name:var(--font-playfair)] font-bold text-white" style={{fontSize:'clamp(2.6rem, 3.5vw, 3.5rem)', lineHeight:'1.08'}}>
+        {/* Left column — 50% */}
+        <div className="relative z-20 flex items-center" style={{padding:'80px 4% 80px 8%'}}>
+          <div className="flex flex-col gap-6" style={{width:'100%'}}>
+            <p style={{color:'#d4a017', fontWeight:'700', fontSize:'11px', letterSpacing:'3px', textTransform:'uppercase'}}>
+              Pure · Fresh · Delivered Daily
+            </p>
+            <h2 className="font-[family-name:var(--font-playfair)] font-bold text-white" style={{fontSize:'3.2rem', lineHeight:'1.08'}}>
               Farm-Fresh Milk,<br />
               <span className="text-[#d4a017]">Straight to Your Door</span>
             </h2>
             <p className="text-green-200 text-base leading-relaxed">
               Direct from our cows at 4 AM. No middlemen, no preservatives — at your doorstep by 9 AM.
             </p>
-
-            <div className="flex gap-3 flex-wrap">
-              <Link href="/order" className="bg-[#d4a017] text-white px-8 py-3.5 rounded-xl font-bold text-base hover:bg-[#b8860b] transition shadow-lg">
+            <div className="flex gap-3">
+              <Link href="/order" className="bg-[#d4a017] text-white px-7 py-3.5 rounded-xl font-bold text-base hover:bg-[#b8860b] transition shadow-lg whitespace-nowrap">
                 Order Now →
               </Link>
-              <Link href="/subscribe" className="text-white px-8 py-3.5 rounded-xl font-bold text-base hover:bg-white hover:text-[#1a5c38] transition" style={{border:'2px solid rgba(255,255,255,0.5)'}}>
+              <Link href="/subscribe" className="text-white px-7 py-3.5 rounded-xl font-bold text-base hover:bg-white hover:text-[#1a5c38] transition whitespace-nowrap" style={{border:'2px solid rgba(255,255,255,0.45)'}}>
                 Subscribe
               </Link>
             </div>
-
             {/* Stat strip */}
-            <div className="flex items-center mt-2" style={{borderTop:'1px solid rgba(255,255,255,0.12)', paddingTop:'20px'}}>
+            <div className="flex items-center" style={{borderTop:'1px solid rgba(255,255,255,0.12)', paddingTop:'20px'}}>
               {[
-                { value: '4 AM', label: 'Milked fresh daily' },
-                { value: 'By 9 AM', label: 'At your doorstep' },
-                { value: '0', label: 'Preservatives added' },
+                { value:'4 AM',    label:'Milked fresh daily' },
+                { value:'By 9 AM', label:'At your doorstep'   },
+                { value:'Zero',    label:'Preservatives added' },
               ].map((stat, i) => (
                 <div key={i} className="flex items-stretch">
                   <div className="text-center" style={{paddingLeft: i === 0 ? 0 : '20px', paddingRight:'20px'}}>
                     <p className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#d4a017]">{stat.value}</p>
-                    <p className="text-green-300 text-xs mt-0.5" style={{whiteSpace:'nowrap'}}>{stat.label}</p>
+                    <p className="text-green-300 text-xs mt-0.5 whitespace-nowrap">{stat.label}</p>
                   </div>
-                  {i < 2 && <div style={{width:'1px', background:'rgba(255,255,255,0.15)', flexShrink:0}} />}
+                  {i < 2 && <div style={{width:'1px', background:'rgba(255,255,255,0.15)'}} />}
                 </div>
               ))}
             </div>
-
           </div>
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0">
+        {/* Right column — 50%, image fills full column height */}
+        <div className="relative z-10">
+          <div style={{position:'absolute', top:'50%', left:'40%', transform:'translate(-50%,-50%)', width:'600px', height:'600px', borderRadius:'50%', background:'radial-gradient(circle, rgba(212,160,23,0.18) 0%, transparent 65%)', pointerEvents:'none'}} />
+          <img
+            src="/product-hero.png"
+            alt="Sri Krishnaa Dairy — Fresh Milk Bottle and Glass"
+            style={{
+              position:'absolute',
+              inset:0,
+              width:'100%',
+              height:'100%',
+              objectFit:'contain',
+              objectPosition:'center bottom',
+              filter:'drop-shadow(0 32px 80px rgba(0,0,0,0.4)) drop-shadow(0 0 60px rgba(212,160,23,0.1))',
+            }}
+          />
+        </div>
+
+        {/* Wave */}
+        <div className="absolute bottom-0 left-0 right-0 z-30">
           <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M0,30 C360,60 1080,0 1440,30 L1440,60 L0,60 Z" fill="#fdfbf7"/>
           </svg>
