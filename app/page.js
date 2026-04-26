@@ -141,9 +141,46 @@ export default function Home() {
         <div className="absolute top-[40%] right-[10%] w-3 h-3 rounded-full bg-[#d4a017] opacity-30"></div>
         <div className="absolute bottom-[30%] left-[15%] w-2 h-2 rounded-full bg-white opacity-20"></div>
 
-        <div className="relative z-10 w-full max-w-7xl mx-auto px-8 sm:px-16 py-12 sm:py-20 grid grid-cols-1 sm:grid-cols-[1fr_1.2fr] gap-8 sm:gap-4 items-center">
+        {/* Image — absolutely fills right half, full section height */}
+        <div className="absolute inset-y-0 right-0 z-10" style={{width:'52%'}}>
+          {/* Golden glow */}
+          <div style={{position:'absolute', inset:0, background:'radial-gradient(ellipse at center, rgba(212,160,23,0.18) 0%, transparent 65%)', pointerEvents:'none'}} />
 
-          {/* Left — lean copy + CTAs */}
+          <div className="relative h-full flex items-center justify-center">
+            <img
+              src="/product-hero.png"
+              alt="Sri Krishnaa Dairy — Fresh Milk Bottle and Glass"
+              style={{
+                height:'100%',
+                width:'100%',
+                objectFit:'contain',
+                objectPosition:'center bottom',
+                filter:'drop-shadow(0 32px 80px rgba(0,0,0,0.4)) drop-shadow(0 0 60px rgba(212,160,23,0.1))',
+                display:'block',
+              }}
+            />
+
+            {/* Floating chips */}
+            <div style={{position:'absolute', top:'18px', left:'50%', transform:'translateX(-50%)', zIndex:2, background:'linear-gradient(135deg,#d4a017,#f0c040)', borderRadius:'999px', padding:'8px 22px', fontSize:'13px', fontWeight:'800', color:'white', boxShadow:'0 6px 20px rgba(212,160,23,0.6)', whiteSpace:'nowrap', letterSpacing:'0.05em'}}>
+              ✦ Fresh Daily
+            </div>
+
+            <div style={{position:'absolute', top:'22%', right:'4px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
+              🐄 Farm Direct
+            </div>
+
+            <div style={{position:'absolute', bottom:'25%', right:'4px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
+              ⏰ By 9 AM
+            </div>
+
+            <div style={{position:'absolute', top:'22%', left:'4px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
+              🌿 No Additives
+            </div>
+          </div>
+        </div>
+
+        {/* Left — text content */}
+        <div className="relative z-20 w-full max-w-7xl mx-auto px-8 sm:px-16 py-16 sm:py-24" style={{width:'48%'}}>
           <div className="flex flex-col gap-7">
             <p style={{color:'#d4a017', fontWeight:'700', fontSize:'11px', letterSpacing:'3px', textTransform:'uppercase'}}>Pure · Fresh · Delivered Daily</p>
             <h2 className="font-[family-name:var(--font-playfair)] text-5xl sm:text-7xl font-bold text-white leading-[1.05]">
@@ -169,46 +206,6 @@ export default function Home() {
               <span style={{background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'999px', padding:'6px 14px', fontSize:'12px', color:'rgba(255,255,255,0.8)', fontWeight:'600'}}>
                 🥛 A1 Cow Milk
               </span>
-            </div>
-          </div>
-
-          {/* Right — product image, no card background */}
-          <div className="flex items-center justify-center relative">
-            {/* Golden glow behind image */}
-            <div style={{position:'absolute', width:'1400px', height:'1400px', borderRadius:'50%', background:'radial-gradient(circle, rgba(212,160,23,0.2) 0%, transparent 70%)', pointerEvents:'none', top:'50%', left:'50%', transform:'translate(-50%,-50%)'}} />
-
-            <div className="relative flex items-center justify-center">
-              {/* Image — no card, just drop shadow on the green bg */}
-              <img
-                src="/product-hero.png"
-                alt="Sri Krishnaa Dairy — Fresh Milk Bottle and Glass"
-                style={{
-                  height:'520px',
-                  width:'auto',
-                  objectFit:'contain',
-                  filter:'drop-shadow(0 32px 80px rgba(0,0,0,0.45)) drop-shadow(0 0 60px rgba(212,160,23,0.12))',
-                  display:'block',
-                  position:'relative',
-                  zIndex:1,
-                }}
-              />
-
-              {/* Floating chips */}
-              <div style={{position:'absolute', top:'-10px', left:'50%', transform:'translateX(-50%)', zIndex:2, background:'linear-gradient(135deg,#d4a017,#f0c040)', borderRadius:'999px', padding:'8px 22px', fontSize:'13px', fontWeight:'800', color:'white', boxShadow:'0 6px 20px rgba(212,160,23,0.6)', whiteSpace:'nowrap', letterSpacing:'0.05em'}}>
-                ✦ Fresh Daily
-              </div>
-
-              <div style={{position:'absolute', top:'100px', right:'-64px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
-                🐄 Farm Direct
-              </div>
-
-              <div style={{position:'absolute', bottom:'130px', right:'-60px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
-                ⏰ By 9 AM
-              </div>
-
-              <div style={{position:'absolute', top:'100px', left:'-60px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
-                🌿 No Additives
-              </div>
             </div>
           </div>
         </div>
