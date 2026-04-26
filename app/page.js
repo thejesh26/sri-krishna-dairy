@@ -165,22 +165,22 @@ export default function Home() {
               ✦ Fresh Daily
             </div>
 
-            <div style={{position:'absolute', top:'22%', right:'4px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
+            <div style={{position:'absolute', top:'22%', right:'32px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
               🐄 Farm Direct
             </div>
 
-            <div style={{position:'absolute', bottom:'25%', right:'4px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
+            <div style={{position:'absolute', bottom:'25%', right:'32px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
               ⏰ By 9 AM
             </div>
 
-            <div style={{position:'absolute', top:'22%', left:'4px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
+            <div style={{position:'absolute', top:'22%', left:'32px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
               🌿 No Additives
             </div>
           </div>
         </div>
 
-        {/* Left — text content */}
-        <div className="relative z-20 w-full max-w-7xl mx-auto px-8 sm:px-16 py-16 sm:py-24" style={{width:'48%'}}>
+        {/* Left — text content, pinned to left edge */}
+        <div className="absolute inset-y-0 left-0 z-20 flex items-center" style={{width:'48%', paddingLeft:'5%', paddingRight:'3%'}}>
           <div className="flex flex-col gap-7">
             <p style={{color:'#d4a017', fontWeight:'700', fontSize:'11px', letterSpacing:'3px', textTransform:'uppercase'}}>Pure · Fresh · Delivered Daily</p>
             <h2 className="font-[family-name:var(--font-playfair)] text-5xl sm:text-7xl font-bold text-white leading-[1.05]">
