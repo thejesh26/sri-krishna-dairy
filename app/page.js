@@ -162,14 +162,14 @@ export default function Home() {
         </div>
 
         {/* Left — text content */}
-        <div className="absolute inset-y-0 left-0 z-20 flex items-center" style={{width:'50%', paddingLeft:'5%', paddingRight:'2%'}}>
-          <div className="flex flex-col gap-6">
+        <div className="absolute inset-y-0 left-0 z-20 flex items-center" style={{width:'48%', paddingLeft:'5%', paddingRight:'0'}}>
+          <div className="flex flex-col gap-6" style={{maxWidth:'480px'}}>
             <p style={{color:'#d4a017', fontWeight:'700', fontSize:'11px', letterSpacing:'3px', textTransform:'uppercase'}}>Pure · Fresh · Delivered Daily</p>
-            <h2 className="font-[family-name:var(--font-playfair)] text-5xl sm:text-6xl font-bold text-white leading-[1.08]">
-              Farm-Fresh Milk,{' '}
+            <h2 className="font-[family-name:var(--font-playfair)] font-bold text-white" style={{fontSize:'clamp(2.6rem, 3.5vw, 3.5rem)', lineHeight:'1.08'}}>
+              Farm-Fresh Milk,<br />
               <span className="text-[#d4a017]">Straight to Your Door</span>
             </h2>
-            <p className="text-green-200 text-base leading-relaxed" style={{maxWidth:'360px'}}>
+            <p className="text-green-200 text-base leading-relaxed">
               Direct from our cows at 4 AM. No middlemen, no preservatives — at your doorstep by 9 AM.
             </p>
 
@@ -183,14 +183,14 @@ export default function Home() {
             </div>
 
             {/* Stat strip */}
-            <div className="flex items-center gap-0 mt-2" style={{borderTop:'1px solid rgba(255,255,255,0.12)', paddingTop:'20px'}}>
+            <div className="flex items-center mt-2" style={{borderTop:'1px solid rgba(255,255,255,0.12)', paddingTop:'20px'}}>
               {[
                 { value: '4 AM', label: 'Milked fresh daily' },
                 { value: 'By 9 AM', label: 'At your doorstep' },
                 { value: '0', label: 'Preservatives added' },
               ].map((stat, i) => (
                 <div key={i} className="flex items-stretch">
-                  <div className="text-center px-5">
+                  <div className="text-center" style={{paddingLeft: i === 0 ? 0 : '20px', paddingRight:'20px'}}>
                     <p className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#d4a017]">{stat.value}</p>
                     <p className="text-green-300 text-xs mt-0.5" style={{whiteSpace:'nowrap'}}>{stat.label}</p>
                   </div>
