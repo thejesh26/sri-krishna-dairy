@@ -162,22 +162,20 @@ export default function Home() {
                 Subscribe
               </Link>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex -space-x-2">
-                {['#2d7a50','#1a5c38','#14472c'].map((c,i) => (
-                  <div key={i} style={{width:30, height:30, borderRadius:'50%', background:c, border:'2px solid rgba(255,255,255,0.35)'}} />
-                ))}
-              </div>
-              <p className="text-green-300 text-sm">
-                <span className="text-white font-semibold">100+ families</span> trust us in Bangalore
-              </p>
+            <div className="flex items-center gap-3">
+              <span style={{background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'999px', padding:'6px 14px', fontSize:'12px', color:'rgba(255,255,255,0.8)', fontWeight:'600'}}>
+                📍 North &amp; East Bangalore
+              </span>
+              <span style={{background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'999px', padding:'6px 14px', fontSize:'12px', color:'rgba(255,255,255,0.8)', fontWeight:'600'}}>
+                🥛 A1 Cow Milk
+              </span>
             </div>
           </div>
 
           {/* Right — product image, no card background */}
           <div className="flex items-center justify-center relative">
             {/* Golden glow behind image */}
-            <div style={{position:'absolute', width:'480px', height:'480px', borderRadius:'50%', background:'radial-gradient(circle, rgba(212,160,23,0.22) 0%, transparent 70%)', pointerEvents:'none', top:'50%', left:'50%', transform:'translate(-50%,-50%)'}} />
+            <div style={{position:'absolute', width:'600px', height:'600px', borderRadius:'50%', background:'radial-gradient(circle, rgba(212,160,23,0.2) 0%, transparent 70%)', pointerEvents:'none', top:'50%', left:'50%', transform:'translate(-50%,-50%)'}} />
 
             <div className="relative flex items-center justify-center">
               {/* Image — no card, just drop shadow on the green bg */}
@@ -185,35 +183,31 @@ export default function Home() {
                 src="/product-hero.png"
                 alt="Sri Krishnaa Dairy — Fresh Milk Bottle and Glass"
                 style={{
-                  height:'420px',
+                  height:'520px',
                   width:'auto',
                   objectFit:'contain',
-                  filter:'drop-shadow(0 24px 60px rgba(0,0,0,0.5)) drop-shadow(0 0 40px rgba(212,160,23,0.15))',
+                  filter:'drop-shadow(0 32px 80px rgba(0,0,0,0.45)) drop-shadow(0 0 60px rgba(212,160,23,0.12))',
                   display:'block',
                   position:'relative',
                   zIndex:1,
                 }}
               />
 
-              {/* Floating chips — positioned relative to image center */}
+              {/* Floating chips */}
               <div style={{position:'absolute', top:'-10px', left:'50%', transform:'translateX(-50%)', zIndex:2, background:'linear-gradient(135deg,#d4a017,#f0c040)', borderRadius:'999px', padding:'8px 22px', fontSize:'13px', fontWeight:'800', color:'white', boxShadow:'0 6px 20px rgba(212,160,23,0.6)', whiteSpace:'nowrap', letterSpacing:'0.05em'}}>
                 ✦ Fresh Daily
               </div>
 
-              <div style={{position:'absolute', top:'80px', right:'-60px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
+              <div style={{position:'absolute', top:'100px', right:'-64px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
                 🐄 Farm Direct
               </div>
 
-              <div style={{position:'absolute', bottom:'100px', right:'-56px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
+              <div style={{position:'absolute', bottom:'130px', right:'-60px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
                 ⏰ By 9 AM
               </div>
 
-              <div style={{position:'absolute', top:'80px', left:'-56px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
+              <div style={{position:'absolute', top:'100px', left:'-60px', zIndex:2, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'999px', padding:'9px 16px', fontSize:'12px', fontWeight:'700', color:'white', whiteSpace:'nowrap'}}>
                 🌿 No Additives
-              </div>
-
-              <div style={{position:'absolute', bottom:'30px', left:'50%', transform:'translateX(-50%)', zIndex:2, background:'rgba(255,255,255,0.1)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'999px', padding:'6px 16px', fontSize:'10px', fontWeight:'700', color:'rgba(255,255,255,0.85)', whiteSpace:'nowrap'}}>
-                ✅ FSSAI Lic. 21225008004544
               </div>
             </div>
           </div>
