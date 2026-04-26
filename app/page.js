@@ -175,7 +175,7 @@ export default function Home() {
           {/* Right — product image, no card background */}
           <div className="flex items-center justify-center relative">
             {/* Golden glow behind image */}
-            <div style={{position:'absolute', width:'1000px', height:'1000px', borderRadius:'50%', background:'radial-gradient(circle, rgba(212,160,23,0.2) 0%, transparent 70%)', pointerEvents:'none', top:'50%', left:'50%', transform:'translate(-50%,-50%)'}} />
+            <div style={{position:'absolute', width:'1400px', height:'1400px', borderRadius:'50%', background:'radial-gradient(circle, rgba(212,160,23,0.2) 0%, transparent 70%)', pointerEvents:'none', top:'50%', left:'50%', transform:'translate(-50%,-50%)'}} />
 
             <div className="relative flex items-center justify-center">
               {/* Image — no card, just drop shadow on the green bg */}
