@@ -7,15 +7,27 @@ export default function DisclaimerPopup() {
   const [checked, setChecked] = useState(false)
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const accepted = localStorage.getItem('sk_disclaimer_accepted')
-      if (!accepted) setShow(true)
+    const checkDisclaimer = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.user) return
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('disclaimer_accepted')
+          .eq('id', session.user.id)
+          .single()
+        if (!profile?.disclaimer_accepted) setShow(true)
+      } catch {
+        if (typeof window !== 'undefined') {
+          const accepted = localStorage.getItem('sk_disclaimer_accepted')
+          if (!accepted) setShow(true)
+        }
+      }
     }
+    checkDisclaimer()
   }, [])
 
   const handleAccept = async () => {
-    localStorage.setItem('sk_disclaimer_accepted', 'true')
-    // Save to DB so we have a server-side record
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user?.id) {
@@ -23,9 +35,14 @@ export default function DisclaimerPopup() {
           .from('profiles')
           .update({ disclaimer_accepted: true })
           .eq('id', session.user.id)
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('sk_disclaimer_accepted', 'true')
+        }
       }
     } catch {
-      // Non-blocking — localStorage acceptance is the primary gate
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sk_disclaimer_accepted', 'true')
+      }
     }
     setShow(false)
   }
@@ -107,9 +124,7 @@ export default function DisclaimerPopup() {
               className="mt-0.5 w-4 h-4 flex-shrink-0 accent-[#1a5c38] cursor-pointer"
             />
             <span className="text-xs text-[#4a4a4a] leading-relaxed">
-              I have read and understood the health disclaimer. I acknowledge that raw milk should be boiled before
-              consumption and Sri Krishnaa Dairy Farms is not responsible for any health issues arising from
-              consumption of unboiled milk.
+              I understand raw milk must be boiled before consumption. I accept the health disclaimer.
             </span>
           </label>
 

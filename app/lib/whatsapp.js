@@ -7,13 +7,16 @@ const ADMIN_PHONE = '919980166221'
  */
 function formatPhone(phone) {
   if (!phone) return null
-  const digits = String(phone).replace(/[\s\-+]/g, '')
-  // Already has country code
-  if (digits.startsWith('91') && digits.length === 12) return digits
-  // Strip leading 0
-  const local = digits.startsWith('0') ? digits.slice(1) : digits
-  if (local.length !== 10) return null
-  return '91' + local
+  const digits = String(phone).replace(/\D/g, '')
+  // Strip leading 91 country code if present
+  const local = digits.startsWith('91') && digits.length > 10 ? digits.slice(2) : digits
+  // Take last 10 digits
+  const last10 = local.slice(-10)
+  if (last10.length !== 10) {
+    console.warn('[WhatsApp] Invalid phone number:', phone)
+    return null
+  }
+  return '91' + last10
 }
 
 /**

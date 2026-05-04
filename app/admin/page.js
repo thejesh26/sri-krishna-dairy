@@ -19,7 +19,9 @@ export default function AdminDashboard() {
   const [todaySubscriptions, setTodaySubscriptions] = useState([])
   const [subDeliveryStatuses, setSubDeliveryStatuses] = useState({})
   const [deliveryAgents, setDeliveryAgents] = useState([])
-const [assigningOrder, setAssigningOrder] = useState(null)
+  const [assigningOrder, setAssigningOrder] = useState(null)
+  const [stopSubPopup, setStopSubPopup] = useState(null)
+  const [stoppingSubId, setStoppingSubId] = useState(null)
   const [wallets, setWallets] = useState([])
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [walletAmount, setWalletAmount] = useState('')
@@ -220,6 +222,7 @@ const [assigningOrder, setAssigningOrder] = useState(null)
       .select('*')
       .order('created_at', { ascending: false })
     setCustomers((allCustomers || []).filter(c => !c.is_admin))
+    setDeliveryAgents((allCustomers || []).filter(c => c.is_delivery))
 
     // Calculate stats
     const todayRevenue = todayO.reduce((sum, o) => sum + (o.total_price || 0), 0)
@@ -707,8 +710,8 @@ setWallets(allWallets || [])
                         {sub.products?.size} x {sub.quantity} • {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
                       </p>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-bold text-[#1a5c38] mb-2">Rs.{(sub.products?.price || 0) * sub.quantity}</p>
+                    <div className="text-right flex-shrink-0 flex flex-col gap-1">
+                      <p className="font-bold text-[#1a5c38] mb-1">Rs.{(sub.products?.price || 0) * sub.quantity}</p>
                       <select
                         value={subDeliveryStatuses[sub.id] || 'pending'}
                         onChange={(e) => setSubDeliveryStatuses(prev => ({ ...prev, [sub.id]: e.target.value }))}
@@ -726,6 +729,23 @@ setWallets(allWallets || [])
                         <option value="delivered">Delivered</option>
                         <option value="missed">Missed</option>
                       </select>
+                      {deliveryAgents.length > 0 && (
+                        <select
+                          value={sub.assigned_to || ''}
+                          onChange={async (e) => {
+                            const agentId = e.target.value
+                            await supabase.from('subscriptions')
+                              .update({ assigned_to: agentId || null })
+                              .eq('id', sub.id)
+                            setTodaySubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, assigned_to: agentId } : s))
+                          }}
+                          className="text-xs border border-[#e8e0d0] rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]">
+                          <option value="">Unassigned</option>
+                          {deliveryAgents.map(agent => (
+                            <option key={agent.id} value={agent.id}>{agent.full_name}</option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -742,8 +762,8 @@ setWallets(allWallets || [])
                         {order.products?.size} x {order.quantity} • {order.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
                       </p>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-bold text-[#1a5c38] mb-2">Rs.{order.total_price}</p>
+                    <div className="text-right flex-shrink-0 flex flex-col gap-1">
+                      <p className="font-bold text-[#1a5c38] mb-1">Rs.{order.total_price}</p>
                       <select
                         value={order.status}
                         onChange={(e) => updateOrderStatus(order.id, e.target.value)}
@@ -759,6 +779,23 @@ setWallets(allWallets || [])
                         <option value="delivered">Delivered</option>
                         <option value="cancelled">Cancelled</option>
                       </select>
+                      {deliveryAgents.length > 0 && (
+                        <select
+                          value={order.assigned_to || ''}
+                          onChange={async (e) => {
+                            const agentId = e.target.value
+                            await supabase.from('orders')
+                              .update({ assigned_to: agentId || null })
+                              .eq('id', order.id)
+                            setTodayOrders(prev => prev.map(o => o.id === order.id ? { ...o, assigned_to: agentId } : o))
+                          }}
+                          className="text-xs border border-[#e8e0d0] rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]">
+                          <option value="">Unassigned</option>
+                          {deliveryAgents.map(agent => (
+                            <option key={agent.id} value={agent.id}>{agent.full_name}</option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -949,12 +986,34 @@ setWallets(allWallets || [])
                         )}
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
+                    <div className="text-right flex-shrink-0 flex flex-col gap-1.5">
                       <p className="font-bold text-[#1a5c38]">Rs.{sub.products?.price * sub.quantity}/day</p>
-                      <p className="text-xs text-gray-400 mt-1">Since {new Date(sub.start_date).toLocaleDateString('en-IN')}</p>
+                      <p className="text-xs text-gray-400">Since {new Date(sub.start_date).toLocaleDateString('en-IN')}</p>
                       {sub.bottle_deposit > 0 && (
-                        <p className="text-xs text-[#d4a017] mt-1">Deposit: Rs.{sub.bottle_deposit}</p>
+                        <p className="text-xs text-[#d4a017]">Deposit: Rs.{sub.bottle_deposit}</p>
                       )}
+                      {deliveryAgents.length > 0 && (
+                        <select
+                          value={sub.assigned_to || ''}
+                          onChange={async (e) => {
+                            const agentId = e.target.value
+                            await supabase.from('subscriptions')
+                              .update({ assigned_to: agentId || null })
+                              .eq('id', sub.id)
+                            setSubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, assigned_to: agentId } : s))
+                          }}
+                          className="text-xs border border-[#e8e0d0] rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]">
+                          <option value="">Unassigned</option>
+                          {deliveryAgents.map(agent => (
+                            <option key={agent.id} value={agent.id}>{agent.full_name}</option>
+                          ))}
+                        </select>
+                      )}
+                      <button
+                        onClick={() => setStopSubPopup(sub)}
+                        className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition font-semibold">
+                        Stop
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -2112,6 +2171,51 @@ setWallets(allWallets || [])
           )}
         </div>
 
+      </div>
+    )}
+
+    {/* ── Stop Subscription Modal ── */}
+    {stopSubPopup && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+          <h3 className="font-bold text-lg text-[#1c1c1c] mb-3">Stop Subscription?</h3>
+          <p className="text-sm text-gray-500 mb-5">
+            Are you sure you want to stop this subscription for{' '}
+            <strong>{stopSubPopup.profiles?.full_name}</strong>?
+            <br />
+            <span className="text-xs text-gray-400">This will send an email and WhatsApp notification to the customer.</span>
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setStopSubPopup(null)}
+              className="flex-1 border border-[#e8e0d0] text-gray-600 font-semibold py-3 rounded-xl text-sm hover:bg-gray-50 transition">
+              Cancel
+            </button>
+            <button
+              disabled={stoppingSubId === stopSubPopup.id}
+              onClick={async () => {
+                setStoppingSubId(stopSubPopup.id)
+                const { data: { session } } = await supabase.auth.getSession()
+                const res = await fetch('/api/admin/stop-subscription', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                  body: JSON.stringify({ subscription_id: stopSubPopup.id }),
+                })
+                if (res.ok) {
+                  setSubscriptions(prev => prev.filter(s => s.id !== stopSubPopup.id))
+                  setTodaySubscriptions(prev => prev.filter(s => s.id !== stopSubPopup.id))
+                  showSuccess(`Subscription stopped for ${stopSubPopup.profiles?.full_name}`)
+                  setStopSubPopup(null)
+                } else {
+                  showError('Failed to stop subscription. Please try again.')
+                }
+                setStoppingSubId(null)
+              }}
+              className="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl text-sm hover:bg-red-600 transition disabled:opacity-50">
+              {stoppingSubId === stopSubPopup.id ? 'Stopping...' : 'Yes, Stop'}
+            </button>
+          </div>
+        </div>
       </div>
     )}
 

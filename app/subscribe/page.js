@@ -8,25 +8,13 @@ import { SkeletonProductCard } from '../components/Skeleton'
 import Footer from '../components/Footer'
 
 function getMinDate() {
-  const now = new Date()
-  const istTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
-  const hours = istTime.getHours()
-  const minDate = new Date(istTime)
-  if (hours >= 18) {
-    minDate.setDate(minDate.getDate() + 2)
-  } else {
-    minDate.setDate(minDate.getDate() + 1)
-  }
-  return minDate.toISOString().split('T')[0]
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  return tomorrow.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 }
 
 function getDateHelperText() {
-  const now = new Date()
-  const istTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
-  if (istTime.getHours() >= 18) {
-    return { primary: "Today's ordering closed.", secondary: "Next available: Day after tomorrow" }
-  }
-  return { primary: "Order before 6PM today for tomorrow's delivery", secondary: null }
+  return { primary: "Delivery starts from tomorrow", secondary: null }
 }
 
 export default function Subscribe() {

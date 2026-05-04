@@ -169,7 +169,7 @@ export default function Dashboard() {
     )
     const deliveredOrders = monthOrders.filter(o => o.status === 'delivered')
 
-    const orderBottles = monthOrders.reduce((s, o) => s + (o.quantity || 0), 0)
+    const orderBottles = deliveredOrders.reduce((s, o) => s + (o.quantity || 0), 0)
     // Count subscription deliveries this month
     const subBottles = subDeliveries
       .filter(d => d.delivery_date?.startsWith(monthPrefix))
