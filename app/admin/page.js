@@ -83,6 +83,11 @@ export default function AdminDashboard() {
   const [waitlistEntries, setWaitlistEntries] = useState([])
   const [newHoliday, setNewHoliday] = useState('')
   const [invitingId, setInvitingId] = useState(null)
+  const [resendWaLoading, setResendWaLoading] = useState({})
+  const [customWaModal, setCustomWaModal] = useState(null)
+  const [customWaMessage, setCustomWaMessage] = useState('')
+  const [customWaType, setCustomWaType] = useState('custom')
+  const [customWaLoading, setCustomWaLoading] = useState(false)
 
   useEffect(() => { checkAdmin() }, [])
 
@@ -865,6 +870,11 @@ setWallets(allWallets || [])
                         <td className="px-6 py-4">
                           <p className="text-[#1c1c1c]">{order.products?.size}</p>
                           <p className="text-xs text-gray-400">x{order.quantity}</p>
+                          {(order.payment_method === 'cod' || order.payment_method === 'trial') && (
+                            <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 inline-block mt-1">
+                              {order.payment_method === 'trial' ? 'TRIAL' : 'COD'}
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-gray-500">
                           {new Date(order.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -891,15 +901,33 @@ setWallets(allWallets || [])
                           </select>
                         </td>
                         <td className="px-6 py-4">
-                          <button onClick={async () => {
-                            const { data: { session } } = await supabase.auth.getSession()
-                            const res = await fetch(`/api/invoice/${order.id}`, { headers: { Authorization: `Bearer ${session?.access_token}` } })
-                            const html = await res.text()
-                            const blob = new Blob([html], { type: 'text/html' })
-                            const url = URL.createObjectURL(blob)
-                            const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.click()
-                            setTimeout(() => URL.revokeObjectURL(url), 5000)
-                          }} className="text-xs text-[#1a5c38] underline hover:text-[#14472c]">Invoice</button>
+                          <div className="flex flex-col gap-1.5">
+                            <button onClick={async () => {
+                              const { data: { session } } = await supabase.auth.getSession()
+                              const res = await fetch(`/api/invoice/${order.id}`, { headers: { Authorization: `Bearer ${session?.access_token}` } })
+                              const html = await res.text()
+                              const blob = new Blob([html], { type: 'text/html' })
+                              const url = URL.createObjectURL(blob)
+                              const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.click()
+                              setTimeout(() => URL.revokeObjectURL(url), 5000)
+                            }} className="text-xs text-[#1a5c38] underline hover:text-[#14472c]">Invoice</button>
+                            <button
+                              disabled={resendWaLoading[order.id]}
+                              onClick={async () => {
+                                setResendWaLoading(prev => ({ ...prev, [order.id]: true }))
+                                const { data: { session } } = await supabase.auth.getSession()
+                                const res = await fetch('/api/admin/resend-whatsapp', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                                  body: JSON.stringify({ userId: order.user_id, messageType: 'order_confirmation', targetId: order.id }),
+                                })
+                                setResendWaLoading(prev => ({ ...prev, [order.id]: false }))
+                                if (res.ok) showSuccess('WhatsApp sent!') else showError('Failed to send WhatsApp')
+                              }}
+                              className="text-xs text-[#25D366] underline hover:text-[#1da851] disabled:opacity-40">
+                              {resendWaLoading[order.id] ? 'Sending...' : 'Resend WA'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1010,6 +1038,22 @@ setWallets(allWallets || [])
                         </select>
                       )}
                       <button
+                        disabled={resendWaLoading[sub.id]}
+                        onClick={async () => {
+                          setResendWaLoading(prev => ({ ...prev, [sub.id]: true }))
+                          const { data: { session } } = await supabase.auth.getSession()
+                          const res = await fetch('/api/admin/resend-whatsapp', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                            body: JSON.stringify({ userId: sub.user_id, messageType: 'subscription_active', targetId: sub.id }),
+                          })
+                          setResendWaLoading(prev => ({ ...prev, [sub.id]: false }))
+                          if (res.ok) showSuccess('WhatsApp sent!') else showError('Failed to send WhatsApp')
+                        }}
+                        className="text-xs bg-[#25D366] text-white px-3 py-1.5 rounded-lg hover:bg-[#1da851] transition font-semibold disabled:opacity-50">
+                        {resendWaLoading[sub.id] ? '...' : 'Resend WA'}
+                      </button>
+                      <button
                         onClick={() => setStopSubPopup(sub)}
                         className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition font-semibold">
                         Stop
@@ -1113,6 +1157,15 @@ setWallets(allWallets || [])
                         </svg>
                         WhatsApp
                       </a>
+                      <button
+                        onClick={() => {
+                          setCustomWaModal(customer)
+                          setCustomWaType('custom')
+                          setCustomWaMessage('')
+                        }}
+                        className="text-xs bg-[#25D366] text-white px-2.5 py-1 rounded-lg hover:bg-[#1da851] transition font-semibold">
+                        Send WA
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -2213,6 +2266,70 @@ setWallets(allWallets || [])
               }}
               className="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl text-sm hover:bg-red-600 transition disabled:opacity-50">
               {stoppingSubId === stopSubPopup.id ? 'Stopping...' : 'Yes, Stop'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ── Send WhatsApp Modal ── */}
+    {customWaModal && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-lg text-[#1c1c1c]">Send WhatsApp</h3>
+            <button onClick={() => setCustomWaModal(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">To: <strong className="text-[#1c1c1c]">{customWaModal.full_name}</strong> ({customWaModal.phone})</p>
+          <div className="mb-4">
+            <label className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2 block">Message Type</label>
+            <select
+              value={customWaType}
+              onChange={e => setCustomWaType(e.target.value)}
+              className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]">
+              <option value="order_confirmation">Order Confirmation</option>
+              <option value="subscription_active">Subscription Active</option>
+              <option value="low_balance">Low Balance Alert</option>
+              <option value="custom">Custom Message</option>
+            </select>
+          </div>
+          {customWaType === 'custom' && (
+            <div className="mb-4">
+              <label className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2 block">Message</label>
+              <textarea
+                value={customWaMessage}
+                onChange={e => setCustomWaMessage(e.target.value)}
+                placeholder="Type your message..."
+                rows={4}
+                className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38] resize-none"
+              />
+            </div>
+          )}
+          <div className="flex gap-3">
+            <button onClick={() => setCustomWaModal(null)}
+              className="flex-1 border border-[#e8e0d0] text-gray-600 font-semibold py-3 rounded-xl text-sm hover:bg-gray-50 transition">
+              Cancel
+            </button>
+            <button
+              disabled={customWaLoading || (customWaType === 'custom' && !customWaMessage.trim())}
+              onClick={async () => {
+                setCustomWaLoading(true)
+                const { data: { session } } = await supabase.auth.getSession()
+                const res = await fetch('/api/admin/resend-whatsapp', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                  body: JSON.stringify({ userId: customWaModal.id, messageType: customWaType, customMessage: customWaMessage }),
+                })
+                setCustomWaLoading(false)
+                if (res.ok) {
+                  showSuccess('WhatsApp sent to ' + customWaModal.full_name)
+                  setCustomWaModal(null)
+                } else {
+                  showError('Failed to send WhatsApp')
+                }
+              }}
+              className="flex-1 bg-[#25D366] text-white font-bold py-3 rounded-xl text-sm hover:bg-[#1da851] transition disabled:opacity-50">
+              {customWaLoading ? 'Sending...' : 'Send'}
             </button>
           </div>
         </div>
