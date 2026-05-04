@@ -1,6 +1,6 @@
-import { createServerClient } from '../../../../lib/supabase-server'
-import { sendEmail } from '../../../../lib/email'
-import { sendWhatsAppMessage } from '../../../../lib/whatsapp'
+import { createServerClient } from '../../../lib/supabase-server'
+import { sendEmail } from '../../../lib/email'
+import { sendWhatsAppMessage } from '../../../lib/whatsapp'
 
 export async function POST(request) {
   try {
