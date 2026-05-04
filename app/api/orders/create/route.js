@@ -177,8 +177,11 @@ export async function POST(request) {
       .single()
 
     if (insertError) {
+      console.error('[orders/create] Insert error:', insertError.message)
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
+
+    console.log('[orders/create] COD trial order created:', order.id, 'user:', user.id, 'date:', delivery_date)
 
     // ── 8. Mark COD trial as used (one COD order allowed per customer) ───────
     await supabase

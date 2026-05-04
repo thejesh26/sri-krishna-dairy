@@ -879,7 +879,12 @@ export default function Dashboard() {
                       <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain" />
                     </div>
                     <div className="flex-1">
-                      <p className="font-semibold text-[#1c1c1c] text-sm">{order.products?.size} x {order.quantity}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-[#1c1c1c] text-sm">{order.products?.size} x {order.quantity}</p>
+                        {order.payment_method?.toUpperCase() === 'COD' && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700">TRIAL</span>
+                        )}
+                      </div>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {new Date(order.delivery_date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })} •
                         {order.delivery_slot === 'morning' ? ' 🌅 Morning' : ' 🌆 Evening'}

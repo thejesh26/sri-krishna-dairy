@@ -870,9 +870,9 @@ setWallets(allWallets || [])
                         <td className="px-6 py-4">
                           <p className="text-[#1c1c1c]">{order.products?.size}</p>
                           <p className="text-xs text-gray-400">x{order.quantity}</p>
-                          {(order.payment_method === 'cod' || order.payment_method === 'trial') && (
+                          {order.payment_method?.toUpperCase() === 'COD' && (
                             <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 inline-block mt-1">
-                              {order.payment_method === 'trial' ? 'TRIAL' : 'COD'}
+                              TRIAL
                             </span>
                           )}
                         </td>

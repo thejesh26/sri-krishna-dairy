@@ -47,11 +47,20 @@ export default function Profile() {
   }
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value })
+    const { name, value } = e.target
+    if (name === 'phone') {
+      setForm({ ...form, phone: value.replace(/\D/g, '').slice(0, 10) })
+    } else {
+      setForm({ ...form, [name]: value })
+    }
   }
 
   const handleSave = async (e) => {
     e.preventDefault()
+    if (form.phone && form.phone.replace(/\D/g, '').length !== 10) {
+      showError('Phone number must be exactly 10 digits.')
+      return
+    }
     setSaving(true)
 
     const fullAddress = form.apartment_name + ', ' + form.flat_number + ', ' + form.area + ', Bangalore'
@@ -128,6 +137,8 @@ export default function Profile() {
                 <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Phone Number</label>
                 <input name="phone" value={form.phone}
                   onChange={handleChange} required maxLength={10}
+                  inputMode="numeric" pattern="[0-9]{10}"
+                  placeholder="10-digit mobile number"
                   className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
               </div>
             </div>
