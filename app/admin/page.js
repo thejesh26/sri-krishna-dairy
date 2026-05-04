@@ -922,7 +922,7 @@ setWallets(allWallets || [])
                                   body: JSON.stringify({ userId: order.user_id, messageType: 'order_confirmation', targetId: order.id }),
                                 })
                                 setResendWaLoading(prev => ({ ...prev, [order.id]: false }))
-                                if (res.ok) showSuccess('WhatsApp sent!') else showError('Failed to send WhatsApp')
+                                res.ok ? showSuccess('WhatsApp sent!') : showError('Failed to send WhatsApp')
                               }}
                               className="text-xs text-[#25D366] underline hover:text-[#1da851] disabled:opacity-40">
                               {resendWaLoading[order.id] ? 'Sending...' : 'Resend WA'}
@@ -1048,7 +1048,7 @@ setWallets(allWallets || [])
                             body: JSON.stringify({ userId: sub.user_id, messageType: 'subscription_active', targetId: sub.id }),
                           })
                           setResendWaLoading(prev => ({ ...prev, [sub.id]: false }))
-                          if (res.ok) showSuccess('WhatsApp sent!') else showError('Failed to send WhatsApp')
+                          res.ok ? showSuccess('WhatsApp sent!') : showError('Failed to send WhatsApp')
                         }}
                         className="text-xs bg-[#25D366] text-white px-3 py-1.5 rounded-lg hover:bg-[#1da851] transition font-semibold disabled:opacity-50">
                         {resendWaLoading[sub.id] ? '...' : 'Resend WA'}
