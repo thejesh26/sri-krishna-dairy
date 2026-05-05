@@ -146,7 +146,6 @@ export default function AdminDashboard() {
         *,
         products(*)
       `)
-      .eq('is_active', true)
       .order('created_at', { ascending: false })
 
     // Fetch profiles separately for subscriptions
@@ -240,9 +239,9 @@ export default function AdminDashboard() {
 
     // Load all wallets
     const { data: allWallets } = await supabase
-  .from('wallet')
-  .select('*')
-setWallets(allWallets || [])
+      .from('wallet')
+      .select('*')
+    setWallets(allWallets || [])
     setStats({
       totalOrders: allOrders?.length || 0,
       totalSubscriptions: allSubs?.length || 0,
@@ -977,13 +976,13 @@ setWallets(allWallets || [])
         {activeTab === 'subscriptions' && (
           <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
             <div className="px-6 py-5 border-b border-[#f5f0e8]">
-              <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Active Subscriptions</h3>
-              <p className="text-xs text-gray-400 mt-0.5">{subscriptions.length} active plans</p>
+              <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">All Subscriptions</h3>
+              <p className="text-xs text-gray-400 mt-0.5">{subscriptions.filter(s => s.is_active).length} active · {subscriptions.filter(s => !s.is_active).length} inactive</p>
             </div>
             {subscriptions.length === 0 ? (
               <div className="px-6 py-12 text-center">
                 <div className="text-5xl mb-3">📅</div>
-                <p className="text-gray-400">No active subscriptions</p>
+                <p className="text-gray-400">No subscriptions yet</p>
               </div>
             ) : (
               <div>
@@ -1007,6 +1006,16 @@ setWallets(allWallets || [])
                         <span className="bg-[#f5f0e8] text-[#1c1c1c] text-xs font-medium px-2 py-0.5 rounded-full">
                           {sub.subscription_type === 'ongoing' ? 'Ongoing' : sub.subscription_type === 'fixed' ? 'Fixed' : '1 Day'}
                         </span>
+                        {!sub.is_active && (
+                          <span className="bg-red-50 text-red-600 text-xs font-medium px-2 py-0.5 rounded-full border border-red-200">
+                            Inactive
+                          </span>
+                        )}
+                        {sub.is_active && sub.start_date > new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) && (
+                          <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-medium px-2 py-0.5 rounded-full border border-[#f0dfa0]">
+                            Starting {new Date(sub.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                          </span>
+                        )}
                         {sub.paused_dates?.length > 0 && (
                           <span className="bg-yellow-50 text-yellow-600 text-xs font-medium px-2 py-0.5 rounded-full border border-yellow-200">
                             {sub.paused_dates.length} paused

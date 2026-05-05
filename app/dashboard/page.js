@@ -32,7 +32,6 @@ export default function Dashboard() {
   const [copyMsg, setCopyMsg] = useState('')
   const [redeemMsg, setRedeemMsg] = useState('')
   const [redeemLoading, setRedeemLoading] = useState(false)
-  const [inactiveSubs, setInactiveSubs] = useState([])
   const [subDeliveries, setSubDeliveries] = useState([])
   const [reactivatingId, setReactivatingId] = useState(null)
   const [reactivateMsg, setReactivateMsg] = useState('')
@@ -71,12 +70,8 @@ export default function Dashboard() {
     setAllOrders(allOrd || [])
 
     const { data: subs } = await supabase.from('subscriptions').select('*, products(*)')
-      .eq('user_id', u.id).eq('is_active', true)
+      .eq('user_id', u.id).order('created_at', { ascending: false })
     setSubscriptions(subs || [])
-
-    const { data: inactiveSubs } = await supabase.from('subscriptions').select('*, products(*)')
-      .eq('user_id', u.id).eq('is_active', false).order('created_at', { ascending: false }).limit(5)
-    setInactiveSubs(inactiveSubs || [])
 
     const { data: subDels } = await supabase.from('subscription_deliveries')
       .select('delivery_date, subscriptions(quantity)')
@@ -116,12 +111,7 @@ export default function Dashboard() {
     if (!res.ok) {
       setReactivateMsg('❌ ' + (result.error || 'Could not reactivate.'))
     } else {
-      // Move sub from inactive to active list
-      const reactivated = inactiveSubs.find(s => s.id === subId)
-      if (reactivated) {
-        setSubscriptions(prev => [...prev, { ...reactivated, is_active: true }])
-        setInactiveSubs(prev => prev.filter(s => s.id !== subId))
-      }
+      setSubscriptions(prev => prev.map(s => s.id === subId ? { ...s, is_active: true } : s))
       setReactivateMsg('✅ Subscription reactivated!')
     }
     setReactivatingId(null)
@@ -207,9 +197,9 @@ export default function Dashboard() {
   const greeting = getGreeting()
   const firstName = profile?.full_name?.split(' ')[0] || 'Customer'
   const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-  // Only subscriptions that have actually started (start_date <= today IST)
+  // Subscriptions that are active and have started (start_date <= today IST)
   const activeSubscriptions = subscriptions.filter(s =>
-    s.start_date <= todayIST && (!s.end_date || s.end_date >= todayIST)
+    s.is_active && s.start_date <= todayIST && (!s.end_date || s.end_date >= todayIST)
   )
   const totalDailyValue = activeSubscriptions.reduce((sum, sub) => sum + Math.round((sub.products?.price || 0) * sub.quantity * (1 - (sub.discount_percent || 0) / 100)), 0)
   const nextDelivery = activeSubscriptions[0]
@@ -388,7 +378,7 @@ export default function Dashboard() {
                   + New Plan
                 </a>
               </div>
-              {subscriptions.length === 0 ? (
+              {subscriptions.filter(s => s.is_active).length === 0 ? (
                 <div className="px-6 py-10 text-center">
                   <div className="flex justify-center mb-3"><img src="/bottle.png" alt="Milk" className="h-20 object-contain opacity-40 drop-shadow" /></div>
                   <p className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-2">No Active Subscriptions</p>
@@ -397,26 +387,28 @@ export default function Dashboard() {
                     style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>Subscribe Now</a>
                 </div>
               ) : (
-                subscriptions.map((sub, index) => {
+                subscriptions.filter(s => s.is_active).map((sub, index) => {
+                  const activeSubs = subscriptions.filter(s => s.is_active)
                   const fullPrice = sub.products?.price * sub.quantity
                   const discountedPrice = sub.discount_percent > 0
                     ? Math.round(fullPrice * (1 - sub.discount_percent / 100))
                     : fullPrice
                   const monthlyCost = discountedPrice * 30
+                  const isUpcoming = sub.start_date > todayIST
                   return (
                   <div key={sub.id}
-                    className={`px-6 py-5 flex items-center gap-5 ${index !== subscriptions.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                    className={`px-6 py-5 flex items-center gap-5 ${index !== activeSubs.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
                     <div className="w-16 h-16 rounded-2xl bg-[#f5f0e8] flex items-center justify-center flex-shrink-0 p-2">
                       <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain" />
                     </div>
                     <div className="flex-1">
                       <p className="font-semibold text-[#1c1c1c]">{sub.products?.size} Fresh Cow Milk</p>
-                      <p className="text-sm text-gray-400 mt-1">
-                        {sub.quantity} bottle/day • {sub.start_date > todayIST ? 'Starts' : 'Started'} {new Date(sub.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      <p className={`text-sm mt-1 font-medium ${isUpcoming ? 'text-[#d4a017]' : 'text-[#1a5c38]'}`}>
+                        {isUpcoming ? 'Starting' : 'Active since'} {new Date(sub.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </p>
                       <div className="flex flex-wrap gap-2 mt-2">
-                        <span className={`text-xs font-medium px-3 py-1 rounded-full border ${sub.start_date > todayIST ? 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]' : 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'}`}>
-                          {sub.start_date > todayIST ? 'Upcoming' : 'Active'}
+                        <span className={`text-xs font-medium px-3 py-1 rounded-full border ${isUpcoming ? 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]' : 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'}`}>
+                          {isUpcoming ? 'Starting ' + new Date(sub.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'Active'}
                         </span>
                         <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-medium px-3 py-1 rounded-full border border-[#f0dfa0]">
                           {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
@@ -440,7 +432,7 @@ export default function Dashboard() {
             </div>
 
             {/* Inactive Subscriptions */}
-            {inactiveSubs.length > 0 && (
+            {subscriptions.filter(s => !s.is_active).length > 0 && (
               <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
                 <div className="px-6 py-5 border-b border-[#f5f0e8]">
                   <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Inactive Subscriptions</h3>
@@ -451,7 +443,8 @@ export default function Dashboard() {
                     {reactivateMsg}
                   </div>
                 )}
-                {inactiveSubs.map((sub, index) => {
+                {subscriptions.filter(s => !s.is_active).map((sub, index) => {
+                  const inactiveSubs = subscriptions.filter(s => !s.is_active)
                   const dailyCost = Math.round(sub.products?.price * sub.quantity * (1 - (sub.discount_percent || 0) / 100))
                   const canReactivate = walletBalance >= dailyCost
                   return (
@@ -644,9 +637,10 @@ export default function Dashboard() {
             </div>
 
             {/* Review Prompt — show if sub > 7 days old and hasn't reviewed */}
-            {!profile?.has_reviewed && subscriptions.length > 0 && (() => {
-              const subAge = subscriptions[0]?.created_at
-                ? (Date.now() - new Date(subscriptions[0].created_at)) / (1000 * 60 * 60 * 24)
+            {!profile?.has_reviewed && subscriptions.filter(s => s.is_active).length > 0 && (() => {
+              const firstActive = subscriptions.find(s => s.is_active)
+              const subAge = firstActive?.created_at
+                ? (Date.now() - new Date(firstActive.created_at)) / (1000 * 60 * 60 * 24)
                 : 0
               return subAge >= 7
             })() && (
