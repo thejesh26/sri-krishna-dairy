@@ -104,7 +104,7 @@ To unsubscribe, email hello@srikrishnaadairy.in with subject "unsubscribe".`
 
 // ── 1. Order Placed ───────────────────────────────────────────────────────────
 export async function sendOrderConfirmationEmail({ to, name, product, quantity, deliveryDate, deliverySlot, totalAmount }) {
-  const slotLabel = deliverySlot === 'morning' ? 'Morning (5AM - 8AM)' : 'Evening (5PM - 7PM)'
+  const slotLabel = deliverySlot === 'morning' ? 'Morning (7AM - 9AM)' : 'Evening (5PM - 7PM)'
   const slotEmoji = deliverySlot === 'morning' ? '🌅' : '🌆'
   const formattedDate = new Date(deliveryDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 
@@ -164,7 +164,7 @@ ${TEXT_FOOTER}`
 
 // ── 2. Subscription Activated ─────────────────────────────────────────────────
 export async function sendSubscriptionConfirmationEmail({ to, name, product, quantity, startDate, deliverySlot, dailyAmount }) {
-  const slotLabel = deliverySlot === 'morning' ? 'Morning (5AM - 8AM)' : 'Evening (5PM - 7PM)'
+  const slotLabel = deliverySlot === 'morning' ? 'Morning (7AM - 9AM)' : 'Evening (5PM - 7PM)'
   const slotEmoji = deliverySlot === 'morning' ? '🌅' : '🌆'
   const formattedStart = new Date(startDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 

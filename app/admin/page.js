@@ -165,6 +165,7 @@ export default function AdminDashboard() {
 
     // Today's active subscription deliveries
     const todaySubs = (allSubs || []).filter(sub =>
+      sub.is_active === true &&
       sub.start_date <= today &&
       (!sub.end_date || sub.end_date >= today) &&
       !(sub.paused_dates || []).includes(today)

@@ -40,9 +40,11 @@ export async function POST(request) {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('full_name, phone, email')
+      .select('full_name, phone')
       .eq('id', sub.user_id)
       .single()
+
+    const { data: { user: customerUser } } = await supabase.auth.admin.getUserById(sub.user_id)
 
     await supabase
       .from('subscriptions')
@@ -50,7 +52,7 @@ export async function POST(request) {
       .eq('id', subscription_id)
 
     const name = profile?.full_name || 'Customer'
-    const email = profile?.email
+    const email = customerUser?.email
 
     if (email) {
       await sendEmail({

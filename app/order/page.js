@@ -90,7 +90,7 @@ export default function Order() {
       .select('id')
       .eq('user_id', user.id)
       .eq('delivery_date', deliveryDate)
-      .single()
+      .maybeSingle()
 
     if (existingOrder) {
       showInfo("You've already placed an order for this date. Please choose a different delivery date.")

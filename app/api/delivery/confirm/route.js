@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
-import { sendDeliveryConfirmed, notifyCodUpsell, sendLowBalanceAlert, sendWhatsAppMessage, sendWhatsAppToAdmin } from '../../../lib/whatsapp'
+import { sendDeliveryConfirmed, notifyCodUpsell, sendLowBalanceAlert, sendWhatsAppMessage, sendWhatsAppToAdmin, notifySubscriptionStopped } from '../../../lib/whatsapp'
 import { sendLowBalanceEmail } from '../../../lib/email'
 
 /**
@@ -191,6 +191,14 @@ export async function POST(request) {
         } else if (wallet && balance < dailyAmount) {
           // Insufficient balance — deactivate subscription
           await supabase.from('subscriptions').update({ is_active: false, pending_delivery: false }).eq('id', subscription_id)
+          // Notify customer their delivery has been stopped
+          try {
+            const { data: stoppedProfile } = await supabase
+              .from('profiles').select('full_name, phone').eq('id', sub.user_id).single()
+            if (stoppedProfile?.phone) {
+              await notifySubscriptionStopped({ phone: stoppedProfile.phone, name: stoppedProfile.full_name || 'Customer', balance })
+            }
+          } catch { /* non-blocking */ }
         }
       }
 

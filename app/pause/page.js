@@ -25,12 +25,12 @@ export default function PauseSubscription() {
     getUser()
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
-    const tomorrowStr = tomorrow.toISOString().split('T')[0]
+    const tomorrowStr = tomorrow.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
     setPauseDate(tomorrowStr)
     setRangeStart(tomorrowStr)
     const dayAfter = new Date()
     dayAfter.setDate(dayAfter.getDate() + 2)
-    setRangeEnd(dayAfter.toISOString().split('T')[0])
+    setRangeEnd(dayAfter.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))
   }, [])
 
   const getUser = async () => {

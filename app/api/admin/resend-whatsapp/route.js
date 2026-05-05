@@ -50,7 +50,7 @@ export async function POST(request) {
 
     if (messageType === 'low_balance') {
       const { data: wallet } = await supabase
-        .from('wallets')
+        .from('wallet')
         .select('balance')
         .eq('user_id', userId)
         .single()

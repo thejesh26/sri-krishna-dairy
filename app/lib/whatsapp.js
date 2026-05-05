@@ -287,7 +287,7 @@ async function sendDeliveryConfirmed(phone, name, date, product) {
 }
 
 async function sendSubscriptionExpiry(phone, name, endDate, product) {
-  return sendTemplate(phone, 'subscription_expiry', [name, endDate, product])
+  return sendTemplate(phone, 'subscription_expiry_reminder', [name, endDate, product])
 }
 
 async function sendDeliveryStopped(phone, name, balance) {

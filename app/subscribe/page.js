@@ -363,7 +363,7 @@ export default function Subscribe() {
       .select('id')
       .eq('user_id', user.id)
       .eq('is_active', true)
-      .single()
+      .maybeSingle()
     if (existingSub) {
       showInfo('You already have an active subscription! Please manage your existing plan first.')
       setLoading(false)

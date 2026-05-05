@@ -1069,6 +1069,9 @@ export default function Dashboard() {
                   if (res.ok) {
                     setAllOrders(prev => prev.map(o => o.id === cancelPopup.id ? { ...o, status: 'cancelled' } : o))
                     setCancelPopup(null)
+                    // Refresh wallet balance after refund
+                    const { data: walletData } = await supabase.from('wallet').select('balance').eq('user_id', session.user.id).limit(1)
+                    if (walletData?.[0]) setWalletBalance(walletData[0].balance)
                   }
                   setCancelLoading(false)
                 }}
