@@ -1,6 +1,8 @@
 import { createServerClient } from '../../../lib/supabase-server'
 import { sendWhatsAppMessage, notifyOrderPlaced, notifySubscriptionActivated, notifyLowBalance } from '../../../lib/whatsapp'
 
+const WA_API_URL = `https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`
+
 function normalizePhone(raw) {
   if (!raw) return null
   const digits = String(raw).replace(/\D/g, '')
@@ -8,6 +10,22 @@ function normalizePhone(raw) {
   const last10 = local.slice(-10)
   if (last10.length !== 10) return null
   return '91' + last10
+}
+
+async function sendRawTemplate(body) {
+  console.log('[ResendWA] Raw request body:\n', JSON.stringify(body, null, 2))
+  const res = await fetch(WA_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+    },
+    body: JSON.stringify(body),
+  })
+  const text = await res.text()
+  console.log('[ResendWA] Meta response status:', res.status)
+  console.log('[ResendWA] Meta response body:', text)
+  return { ok: res.ok, status: res.status, body: text }
 }
 
 export async function POST(request) {
@@ -32,8 +50,39 @@ export async function POST(request) {
     }
 
     const { userId, messageType, customMessage, targetId } = await request.json()
-    if (!userId || !messageType) {
-      return Response.json({ error: 'userId and messageType required' }, { status: 400 })
+
+    const VALID_TYPES = ['test', 'custom', 'low_balance', 'order_confirmation', 'subscription_active']
+
+    if (!messageType) {
+      return Response.json({ error: 'messageType required', accepted: VALID_TYPES }, { status: 400 })
+    }
+
+    // ── Hardcoded test: no userId needed, bypasses all dynamic logic ─────────
+    if (messageType.trim() === 'test') {
+      const result = await sendRawTemplate({
+        messaging_product: 'whatsapp',
+        to: '918553666002',
+        type: 'template',
+        template: {
+          name: 'order_confirmed',
+          language: { code: 'en' },
+          components: [{
+            type: 'body',
+            parameters: [
+              { type: 'text', text: 'Thejesh' },
+              { type: 'text', text: '1000ml x 1' },
+              { type: 'text', text: '25 Apr 2026' },
+              { type: 'text', text: 'Morning 7-9AM' },
+              { type: 'text', text: '65' },
+            ],
+          }],
+        },
+      })
+      return Response.json({ success: result.ok, status: result.status, metaResponse: result.body })
+    }
+
+    if (!userId) {
+      return Response.json({ error: 'userId required for this messageType', accepted: VALID_TYPES }, { status: 400 })
     }
 
     const { data: profile } = await supabase
@@ -51,7 +100,7 @@ export async function POST(request) {
       console.error('[ResendWA] Invalid phone after normalization:', profile.phone)
       return Response.json({ error: `Invalid phone number: "${profile.phone}" — update the customer profile first` }, { status: 400 })
     }
-    console.log('[ResendWA] Sending to normalized phone:', phone, '(raw:', profile.phone, ')')
+    console.log('[ResendWA] Normalized phone:', phone, '(raw:', profile.phone, ')')
 
     const name = profile.full_name || 'Customer'
 
@@ -93,16 +142,27 @@ export async function POST(request) {
         order = data
       }
       if (!order) return Response.json({ error: 'No order found' }, { status: 404 })
-      await notifyOrderPlaced({
-        phone,
+
+      const params = [
         name,
-        size: order.products?.size || 'Milk',
-        quantity: order.quantity || 1,
-        deliveryDate: order.delivery_date,
-        slot: order.delivery_slot,
-        amount: order.total_price || 0,
+        `${order.products?.size || 'Milk'} x ${order.quantity || 1}`,
+        order.delivery_date
+          ? new Date(order.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+          : '-',
+        order.delivery_slot === 'morning' ? 'Morning 7-9AM' : 'Evening 5-7PM',
+        String(order.total_price || 0),
+      ]
+      const result = await sendRawTemplate({
+        messaging_product: 'whatsapp',
+        to: phone,
+        type: 'template',
+        template: {
+          name: 'order_confirmed',
+          language: { code: 'en' },
+          components: [{ type: 'body', parameters: params.map(text => ({ type: 'text', text })) }],
+        },
       })
-      return Response.json({ success: true })
+      return Response.json({ success: result.ok, status: result.status, metaResponse: result.body })
     }
 
     if (messageType === 'subscription_active') {
@@ -138,7 +198,7 @@ export async function POST(request) {
       return Response.json({ success: true })
     }
 
-    return Response.json({ error: 'Invalid messageType' }, { status: 400 })
+    return Response.json({ error: `Invalid messageType: "${messageType}"`, accepted: VALID_TYPES }, { status: 400 })
   } catch (error) {
     console.error('Resend WhatsApp error:', error)
     return Response.json({ error: 'Server error' }, { status: 500 })
