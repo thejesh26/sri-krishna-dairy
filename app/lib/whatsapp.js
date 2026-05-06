@@ -99,7 +99,10 @@ async function sendSubscriptionActivated(phone, name, product, startDate, slot, 
 }
 
 async function sendLowBalanceAlert(phone, name, balance) {
-  return sendTemplate(phone, 'low_balance_alert', [name, String(balance)])
+  const balanceStr = (balance != null && balance !== '' && !isNaN(balance))
+    ? String(Number(balance))
+    : '0'
+  return sendTemplate(phone, 'low_balance_alert', [name, balanceStr])
 }
 
 async function sendDeliveryConfirmed(phone, name, date, product) {
@@ -107,7 +110,7 @@ async function sendDeliveryConfirmed(phone, name, date, product) {
 }
 
 async function sendSubscriptionExpiry(phone, name, endDate, product) {
-  return sendTemplate(phone, 'subscription_expiry_reminder', [name, endDate, product])
+  return sendTemplate(phone, 'subscription_expiry', [name, endDate, product])
 }
 
 async function sendDeliveryStopped(phone, name, balance) {
@@ -149,7 +152,10 @@ async function notifyOrderDelivered({ phone, name, date, product }) {
 }
 
 async function notifyLowBalance({ phone, name, balance }) {
-  await sendTemplate(phone, 'low_balance_alert', [name, String(balance ?? 0)])
+  const balanceStr = (balance != null && balance !== '' && !isNaN(balance))
+    ? String(Number(balance))
+    : '0'
+  await sendTemplate(phone, 'low_balance_alert', [name, balanceStr])
 }
 
 async function notifySubscriptionStopped({ phone, name, balance }) {
@@ -161,7 +167,7 @@ async function notifySubscriptionExpiryReminder({ phone, name, product, endDate,
     ? new Date(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
     : '-'
   // daysLeft is not a template variable — endDate and product are
-  await sendTemplate(phone, 'subscription_expiry_reminder', [name, dateLabel, product || 'Milk'])
+  await sendTemplate(phone, 'subscription_expiry', [name, dateLabel, product || 'Milk'])
 }
 
 // ── Remaining helpers (no approved template — free-form, 24h session required) ─

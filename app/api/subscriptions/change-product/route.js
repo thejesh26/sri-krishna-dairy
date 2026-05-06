@@ -22,11 +22,11 @@ export async function POST(request) {
     // Verify ownership and active status
     const { data: sub } = await supabase
       .from('subscriptions')
-      .select('id, product_id, quantity, products(size, price)')
+      .select('id, product_id, quantity, discount_percent, products(size, price)')
       .eq('id', subscription_id)
       .eq('user_id', user.id)
       .eq('is_active', true)
-      .single()
+      .maybeSingle()
 
     if (!sub) {
       return NextResponse.json({ error: 'Subscription not found.' }, { status: 404 })
@@ -54,7 +54,7 @@ export async function POST(request) {
       .eq('id', subscription_id)
       .eq('user_id', user.id)
 
-    const newDailyAmount = Math.round(newProduct.price * sub.quantity)
+    const newDailyAmount = Math.round(newProduct.price * sub.quantity * (1 - (sub.discount_percent || 0) / 100))
 
     return NextResponse.json({
       success: true,

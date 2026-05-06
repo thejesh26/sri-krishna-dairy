@@ -50,7 +50,7 @@ export async function POST(request) {
       .from('wallet')
       .select('*')
       .eq('user_id', userId)
-      .single()
+      .maybeSingle()
 
     if (type === 'subscription') {
       const walletAmount = amount - (deposit || 0)

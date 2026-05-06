@@ -98,10 +98,16 @@ export async function POST(request) {
     }
 
     // Deduct total from wallet
-    await supabase
+    const { error: walletError } = await supabase
       .from('wallet')
       .update({ balance: (wallet.balance || 0) - totalAmount })
       .eq('user_id', user.id)
+
+    if (walletError) {
+      // Rollback: delete the just-created orders
+      await supabase.from('addon_orders').delete().in('id', addonOrders.map(o => o.id))
+      return NextResponse.json({ error: 'Payment deduction failed. Please try again.' }, { status: 500 })
+    }
 
     // Record wallet transaction
     const dateRange = dates.length === 1

@@ -45,7 +45,7 @@ export async function POST(request) {
       .from('wallet')
       .select('*')
       .eq('user_id', userId)
-      .single()
+      .maybeSingle()
 
     if (wallet) {
       await supabase

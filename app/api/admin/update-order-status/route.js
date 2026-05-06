@@ -12,7 +12,7 @@ import { createServerClient } from '../../../lib/supabase-server'
  * This route re-verifies is_admin from the database on every request.
  */
 
-const VALID_STATUSES = ['pending', 'out_for_delivery', 'delivered', 'cancelled']
+const VALID_STATUSES = ['pending', 'out_for_delivery', 'delivered', 'cancelled', 'missed']
 
 export async function POST(request) {
   try {
@@ -45,7 +45,7 @@ export async function POST(request) {
     const body = await request.json()
     const { order_id, status } = body
 
-    if (!order_id || typeof order_id !== 'string') {
+    if (!order_id && order_id !== 0) {
       return NextResponse.json({ error: 'Invalid order_id.' }, { status: 400 })
     }
     if (!VALID_STATUSES.includes(status)) {
