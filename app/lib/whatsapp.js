@@ -31,18 +31,21 @@ async function sendWhatsAppMessage(phone, message) {
       return false
     }
 
+    const payload = {
+      messaging_product: 'whatsapp',
+      to,
+      type: 'text',
+      text: { body: message },
+    }
+    console.log('[WhatsApp] Sending text to', to)
+
     const res = await fetch(WA_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
       },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to,
-        type: 'text',
-        text: { body: message },
-      }),
+      body: JSON.stringify(payload),
     })
 
     if (!res.ok) {
@@ -236,30 +239,36 @@ async function sendTemplate(phone, templateName, parameters) {
       return false
     }
 
+    // Ensure all params are non-empty strings — null/undefined cause (#100) Invalid parameter
+    const safeParams = parameters.map(p => (p == null || p === '' ? '-' : String(p)))
+
+    const payload = {
+      messaging_product: 'whatsapp',
+      to,
+      type: 'template',
+      template: {
+        name: templateName,
+        language: { code: 'en' },
+        components: [{
+          type: 'body',
+          parameters: safeParams.map(text => ({ type: 'text', text })),
+        }],
+      },
+    }
+    console.log('[WhatsApp] Sending template', templateName, 'to', to, 'params:', safeParams)
+
     const res = await fetch(WA_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
       },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to,
-        type: 'template',
-        template: {
-          name: templateName,
-          language: { code: 'en' },
-          components: [{
-            type: 'body',
-            parameters: parameters.map(text => ({ type: 'text', text: String(text) })),
-          }],
-        },
-      }),
+      body: JSON.stringify(payload),
     })
 
     if (!res.ok) {
       const err = await res.text()
-      console.error('[WhatsApp] Template send failed:', res.status, err)
+      console.error('[WhatsApp] Template send failed:', res.status, err, '| template:', templateName, '| params:', safeParams)
       return false
     }
 

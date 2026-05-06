@@ -1,6 +1,15 @@
 import { createServerClient } from '../../../lib/supabase-server'
 import { sendWhatsAppMessage, notifyOrderPlaced, notifySubscriptionActivated, notifyLowBalance } from '../../../lib/whatsapp'
 
+function normalizePhone(raw) {
+  if (!raw) return null
+  const digits = String(raw).replace(/\D/g, '')
+  const local = digits.startsWith('91') && digits.length > 10 ? digits.slice(2) : digits
+  const last10 = local.slice(-10)
+  if (last10.length !== 10) return null
+  return '91' + last10
+}
+
 export async function POST(request) {
   try {
     const authHeader = request.headers.get('authorization')
@@ -37,8 +46,14 @@ export async function POST(request) {
       return Response.json({ error: 'Customer has no phone number' }, { status: 400 })
     }
 
+    const phone = normalizePhone(profile.phone)
+    if (!phone) {
+      console.error('[ResendWA] Invalid phone after normalization:', profile.phone)
+      return Response.json({ error: `Invalid phone number: "${profile.phone}" — update the customer profile first` }, { status: 400 })
+    }
+    console.log('[ResendWA] Sending to normalized phone:', phone, '(raw:', profile.phone, ')')
+
     const name = profile.full_name || 'Customer'
-    const phone = profile.phone
 
     if (messageType === 'custom') {
       if (!customMessage?.trim()) {
@@ -53,7 +68,7 @@ export async function POST(request) {
         .from('wallet')
         .select('balance')
         .eq('user_id', userId)
-        .single()
+        .maybeSingle()
       await notifyLowBalance({ phone, name, balance: wallet?.balance ?? 0 })
       return Response.json({ success: true })
     }
@@ -74,18 +89,18 @@ export async function POST(request) {
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
           .limit(1)
-          .single()
+          .maybeSingle()
         order = data
       }
       if (!order) return Response.json({ error: 'No order found' }, { status: 404 })
       await notifyOrderPlaced({
         phone,
         name,
-        size: order.products?.size,
-        quantity: order.quantity,
+        size: order.products?.size || 'Milk',
+        quantity: order.quantity || 1,
         deliveryDate: order.delivery_date,
         slot: order.delivery_slot,
-        amount: order.total_price,
+        amount: order.total_price || 0,
       })
       return Response.json({ success: true })
     }
@@ -107,18 +122,18 @@ export async function POST(request) {
           .eq('is_active', true)
           .order('created_at', { ascending: false })
           .limit(1)
-          .single()
+          .maybeSingle()
         sub = data
       }
       if (!sub) return Response.json({ error: 'No active subscription found' }, { status: 404 })
       await notifySubscriptionActivated({
         phone,
         name,
-        size: sub.products?.size,
-        quantity: sub.quantity,
+        size: sub.products?.size || 'Milk',
+        quantity: sub.quantity || 1,
         startDate: sub.start_date,
         slot: sub.delivery_slot,
-        dailyAmount: (sub.products?.price || 0) * sub.quantity,
+        dailyAmount: Math.round((sub.products?.price || 0) * (sub.quantity || 1) * (1 - (sub.discount_percent || 0) / 100)),
       })
       return Response.json({ success: true })
     }

@@ -216,7 +216,7 @@ export default function AdminDashboard() {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
     const { data: failedDeds } = await supabase
       .from('failed_deductions')
-      .select('*, profiles(full_name, phone)')
+      .select('*')
       .gte('created_at', thirtyDaysAgo.toISOString())
       .order('created_at', { ascending: false })
     setFailedDeductions(failedDeds || [])
@@ -1866,8 +1866,8 @@ export default function AdminDashboard() {
             <div key={d.id} className="px-6 py-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="font-semibold text-sm text-[#1c1c1c]">{d.profiles?.full_name || 'Customer'}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">📞 {d.profiles?.phone || 'N/A'} · Sub #{d.subscription_id}</p>
+                  <p className="font-semibold text-sm text-[#1c1c1c]">{customers.find(c => c.id === d.user_id)?.full_name || 'Customer'}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">📞 {customers.find(c => c.id === d.user_id)?.phone || 'N/A'} · Sub #{d.subscription_id}</p>
                   <p className="text-xs text-red-500 mt-0.5 font-medium">{d.reason}</p>
                   <p className="text-xs text-gray-400 mt-0.5">Amount due: ₹{d.amount}</p>
                 </div>
