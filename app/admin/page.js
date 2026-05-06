@@ -2305,6 +2305,12 @@ export default function AdminDashboard() {
           </div>
           {customWaType === 'custom' && (
             <div className="mb-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 flex items-start gap-2">
+                <span className="text-amber-500 text-sm mt-0.5">⚠️</span>
+                <p className="text-xs text-amber-700 leading-relaxed">
+                  Custom messages only work if the customer has messaged your WhatsApp number first (within 24 hours). Use template messages for outbound.
+                </p>
+              </div>
               <label className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2 block">Message</label>
               <textarea
                 value={customWaMessage}
