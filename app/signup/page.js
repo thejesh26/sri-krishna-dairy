@@ -261,6 +261,19 @@ export default function SignUp() {
               <p className="text-xs text-gray-400 mt-1">🎁 Both you and your friend earn 100 reward points after you subscribe for 30 days!</p>
             </div>
 
+            <label className="flex items-start gap-3 cursor-pointer bg-[#f0faf4] border border-[#c8e6d4] rounded-lg px-4 py-3">
+              <input
+                type="checkbox"
+                defaultChecked
+                required
+                className="mt-0.5 w-4 h-4 flex-shrink-0 accent-[#1a5c38] cursor-pointer"
+              />
+              <span className="text-xs text-[#1a5c38] leading-relaxed">
+                I agree to receive order updates, delivery notifications, and alerts on WhatsApp from{' '}
+                <strong>Sri Krishnaa Dairy (9980166221)</strong>. Standard messaging rates may apply.
+              </span>
+            </label>
+
             <button type="submit" disabled={loading}
               className="text-white py-3 rounded-lg font-bold hover:opacity-90 transition mt-2 shadow"
               style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>

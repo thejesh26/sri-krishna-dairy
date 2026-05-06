@@ -335,6 +335,10 @@ export default function Order() {
             </label>
           </div>
 
+          <p className="text-xs text-center text-gray-400">
+            📱 Order confirmation will be sent to your WhatsApp number
+          </p>
+
           <button type="submit" disabled={loading || !selectedProduct || !agreedToTerms}
             className="text-white py-4 rounded-lg font-bold text-lg transition shadow-lg disabled:opacity-50"
             style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
