@@ -131,6 +131,12 @@ export async function sendOrderConfirmationEmail({ to, name, product, quantity, 
       <p style="margin:6px 0 0;font-size:13px;color:#1a5c38;">Our milk is farm-fresh and not pasteurized. Please boil before consumption.</p>
     </div>
 
+    <div style="background:#f0faf4;border:1px solid #1a5c38;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:#1a5c38;font-weight:bold;">📱 Get WhatsApp Updates</p>
+      <p style="margin:6px 0 12px;font-size:13px;color:#4b5563;">Save our number <strong>+91 9980166221</strong> and send <strong>'Hi'</strong> to receive real-time delivery updates on WhatsApp!</p>
+      <a href="https://wa.me/919980166221?text=Hi" style="display:inline-block;background:#25D366;color:#ffffff;text-decoration:none;font-weight:bold;font-size:13px;padding:8px 20px;border-radius:6px;">Send 'Hi' on WhatsApp</a>
+    </div>
+
     <div style="text-align:center;">
       <a href="https://srikrishnaadairy.in/dashboard" style="display:inline-block;background:linear-gradient(135deg,#1a5c38,#2d7a50);color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:8px;">View Dashboard</a>
     </div>`)
@@ -188,6 +194,12 @@ export async function sendSubscriptionConfirmationEmail({ to, name, product, qua
     <div style="background:#fdf6e3;border:1px solid #f0dfa0;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
       <p style="margin:0;font-size:13px;color:#92400e;font-weight:bold;">Raw Milk Advisory</p>
       <p style="margin:6px 0 0;font-size:13px;color:#92400e;">Our milk is farm-fresh and not pasteurized. Please boil before consumption.</p>
+    </div>
+
+    <div style="background:#f0faf4;border:1px solid #1a5c38;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:#1a5c38;font-weight:bold;">📱 Get WhatsApp Updates</p>
+      <p style="margin:6px 0 12px;font-size:13px;color:#4b5563;">Save our number <strong>+91 9980166221</strong> and send <strong>'Hi'</strong> to receive real-time delivery updates on WhatsApp!</p>
+      <a href="https://wa.me/919980166221?text=Hi" style="display:inline-block;background:#25D366;color:#ffffff;text-decoration:none;font-weight:bold;font-size:13px;padding:8px 20px;border-radius:6px;">Send 'Hi' on WhatsApp</a>
     </div>
 
     <div style="text-align:center;">

@@ -110,8 +110,8 @@ export default function SignUp() {
           // Points awarded after 30 days of active subscription — handled by cron
         }
       }
-      setMessage('Account created successfully! Redirecting to login...')
-      setTimeout(() => { router.push('/login') }, 2000)
+      setMessage("Account created! 📱 Send 'Hi' to 9980166221 on WhatsApp to activate delivery notifications. Redirecting to login...")
+      setTimeout(() => { router.push('/login') }, 3000)
     }
     setLoading(false)
   }
