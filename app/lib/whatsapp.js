@@ -1,5 +1,8 @@
+import { sendEmail } from './email'
+
 const WA_API_URL = `https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`
 const ADMIN_PHONE = '919980166221'
+const ADMIN_EMAIL = 'hello@srikrishnaadairy.in'
 
 function formatPhone(phone) {
   if (!phone) return null
@@ -121,6 +124,26 @@ async function sendAdminAlert(message) {
   return sendWhatsAppToAdmin(message)
 }
 
+// Sends WA to admin phone + email to admin inbox — use for all 6 business-critical events
+async function notifyAdmin(subject, text) {
+  await sendWhatsAppToAdmin(text)
+  try {
+    const clean = text.replace(/\*/g, '').replace(/_/g, '')
+    await sendEmail({
+      to: ADMIN_EMAIL,
+      subject,
+      html: `<div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;">
+  <h2 style="color:#1a5c38;margin-bottom:16px;">${subject}</h2>
+  <pre style="white-space:pre-wrap;font-family:sans-serif;font-size:14px;line-height:1.6;color:#1c1c1c;background:#f5f5f5;padding:16px;border-radius:8px;">${clean}</pre>
+  <p style="font-size:12px;color:#999;margin-top:16px;">Sri Krishnaa Dairy — Admin Notification</p>
+</div>`,
+      text,
+    })
+  } catch (err) {
+    console.error('[AdminNotify] Email failed:', err?.message)
+  }
+}
+
 // ── Notification helpers — all use approved templates ─────────────────────────
 // These are the high-level functions called by API routes.
 
@@ -131,7 +154,10 @@ async function notifyOrderPlaced({ phone, name, size, quantity, deliveryDate, sl
     : '-'
   const slotLabel = slot === 'morning' ? 'Morning 7-9AM' : 'Evening 5-7PM'
   await sendTemplate(phone, 'order_confirmed', [name, product, date, slotLabel, String(amount || 0)])
-  await sendWhatsAppToAdmin(`New order from ${name} - ${size} x ${quantity} for ${deliveryDate}`)
+  await notifyAdmin(
+    `New Order – ${name}`,
+    `🛒 New Order Placed!\nCustomer: ${name}\nProduct: ${product}\nDate: ${date}\nSlot: ${slotLabel}\nAmount: Rs.${amount || 0}`,
+  )
 }
 
 async function notifySubscriptionActivated({ phone, name, size, quantity, startDate, slot, dailyAmount }) {
@@ -141,7 +167,10 @@ async function notifySubscriptionActivated({ phone, name, size, quantity, startD
     : '-'
   const slotLabel = slot === 'morning' ? 'Morning 7-9AM' : 'Evening 5-7PM'
   await sendTemplate(phone, 'subscription_activated', [name, product, date, slotLabel, String(dailyAmount || 0)])
-  await sendWhatsAppToAdmin(`New subscription from ${name} - ${size} x ${quantity}/day`)
+  await notifyAdmin(
+    `New Subscription – ${name}`,
+    `📅 New Subscription Activated!\nCustomer: ${name}\nProduct: ${product}\nStart Date: ${date}\nSlot: ${slotLabel}\nDaily: Rs.${dailyAmount || 0}/day`,
+  )
 }
 
 async function notifyOrderDelivered({ phone, name, date, product }) {
@@ -258,6 +287,7 @@ export {
   sendSubscriptionExpiry,
   sendDeliveryStopped,
   sendAdminAlert,
+  notifyAdmin,
   notifyOrderPlaced,
   notifySubscriptionActivated,
   notifyOrderDelivered,

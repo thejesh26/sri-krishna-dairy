@@ -10,7 +10,7 @@ const supabaseAdmin = createClient(
 )
 
 export async function POST(request) {
-  console.log('[MissedDelivery] Received customer issue report')
+  console.log('[MissedDelivery] Route called')
   try {
     // Authenticate
     const authHeader = request.headers.get('authorization')
@@ -77,7 +77,7 @@ export async function POST(request) {
     console.log(`[MissedDelivery] Customer: ${name}, Phone: ${phone}, Order: ${order_id}, Issue: ${issueText}`)
 
     await sendAdminAlert(
-      `⚠️ Customer Issue Report!\nCustomer: ${name}\nPhone: ${phone}\nIssue: ${issueText}\nDate: ${today}\nPlease check and resolve!`
+      `⚠️ Customer Issue Report!\nCustomer: ${name}\nPhone: ${phone}\nIssue: ${issueText}\nDate: ${today}`
     )
 
     // Email admin

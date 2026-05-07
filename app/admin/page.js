@@ -88,6 +88,7 @@ export default function AdminDashboard() {
   const [customWaMessage, setCustomWaMessage] = useState('')
   const [customWaType, setCustomWaType] = useState('custom')
   const [customWaLoading, setCustomWaLoading] = useState(false)
+  const [walletsLastUpdated, setWalletsLastUpdated] = useState(null)
 
   useEffect(() => { checkAdmin() }, [])
 
@@ -238,11 +239,8 @@ export default function AdminDashboard() {
     )
     const monthlyRevenue = monthOrders.reduce((sum, o) => sum + (o.total_price || 0), 0)
 
-    // Load all wallets
-    const { data: allWallets } = await supabase
-      .from('wallet')
-      .select('*')
-    setWallets(allWallets || [])
+    // Load all wallets via service-role API (bypasses RLS)
+    await loadWallets()
     setStats({
       totalOrders: allOrders?.length || 0,
       totalSubscriptions: allSubs?.length || 0,
@@ -260,6 +258,19 @@ export default function AdminDashboard() {
     }
     const { data: waitlist } = await supabase.from('priority_waitlist').select('*').order('created_at', { ascending: false })
     setWaitlistEntries(waitlist || [])
+  }
+
+  // Fetches all wallets via service-role API (anon key blocked by RLS on wallet table)
+  const loadWallets = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/wallets', {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    })
+    const json = res.ok ? await res.json() : { wallets: [] }
+    console.log('[Admin] Wallets loaded:', json.wallets?.length || 0)
+    setWallets(json.wallets || [])
+    setWalletsLastUpdated(new Date())
+    return json.wallets || []
   }
 
   const saveProductPrice = async (productId, newPrice, newAvailable) => {
@@ -291,8 +302,7 @@ export default function AdminDashboard() {
 
     if (res.ok) {
       // Refresh wallet balances shown in the panel
-      const { data: freshWallets } = await supabase.from('wallet').select('*')
-      setWallets(freshWallets || [])
+      await loadWallets()
       setDeductionResult({
         date: result.date,
         total: result.summary?.eligible || 0,
@@ -1238,13 +1248,14 @@ export default function AdminDashboard() {
       <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between gap-3">
         <div>
           <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Customer Wallets</h3>
-          <p className="text-xs text-gray-400 mt-0.5">Click customer to add balance</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {walletsLastUpdated
+              ? `Updated ${walletsLastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
+              : 'Click customer to add balance'}
+          </p>
         </div>
         <button
-          onClick={async () => {
-            const { data: freshWallets } = await supabase.from('wallet').select('*')
-            setWallets(freshWallets || [])
-          }}
+          onClick={loadWallets}
           className="text-xs text-[#1a5c38] border border-[#1a5c38] px-3 py-1.5 rounded-lg hover:bg-[#f0faf4] transition font-semibold flex-shrink-0"
         >
           ↻ Refresh
@@ -1358,8 +1369,7 @@ export default function AdminDashboard() {
                     description: walletNote || 'Added by admin'
                   })
                   
-                  const { data: freshWallets } = await supabase.from('wallet').select('*')
-                  setWallets(freshWallets || [])
+                  await loadWallets()
                   setWalletAmount('')
                   setWalletNote('')
                   setWalletMessage('Rs.' + walletAmount + ' added successfully!')
@@ -1388,8 +1398,7 @@ export default function AdminDashboard() {
                     type: 'debit',
                     description: walletNote || 'Deducted by admin'
                   })
-                  const { data: freshWallets } = await supabase.from('wallet').select('*')
-                  setWallets(freshWallets || [])
+                  await loadWallets()
                   setWalletAmount('')
                   setWalletNote('')
                   setWalletMessage('Rs.' + walletAmount + ' deducted successfully!')

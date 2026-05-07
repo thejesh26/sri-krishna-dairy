@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendAdminAlert } from '../../lib/whatsapp'
+import { notifyAdmin } from '../../lib/whatsapp'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -29,17 +29,17 @@ export async function POST(request) {
       message: message?.trim() || null,
     })
 
-    // Notify admin via WhatsApp
+    // Notify admin via WhatsApp + email
     const lines = [
-      `📦 *New Bulk Enquiry*`,
-      `👤 Name: ${name.trim()}`,
-      `📞 Phone: ${phone.trim()}`,
-      institution?.trim() ? `🏢 Institution: ${institution.trim()}` : null,
-      quantity?.trim() ? `🥛 Quantity: ${quantity.trim()}` : null,
-      message?.trim() ? `💬 Message: ${message.trim()}` : null,
+      `📦 New Bulk Enquiry!`,
+      `Name: ${name.trim()}`,
+      `Phone: ${phone.trim()}`,
+      institution?.trim() ? `Institution: ${institution.trim()}` : null,
+      quantity?.trim() ? `Quantity: ${quantity.trim()}` : null,
+      message?.trim() ? `Message: ${message.trim()}` : null,
     ].filter(Boolean).join('\n')
 
-    await sendAdminAlert(lines)
+    await notifyAdmin(`New Bulk Enquiry – ${name.trim()}`, lines)
 
     return NextResponse.json({ success: true })
   } catch {

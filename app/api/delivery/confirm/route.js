@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
-import { sendDeliveryConfirmed, notifyCodUpsell, sendLowBalanceAlert, sendWhatsAppMessage, sendWhatsAppToAdmin, notifySubscriptionStopped } from '../../../lib/whatsapp'
-import { sendLowBalanceEmail, sendOrderConfirmationEmail } from '../../../lib/email'
+import { sendDeliveryConfirmed, notifyCodUpsell, sendLowBalanceAlert, sendWhatsAppMessage, sendWhatsAppToAdmin, notifySubscriptionStopped, notifyAdmin } from '../../../lib/whatsapp'
+import { sendLowBalanceEmail, sendOrderConfirmationEmail, sendEmail } from '../../../lib/email'
 
 /**
  * POST /api/delivery/confirm
@@ -9,6 +9,7 @@ import { sendLowBalanceEmail, sendOrderConfirmationEmail } from '../../../lib/em
  * Caller must be is_delivery or is_admin.
  */
 export async function POST(request) {
+  console.log('[DeliveryConfirm] Route called')
   try {
     const authHeader = request.headers.get('authorization')
     if (!authHeader?.startsWith('Bearer ')) {
@@ -32,41 +33,57 @@ export async function POST(request) {
     const deliveredBy = callerProfile.full_name || user.id
 
     if (type === 'order' && order_id) {
-      console.log('[Delivery] Confirming delivery for order:', order_id)
+      console.log('[DeliveryConfirm] Confirming delivery for order:', order_id)
       const { data: orderRow, error } = await supabase
         .from('orders')
         .update({ status: 'delivered', delivered_at: deliveredAt, delivered_by: deliveredBy })
         .eq('id', order_id)
-        .select('user_id, payment_method')
+        .select('user_id, payment_method, quantity, products(size)')
         .single()
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-      // WhatsApp delivery notification + COD upsell (non-blocking)
+      const productLabel = orderRow.products?.size
+        ? `${orderRow.products.size} x${orderRow.quantity || 1}`
+        : 'Milk'
+      const dateLabel = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+
+      // Customer notifications + COD upsell (non-blocking)
       try {
         const { data: customerProfile } = await supabase
           .from('profiles')
           .select('full_name, phone')
           .eq('id', orderRow.user_id)
           .single()
-        console.log('[Delivery] Customer phone:', customerProfile?.phone)
+        const { data: authUser } = await supabase.auth.admin.getUserById(orderRow.user_id)
+        const customerEmail = authUser?.user?.email
+        const customerName = customerProfile?.full_name || 'Customer'
+
+        console.log('[DeliveryConfirm] Customer phone:', customerProfile?.phone, '| email:', customerEmail)
+
         if (customerProfile?.phone) {
-          console.log('[Delivery] Sending WhatsApp delivery confirmation...')
-          await sendDeliveryConfirmed(
-            customerProfile.phone,
-            customerProfile.full_name || 'Customer',
-            new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
-            'Milk',
-          )
-          // COD post-delivery upsell — send 5 minutes after delivery confirmation
+          console.log('[DeliveryConfirm] Sending WhatsApp delivery confirmation...')
+          await sendDeliveryConfirmed(customerProfile.phone, customerName, dateLabel, productLabel)
           if (orderRow.payment_method === 'COD') {
-            await notifyCodUpsell({
-              phone: customerProfile.phone,
-              name: customerProfile.full_name || 'Customer',
-            })
+            await notifyCodUpsell({ phone: customerProfile.phone, name: customerName })
           }
         }
-      } catch {
-        // WhatsApp failure must not block delivery confirmation
+
+        if (customerEmail) {
+          await sendEmail({
+            to: customerEmail,
+            subject: `✅ Your milk was delivered – Sri Krishnaa Dairy`,
+            html: `<div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px;">
+  <h2 style="color:#1a5c38;margin-bottom:8px;">✅ Delivery Confirmed!</h2>
+  <p style="color:#555;font-size:14px;">Hi ${customerName},</p>
+  <p style="color:#555;font-size:14px;margin-bottom:16px;">Your <strong>${productLabel}</strong> was successfully delivered on <strong>${dateLabel}</strong>.</p>
+  <p style="color:#555;font-size:13px;">Questions? Call or WhatsApp <strong>9980166221</strong></p>
+  <p style="color:#999;font-size:12px;margin-top:16px;">– Sri Krishnaa Dairy Team</p>
+</div>`,
+            text: `Hi ${customerName},\n\nYour ${productLabel} was delivered on ${dateLabel}.\n\nQuestions? Call 9980166221\n\n– Sri Krishnaa Dairy Team`,
+          })
+        }
+      } catch (notifyErr) {
+        console.error('[DeliveryConfirm] Notification failed:', notifyErr?.message)
       }
 
       return NextResponse.json({ success: true })
@@ -247,11 +264,12 @@ export async function POST(request) {
           const newCount = (profileData?.unreturned_bottles || 0) + 1
           await supabase.from('profiles').update({ unreturned_bottles: newCount }).eq('id', sub.user_id)
 
-          // Admin alert
-          await sendWhatsAppToAdmin(
-            `⚠️ Bottle NOT returned by ${profileData?.full_name || sub.user_id}\n` +
-            `Address: ${profileData?.apartment_name}, Flat ${profileData?.flat_number}, ${profileData?.area}\n` +
-            `Date: ${delivery_date} | Total unreturned: ${newCount}`
+          // Admin alert — WhatsApp + email
+          const bottleName = profileData?.full_name || sub.user_id
+          const bottleAddr = `${profileData?.apartment_name}, Flat ${profileData?.flat_number}, ${profileData?.area}`
+          await notifyAdmin(
+            `Bottle Not Returned – ${bottleName}`,
+            `⚠️ Bottle NOT returned by ${bottleName}\nAddress: ${bottleAddr}\nDate: ${delivery_date}\nTotal unreturned: ${newCount}`,
           )
 
           // Auto-pause subscription when 3+ bottles unreturned
@@ -263,8 +281,9 @@ export async function POST(request) {
                 `Your Sri Krishnaa Dairy delivery has been paused as we have not received ${newCount} bottles back. Please return the bottles to resume delivery. Contact us: 9980166221`
               )
             }
-            await sendWhatsAppToAdmin(
-              `🚨 Subscription #${subscription_id} AUTO-PAUSED — ${profileData?.full_name} has ${newCount} unreturned bottles`
+            await notifyAdmin(
+              `Subscription Auto-Paused – ${bottleName}`,
+              `🚨 Subscription #${subscription_id} AUTO-PAUSED — ${bottleName} has ${newCount} unreturned bottles`,
             )
           }
         } catch { /* non-blocking */ }

@@ -106,6 +106,9 @@ export default function DeliveryDashboard() {
   }
 
   const updateStatus = async (orderId, status) => {
+    if (status === 'delivered') {
+      console.log('[Delivery] Mark Delivered clicked for order:', orderId)
+    }
     // SECURITY: VULN-04 — delivery agents must only update orders assigned to them.
     // Without the assigned_to filter a delivery agent could mark any order as
     // "delivered" (including orders belonging to other agents) from the console.
@@ -118,6 +121,7 @@ export default function DeliveryDashboard() {
     if (!error) {
       if (status === 'delivered') {
         const { data: { session } } = await supabase.auth.getSession()
+        console.log('[Delivery] Calling /api/delivery/confirm for order:', orderId)
         await fetch('/api/delivery/confirm', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
