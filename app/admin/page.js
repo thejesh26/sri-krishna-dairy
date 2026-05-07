@@ -1235,9 +1235,20 @@ export default function AdminDashboard() {
 
     {/* Customer Wallet List */}
     <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
-      <div className="px-6 py-5 border-b border-[#f5f0e8]">
-        <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Customer Wallets</h3>
-        <p className="text-xs text-gray-400 mt-0.5">Click customer to add balance</p>
+      <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between gap-3">
+        <div>
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Customer Wallets</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Click customer to add balance</p>
+        </div>
+        <button
+          onClick={async () => {
+            const { data: freshWallets } = await supabase.from('wallet').select('*')
+            setWallets(freshWallets || [])
+          }}
+          className="text-xs text-[#1a5c38] border border-[#1a5c38] px-3 py-1.5 rounded-lg hover:bg-[#f0faf4] transition font-semibold flex-shrink-0"
+        >
+          ↻ Refresh
+        </button>
       </div>
       {customers.length === 0 ? (
         <div className="px-6 py-12 text-center">

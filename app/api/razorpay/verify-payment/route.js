@@ -74,6 +74,11 @@ export async function POST(request) {
           })
       }
 
+      // Verify wallet update
+      const { data: updatedWallet, error: walletUpdateError } = await supabase
+        .from('wallet').select('balance, deposit_balance').eq('user_id', userId).maybeSingle()
+      console.log('[VerifyPayment] Updated wallet (subscription):', updatedWallet, walletUpdateError)
+
       // Activate subscription
       await supabase
         .from('subscriptions')
@@ -138,6 +143,11 @@ export async function POST(request) {
             deposit_balance: 0
           })
       }
+
+      // Verify wallet update
+      const { data: updatedWallet, error: walletUpdateError } = await supabase
+        .from('wallet').select('balance, deposit_balance').eq('user_id', userId).maybeSingle()
+      console.log('[VerifyPayment] Updated wallet (recharge):', updatedWallet, walletUpdateError)
 
       // Add wallet transaction
       await supabase
