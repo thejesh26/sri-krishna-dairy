@@ -34,8 +34,7 @@ export default function Order() {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [products, setProducts] = useState([])
-  const [selectedProduct, setSelectedProduct] = useState(null)
-  const [quantity, setQuantity] = useState(1)
+  const [quantities, setQuantities] = useState({})
   const [deliveryDate, setDeliveryDate] = useState('')
   const [deliverySlot, setDeliverySlot] = useState('morning')
   const [loading, setLoading] = useState(false)
@@ -64,7 +63,6 @@ export default function Order() {
   const getProducts = async () => {
     const { data } = await supabase.from('products').select('*').eq('is_available', true)
     setProducts(data || [])
-    if (data && data.length > 0) setSelectedProduct(data[0])
   }
 
   const isValidBooking = () => {
@@ -72,8 +70,9 @@ export default function Order() {
     return (deliveryStart - new Date()) / (1000 * 60 * 60) >= 12
   }
 
-  const milkPrice = selectedProduct ? selectedProduct.price * quantity : 0
-  const totalPrice = milkPrice // no deposit for trial
+  const selectedItems = products.filter(p => (quantities[p.id] || 0) > 0)
+  const totalPrice = selectedItems.reduce((sum, p) => sum + p.price * (quantities[p.id] || 0), 0)
+  const hasItems = selectedItems.length > 0
 
   const handleOrder = async (e) => {
     e.preventDefault()
@@ -84,16 +83,8 @@ export default function Order() {
       setLoading(false)
       return
     }
-    // Prevent duplicate order on same date
-    const { data: existingOrder } = await supabase
-      .from('orders')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('delivery_date', deliveryDate)
-      .maybeSingle()
-
-    if (existingOrder) {
-      showInfo("You've already placed an order for this date. Please choose a different delivery date.")
+    if (!hasItems) {
+      showError('Please select at least one product.')
       setLoading(false)
       return
     }
@@ -103,8 +94,7 @@ export default function Order() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
       body: JSON.stringify({
-        product_id: selectedProduct.id,
-        quantity,
+        items: selectedItems.map(p => ({ product_id: p.id, quantity: quantities[p.id] })),
         delivery_date: deliveryDate,
         delivery_slot: deliverySlot,
         delivery_mode: 'direct',
@@ -209,37 +199,31 @@ export default function Order() {
 
           {/* Product Selection */}
           <div className="bg-white rounded-lg p-5 shadow-sm border border-[#e8e0d0]">
-            <p className="text-sm font-bold text-[#1c1c1c] mb-3">Select Product</p>
+            <p className="text-sm font-bold text-[#1c1c1c] mb-1">Select Products & Quantities</p>
+            <p className="text-xs text-gray-400 mb-4">You can order multiple products at once</p>
             <div className="grid grid-cols-2 gap-3">
               {products.length === 0 && [1,2].map(i => <SkeletonProductCard key={i} />)}
-              {products.map((product) => (
-                <button type="button" key={product.id}
-                  onClick={() => setSelectedProduct(product)}
-                  className={`border-2 rounded-lg p-4 text-center transition ${
-                    selectedProduct?.id === product.id
-                      ? 'border-[#1a5c38] bg-[#f0faf4]'
-                      : 'border-[#e8e0d0] hover:border-[#1a5c38]'
-                  }`}>
-                  <div className="flex justify-center mb-1"><img src="/bottle.png" alt="Milk" className="h-14 object-contain drop-shadow-md" /></div>
-                  <p className="font-bold text-[#1c1c1c] text-sm">{product.size}</p>
-                  <p className="text-[#1a5c38] font-extrabold">₹{product.price}</p>
-                  <span className="inline-block mt-1 text-[10px] bg-[#d4a017] text-white font-bold px-2 py-0.5 rounded-full">Trial · No Deposit</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Quantity */}
-          <div className="bg-white rounded-lg p-5 shadow-sm border border-[#e8e0d0]">
-            <p className="text-sm font-bold text-[#1c1c1c] mb-3">Quantity (Bottles)</p>
-            <div className="flex items-center justify-center gap-4">
-              <button type="button"
-                onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                className="bg-[#f0faf4] text-[#1a5c38] font-bold h-10 w-10 rounded-full text-xl hover:bg-[#d4eddf] transition">−</button>
-              <span className="text-3xl font-bold text-[#1c1c1c]">{quantity}</span>
-              <button type="button"
-                onClick={() => setQuantity(q => q + 1)}
-                className="bg-[#f0faf4] text-[#1a5c38] font-bold h-10 w-10 rounded-full text-xl hover:bg-[#d4eddf] transition">+</button>
+              {products.map(product => {
+                const qty = quantities[product.id] || 0
+                return (
+                  <div key={product.id} className={`border-2 rounded-lg p-4 text-center transition ${qty > 0 ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0]'}`}>
+                    <div className="flex justify-center mb-1"><img src="/bottle.png" alt="Milk" className="h-14 object-contain drop-shadow-md" /></div>
+                    <p className="font-bold text-[#1c1c1c] text-sm">{product.size}</p>
+                    <p className="text-[#1a5c38] font-extrabold">₹{product.price}</p>
+                    <span className="inline-block mt-1 mb-3 text-[10px] bg-[#d4a017] text-white font-bold px-2 py-0.5 rounded-full">Trial · No Deposit</span>
+                    <div className="flex items-center justify-center gap-2">
+                      <button type="button"
+                        onClick={() => setQuantities(prev => ({ ...prev, [product.id]: Math.max(0, (prev[product.id] || 0) - 1) }))}
+                        className="bg-white border border-[#e8e0d0] text-[#1a5c38] font-bold h-7 w-7 rounded-full text-base hover:bg-[#f0faf4] transition shadow-sm">−</button>
+                      <span className="text-lg font-bold text-[#1c1c1c] w-5 text-center">{qty}</span>
+                      <button type="button"
+                        onClick={() => setQuantities(prev => ({ ...prev, [product.id]: (prev[product.id] || 0) + 1 }))}
+                        className="bg-[#1a5c38] text-white font-bold h-7 w-7 rounded-full text-base hover:bg-[#14472c] transition shadow-sm">+</button>
+                    </div>
+                    {qty > 0 && <p className="text-xs text-[#1a5c38] font-semibold mt-2">₹{product.price * qty}</p>}
+                  </div>
+                )
+              })}
             </div>
           </div>
 
@@ -294,14 +278,19 @@ export default function Order() {
           </div>
 
           {/* Order Summary */}
-          <div className="rounded-lg p-5 shadow-lg text-white"
-            style={{background:'linear-gradient(135deg, #0d3320 0%, #1a5c38 100%)'}}>
+          <div className="rounded-lg p-5 shadow-lg text-white" style={{background:'linear-gradient(135deg, #0d3320 0%, #1a5c38 100%)'}}>
             <p className="text-sm font-semibold text-green-200 mb-3">Order Summary</p>
-            <div className="flex justify-between text-sm mb-1">
-              <span>{selectedProduct?.size} x {quantity}</span>
-              <span>₹{selectedProduct?.price * quantity}</span>
-            </div>
-            <div className="flex justify-between text-sm mb-1">
+            {selectedItems.length === 0 ? (
+              <p className="text-green-300 text-sm text-center py-2">Select at least one product above</p>
+            ) : (
+              selectedItems.map(p => (
+                <div key={p.id} className="flex justify-between text-sm mb-1">
+                  <span>{p.size} × {quantities[p.id]}</span>
+                  <span>₹{p.price * quantities[p.id]}</span>
+                </div>
+              ))
+            )}
+            <div className="flex justify-between text-sm mb-1 mt-1">
               <span>Delivery Slot</span>
               <span>{deliverySlot === 'morning' ? '🌅 7AM–9AM' : '🌆 5PM–7PM'}</span>
             </div>
@@ -339,7 +328,7 @@ export default function Order() {
             📱 Order confirmation will be sent to your WhatsApp number
           </p>
 
-          <button type="submit" disabled={loading || !selectedProduct || !agreedToTerms}
+          <button type="submit" disabled={loading || !hasItems || !agreedToTerms}
             className="text-white py-4 rounded-lg font-bold text-lg transition shadow-lg disabled:opacity-50"
             style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
             {loading ? 'Placing Order...' : '🥛 Place Order (COD)'}

@@ -276,6 +276,12 @@ async function notifyPointsExpiring({ phone, name, points, expiryDate }) {
   )
 }
 
+// NOTE: Requires 'welcome_customer' template approved in Meta WhatsApp Business Manager
+// Template body example: "Welcome to Sri Krishnaa Dairy! 🥛\n\nHi {{1}}, your account is ready.\nTo receive delivery updates, save our number and send 'Hi' on WhatsApp: +91 9980166221.\n\nFarm Fresh · Pure · Natural"
+async function notifyWelcome(phone, name) {
+  return sendTemplate(phone, 'welcome_customer', [name || 'there'])
+}
+
 export {
   sendWhatsAppMessage,
   sendWhatsAppToAdmin,
@@ -301,4 +307,5 @@ export {
   notifyUndelivered,
   notifyAddonOrderConfirmed,
   notifyPointsExpiring,
+  notifyWelcome,
 }

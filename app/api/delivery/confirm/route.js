@@ -38,12 +38,15 @@ export async function POST(request) {
         .from('orders')
         .update({ status: 'delivered', delivered_at: deliveredAt, delivered_by: deliveredBy })
         .eq('id', order_id)
-        .select('user_id, payment_method, quantity, products(size)')
+        .select('user_id, payment_method, quantity, product_id')
         .single()
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-      const productLabel = orderRow.products?.size
-        ? `${orderRow.products.size} x${orderRow.quantity || 1}`
+      // Fetch product separately — update().select() doesn't support FK joins in PostgREST
+      const { data: productData } = await supabase
+        .from('products').select('size').eq('id', orderRow.product_id).maybeSingle()
+      const productLabel = productData?.size
+        ? `${productData.size} x${orderRow.quantity || 1}`
         : 'Milk'
       const dateLabel = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -61,8 +64,9 @@ export async function POST(request) {
         console.log('[DeliveryConfirm] Customer phone:', customerProfile?.phone, '| email:', customerEmail)
 
         if (customerProfile?.phone) {
-          console.log('[DeliveryConfirm] Sending WhatsApp delivery confirmation...')
-          await sendDeliveryConfirmed(customerProfile.phone, customerName, dateLabel, productLabel)
+          console.log('[DeliveryConfirm] Sending WhatsApp delivery confirmation to:', customerProfile.phone)
+          const waResult = await sendDeliveryConfirmed(customerProfile.phone, customerName, dateLabel, productLabel)
+          console.log('[DeliveryConfirm] WA delivery result:', waResult)
           if (orderRow.payment_method === 'COD') {
             await notifyCodUpsell({ phone: customerProfile.phone, name: customerName })
           }

@@ -110,8 +110,15 @@ export default function SignUp() {
           // Points awarded after 30 days of active subscription — handled by cron
         }
       }
-      setMessage("Account created! 📱 Send 'Hi' to 9980166221 on WhatsApp to activate delivery notifications. Redirecting to login...")
-      setTimeout(() => { router.push('/login') }, 3000)
+      // Send welcome WhatsApp (non-blocking — template must be approved in Meta)
+      try {
+        await fetch('/api/welcome', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: data.user.id, phone: form.phone, name: form.full_name }),
+        })
+      } catch { /* non-blocking */ }
+      router.push(`/verify-email?email=${encodeURIComponent(form.email)}`)
     }
     setLoading(false)
   }

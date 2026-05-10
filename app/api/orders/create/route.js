@@ -51,26 +51,30 @@ export async function POST(request) {
 
     // ── 2. Parse & validate input ────────────────────────────────────────────
     const body = await request.json()
-    const {
-      product_id,
-      quantity,
-      delivery_date,
-      delivery_slot,
-      delivery_mode,
-      discount_code,
-    } = body
+    const { items, delivery_date, delivery_slot, delivery_mode, discount_code } = body
 
-    // Type and range checks — never trust client values
-    if (!product_id || (typeof product_id !== 'string' && typeof product_id !== 'number')) {
-      return NextResponse.json({ error: 'Invalid product.' }, { status: 400 })
+    // Support both multi-item array and single-item (backward compat)
+    const rawItems = items && Array.isArray(items)
+      ? items
+      : (body.product_id ? [{ product_id: body.product_id, quantity: body.quantity }] : null)
+
+    if (!rawItems || rawItems.length === 0 || rawItems.length > 5) {
+      return NextResponse.json({ error: 'Provide 1–5 items.' }, { status: 400 })
     }
-    const qty = parseInt(quantity, 10)
-    if (!Number.isInteger(qty) || qty < 1 || qty > 20) {
-      return NextResponse.json(
-        { error: 'Quantity must be between 1 and 20.' },
-        { status: 400 }
-      )
+
+    // Validate each item
+    const validatedItems = []
+    for (const item of rawItems) {
+      if (!item.product_id || (typeof item.product_id !== 'string' && typeof item.product_id !== 'number')) {
+        return NextResponse.json({ error: 'Invalid product.' }, { status: 400 })
+      }
+      const qty = parseInt(item.quantity, 10)
+      if (!Number.isInteger(qty) || qty < 1 || qty > 20) {
+        return NextResponse.json({ error: 'Quantity must be between 1 and 20.' }, { status: 400 })
+      }
+      validatedItems.push({ product_id: item.product_id, quantity: qty })
     }
+
     if (!delivery_date || !/^\d{4}-\d{2}-\d{2}$/.test(delivery_date)) {
       return NextResponse.json({ error: 'Invalid delivery date.' }, { status: 400 })
     }
@@ -105,19 +109,20 @@ export async function POST(request) {
       )
     }
 
-    // ── 4. Fetch the real product price from the DB (never trust client) ─────
-    const { data: product, error: productError } = await supabase
+    // ── 4. Fetch the real product prices from the DB (never trust client) ─────
+    const productIds = validatedItems.map(i => i.product_id)
+    const { data: fetchedProducts, error: productError } = await supabase
       .from('products')
       .select('id, price, size, is_available')
-      .eq('id', product_id)
-      .single()
+      .in('id', productIds)
 
-    if (productError || !product) {
-      return NextResponse.json({ error: 'Product not found.' }, { status: 404 })
+    if (productError || !fetchedProducts || fetchedProducts.length !== productIds.length) {
+      return NextResponse.json({ error: 'One or more products not found.' }, { status: 404 })
     }
-    if (!product.is_available) {
-      return NextResponse.json({ error: 'Product is currently unavailable.' }, { status: 400 })
+    for (const p of fetchedProducts) {
+      if (!p.is_available) return NextResponse.json({ error: `${p.size} is currently unavailable.` }, { status: 400 })
     }
+    const productMap = Object.fromEntries(fetchedProducts.map(p => [p.id, p]))
 
     // ── 4. Validate discount code server-side ────────────────────────────────
     let discountPercent = 0
@@ -137,51 +142,51 @@ export async function POST(request) {
       }
     }
 
-    // ── 5. Compute authoritative price ──────────────────────────────────────
+    // ── 5. Compute authoritative price per item ──────────────────────────────
     // Trial orders (first COD order) have no deposit for any product
-    const milkPrice = Math.round(product.price * qty * (1 - discountPercent / 100))
-    const bottleDeposit = 0 // No deposit on trial orders; deposit tracked on subscriptions
-    const totalPrice = milkPrice // total_price = milk only, deposit stored separately
+    const itemsWithPrice = validatedItems.map(item => ({
+      product_id: item.product_id,
+      quantity: item.quantity,
+      product: productMap[item.product_id],
+      linePrice: Math.round(productMap[item.product_id].price * item.quantity * (1 - discountPercent / 100)),
+    }))
+    const totalPrice = itemsWithPrice.reduce((sum, i) => sum + i.linePrice, 0)
 
-    // ── 6. Check for duplicate order on this date ────────────────────────────
-    const { data: existingOrder } = await supabase
-      .from('orders')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('delivery_date', delivery_date)
-      .maybeSingle()
-
-    if (existingOrder) {
-      return NextResponse.json(
-        { error: 'You already have an order for this date.' },
-        { status: 409 }
-      )
+    // ── 6. Check for duplicate orders on this date (per product) ─────────────
+    for (const item of itemsWithPrice) {
+      const { data: dup } = await supabase
+        .from('orders').select('id')
+        .eq('user_id', user.id)
+        .eq('delivery_date', delivery_date)
+        .eq('product_id', item.product_id)
+        .maybeSingle()
+      if (dup) {
+        return NextResponse.json({ error: `You already have an order for ${item.product.size} on this date.` }, { status: 409 })
+      }
     }
 
     // ── 7. Insert with server-computed values ────────────────────────────────
-    const { data: order, error: insertError } = await supabase
-      .from('orders')
-      .insert({
-        user_id: user.id,         // from JWT — cannot be forged by client
-        product_id: product.id,   // re-confirmed from DB
-        quantity: qty,             // validated integer
-        total_price: totalPrice,   // server-computed
-        delivery_date,
-        delivery_slot,
-        delivery_mode,
-        bottle_deposit: bottleDeposit, // server-computed
-        status: 'pending',
-        payment_method: 'COD',
-      })
-      .select('id')
-      .single()
+    const orderRows = itemsWithPrice.map(item => ({
+      user_id: user.id,
+      product_id: item.product_id,
+      quantity: item.quantity,
+      total_price: item.linePrice,
+      delivery_date,
+      delivery_slot,
+      delivery_mode,
+      bottle_deposit: 0,
+      status: 'pending',
+      payment_method: 'COD',
+    }))
+    const { data: orders, error: insertError } = await supabase
+      .from('orders').insert(orderRows).select('id')
 
     if (insertError) {
       console.error('[orders/create] Insert error:', insertError.message)
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
-    console.log('[orders/create] COD trial order created:', order.id, 'user:', user.id, 'date:', delivery_date)
+    console.log('[orders/create] Created', orders.length, 'order(s) for user:', user.id, 'date:', delivery_date)
 
     // ── 8. Mark COD trial as used (one COD order allowed per customer) ───────
     await supabase
@@ -189,70 +194,28 @@ export async function POST(request) {
       .update({ has_used_cod: true })
       .eq('id', user.id)
 
-    // ── 9. Track bottle deposit in wallet.deposit_balance ───────────────────
-    if (bottleDeposit > 0) {
-      try {
-        const { data: walletRow } = await supabase
-          .from('wallet')
-          .select('id, deposit_balance')
-          .eq('user_id', user.id)
-          .maybeSingle()
-
-        if (walletRow) {
-          await supabase
-            .from('wallet')
-            .update({ deposit_balance: (walletRow.deposit_balance || 0) + bottleDeposit })
-            .eq('user_id', user.id)
-        } else {
-          await supabase
-            .from('wallet')
-            .insert({ user_id: user.id, balance: 0, deposit_balance: bottleDeposit })
-        }
-      } catch {
-        // Deposit tracking failure must not block order creation
-      }
-    }
-
     // ── 9. Send confirmation email + WhatsApp (non-blocking) ────────────────
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name, phone')
-        .eq('id', user.id)
-        .single()
-
-      const { data: productDetails } = await supabase
-        .from('products')
-        .select('size')
-        .eq('id', product.id)
-        .single()
-
+      const { data: profile } = await supabase.from('profiles').select('full_name, phone').eq('id', user.id).single()
       const name = profile?.full_name || user.email
-      const size = productDetails?.size || 'Milk'
-
+      const orderSummary = itemsWithPrice.map(i => `${i.product.size} ×${i.quantity}`).join(', ')
+      // Use first item for WA template (template only supports one product)
+      const firstItem = itemsWithPrice[0]
       await sendOrderConfirmationEmail({
-        to: user.email,
-        name,
-        product: size,
-        quantity: qty,
-        deliveryDate: delivery_date,
-        deliverySlot: delivery_slot,
-        totalAmount: totalPrice,
+        to: user.email, name,
+        product: itemsWithPrice.length === 1 ? firstItem.product.size : orderSummary,
+        quantity: firstItem.quantity,
+        deliveryDate: delivery_date, deliverySlot: delivery_slot, totalAmount: totalPrice,
       })
-
       await sendOrderConfirmed(
-        profile?.phone,
-        name,
-        `${size} x${qty}`,
+        profile?.phone, name,
+        itemsWithPrice.length === 1 ? `${firstItem.product.size} x${firstItem.quantity}` : orderSummary,
         delivery_date,
         delivery_slot === 'morning' ? '7AM–9AM' : '5PM–7PM',
         totalPrice,
       )
-    } catch {
-      // Notification failure must not block order creation
-    }
-
-    return NextResponse.json({ success: true, order_id: order.id })
+    } catch { /* non-blocking */ }
+    return NextResponse.json({ success: true, order_count: orders.length })
   } catch {
     return NextResponse.json({ error: 'Server error.' }, { status: 500 })
   }
