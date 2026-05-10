@@ -119,6 +119,7 @@ export async function POST(request) {
         .single()
 
       if (!sub) return NextResponse.json({ error: 'Subscription not found.' }, { status: 404 })
+      if (!sub.products) return NextResponse.json({ error: 'Subscription product not found.' }, { status: 404 })
 
       // Record delivery log
       await supabase.from('subscription_deliveries').upsert({
@@ -128,6 +129,22 @@ export async function POST(request) {
         delivered_at: deliveredAt,
         delivered_by: deliveredBy,
       }, { onConflict: 'subscription_id,delivery_date' }).select()
+
+      // ── Send delivery WhatsApp confirmation — always, regardless of wallet state ─
+      try {
+        const { data: deliveryProfile } = await supabase
+          .from('profiles').select('full_name, phone').eq('id', sub.user_id).single()
+        const deliveryName = deliveryProfile?.full_name || 'Customer'
+        const dateLabel = new Date(delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+        const productLabel = sub.products?.size || 'Milk'
+        console.log('[Delivery] Sending WhatsApp to:', deliveryProfile?.phone, 'name:', deliveryName)
+        if (deliveryProfile?.phone) {
+          const waResult = await sendDeliveryConfirmed(deliveryProfile.phone, deliveryName, dateLabel, productLabel)
+          console.log('[Delivery] WhatsApp result:', waResult)
+        }
+      } catch (waErr) {
+        console.error('[Delivery] WhatsApp send failed:', waErr?.message)
+      }
 
       // ── Deduct wallet on delivery confirmation ──────────────────────────────
       const dailyAmount = Math.round(
@@ -201,20 +218,16 @@ export async function POST(request) {
             }
           }
 
-          // Send delivery confirmation to customer
+          // Send delivery confirmation email
           try {
-            const { data: deliveryProfile } = await supabase
-              .from('profiles').select('full_name, phone').eq('id', sub.user_id).single()
             const { data: deliveryAuthUser } = await supabase.auth.admin.getUserById(sub.user_id)
             const deliveryEmail = deliveryAuthUser?.user?.email
-            const deliveryName = deliveryProfile?.full_name || 'Customer'
-            const dateLabel = new Date(delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-            const productLabel = sub.products?.size || 'Milk'
-            console.log('[Delivery] Customer phone:', deliveryProfile?.phone, '| Sending WhatsApp...')
-            if (deliveryProfile?.phone) {
-              await sendDeliveryConfirmed(deliveryProfile.phone, deliveryName, dateLabel, productLabel)
-            }
             if (deliveryEmail) {
+              const { data: deliveryProfile } = await supabase
+                .from('profiles').select('full_name').eq('id', sub.user_id).single()
+              const deliveryName = deliveryProfile?.full_name || 'Customer'
+              const dateLabel = new Date(delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+              const productLabel = sub.products?.size || 'Milk'
               await sendOrderConfirmationEmail({
                 to: deliveryEmail,
                 name: deliveryName,
@@ -226,7 +239,7 @@ export async function POST(request) {
               })
             }
           } catch (notifyErr) {
-            console.error('[Delivery] Notification failed:', notifyErr)
+            console.error('[Delivery] Email notification failed:', notifyErr?.message)
           }
 
           // Low balance alert if dropped below Rs.300

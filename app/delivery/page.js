@@ -221,7 +221,7 @@ export default function DeliveryDashboard() {
     setDeliveringId(subId)
     const { data: { session } } = await supabase.auth.getSession()
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-    await fetch('/api/delivery/confirm', {
+    const res = await fetch('/api/delivery/confirm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
       body: JSON.stringify({
@@ -232,6 +232,12 @@ export default function DeliveryDashboard() {
         not_delivered: notDelivered,
       }),
     })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      showError(err.error || 'Failed to confirm delivery. Please try again.')
+      setDeliveringId(null)
+      return
+    }
     setDeliveredSubs(prev => new Set([...prev, subId]))
     if (!notDelivered) {
       setStats(s => ({ ...s, pending: Math.max(0, s.pending - 1), delivered: s.delivered + 1 }))
