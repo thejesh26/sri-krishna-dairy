@@ -89,6 +89,11 @@ export default function AdminDashboard() {
   const [customWaType, setCustomWaType] = useState('custom')
   const [customWaLoading, setCustomWaLoading] = useState(false)
   const [walletsLastUpdated, setWalletsLastUpdated] = useState(null)
+  const [deliveryHistory, setDeliveryHistory] = useState([])
+  const [historyDateFilter, setHistoryDateFilter] = useState('')
+  const [historyAgentFilter, setHistoryAgentFilter] = useState('')
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyLoaded, setHistoryLoaded] = useState(false)
 
   useEffect(() => { checkAdmin() }, [])
 
@@ -266,11 +271,77 @@ export default function AdminDashboard() {
     const res = await fetch('/api/admin/wallets', {
       headers: { Authorization: `Bearer ${session?.access_token}` },
     })
-    const json = res.ok ? await res.json() : { wallets: [] }
+    if (!res.ok) {
+      const err = await res.text()
+      console.error('[Admin] Wallets API error:', res.status, err)
+      return []
+    }
+    const json = await res.json()
     console.log('[Admin] Wallets loaded:', json.wallets?.length || 0)
     setWallets(json.wallets || [])
     setWalletsLastUpdated(new Date())
     return json.wallets || []
+  }
+
+  const handleAdminTabChange = async (id) => {
+    setActiveTab(id)
+    if (id === 'wallet') await loadWallets()
+    if (id === 'delivery_history' && !historyLoaded) loadDeliveryHistory()
+  }
+
+  const loadDeliveryHistory = async () => {
+    setHistoryLoading(true)
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    const fromDate = sevenDaysAgo.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+
+    // Fetch subscription delivery records
+    const { data: subDeliveries } = await supabase
+      .from('subscription_deliveries')
+      .select('*')
+      .gte('delivery_date', fromDate)
+      .order('delivery_date', { ascending: false })
+
+    // Fetch delivered orders
+    const { data: deliveredOrders } = await supabase
+      .from('orders')
+      .select('*, profiles(*), products(*)')
+      .eq('status', 'delivered')
+      .gte('delivery_date', fromDate)
+      .order('delivery_date', { ascending: false })
+
+    const combined = [
+      ...(subDeliveries || []).map(d => {
+        const sub = subscriptions.find(s => s.id === d.subscription_id)
+        const customer = customers.find(c => c.id === d.user_id)
+        return {
+          id: 'sub-' + d.id,
+          type: 'subscription',
+          customerName: customer?.full_name || 'Unknown',
+          phone: customer?.phone || '',
+          product: sub?.products?.size || 'Milk',
+          quantity: sub?.quantity || 1,
+          deliveredBy: d.delivered_by || '-',
+          deliveredAt: d.delivered_at,
+          date: d.delivery_date,
+        }
+      }),
+      ...(deliveredOrders || []).map(o => ({
+        id: 'ord-' + o.id,
+        type: 'order',
+        customerName: o.profiles?.full_name || 'Unknown',
+        phone: o.profiles?.phone || '',
+        product: o.products?.size || 'Milk',
+        quantity: o.quantity || 1,
+        deliveredBy: o.delivered_by || '-',
+        deliveredAt: o.delivered_at || o.updated_at,
+        date: o.delivery_date,
+      })),
+    ].sort((a, b) => new Date(b.date) - new Date(a.date))
+
+    setDeliveryHistory(combined)
+    setHistoryLoaded(true)
+    setHistoryLoading(false)
   }
 
   const saveProductPrice = async (productId, newPrice, newAvailable) => {
@@ -652,6 +723,7 @@ export default function AdminDashboard() {
     { id: 'subscriptions', label: 'Subscriptions', icon: '📅' },
     { id: 'customers', label: 'Customers', icon: '👥' },
     { id: 'wallet', label: 'Wallet', icon: '💰' },
+    { id: 'delivery_history', label: 'Delivery History', icon: '📋' },
     { id: 'delivery', label: 'Delivery Agents', icon: '🚴' },
     { id: 'products', label: 'Products & Pricing', icon: '🥛' },
     { id: 'reviews', label: 'Reviews', icon: '⭐' },
@@ -659,7 +731,7 @@ export default function AdminDashboard() {
     { id: 'reports', label: 'Issue Reports', icon: '⚠️' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ].map(({ id, label, icon }) => (
-            <button key={id} onClick={() => setActiveTab(id)}
+            <button key={id} onClick={() => handleAdminTabChange(id)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition whitespace-nowrap ${
                 activeTab === id
                   ? 'bg-[#1a5c38] text-white shadow'
@@ -1286,8 +1358,11 @@ export default function AdminDashboard() {
                 </div>
               </div>
               <div className="text-right">
-                <p className="font-bold text-[#1a5c38]">Rs.{customerWallet?.balance || 0}</p>
+                <p className="font-bold text-[#1a5c38]">Rs.{customerWallet?.balance ?? 0}</p>
                 <p className="text-xs text-gray-400">balance</p>
+                {customerWallet?.deposit_balance > 0 && (
+                  <p className="text-xs text-[#d4a017] font-semibold">🍼 Rs.{customerWallet.deposit_balance}</p>
+                )}
               </div>
             </div>
           )
@@ -1316,8 +1391,13 @@ export default function AdminDashboard() {
                 <p className="font-semibold text-[#1c1c1c]">{selectedCustomer.full_name}</p>
                 <p className="text-sm text-gray-400">{selectedCustomer.phone}</p>
                 <p className="text-sm font-bold text-[#1a5c38]">
-                  Current Balance: Rs.{wallets.find(w => w.user_id === selectedCustomer.id)?.balance || 0}
+                  Balance: Rs.{wallets.find(w => w.user_id === selectedCustomer.id)?.balance ?? 0}
                 </p>
+                {wallets.find(w => w.user_id === selectedCustomer.id)?.deposit_balance > 0 && (
+                  <p className="text-xs text-[#d4a017] font-semibold">
+                    🍼 Deposit: Rs.{wallets.find(w => w.user_id === selectedCustomer.id)?.deposit_balance}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1353,26 +1433,21 @@ export default function AdminDashboard() {
                   if (!walletAmount || walletAmount <= 0) { setWalletMessage('Please enter a valid amount!'); return }
                   setWalletLoading(true)
                   setWalletMessage('')
-                  const customerWallet = wallets.find(w => w.user_id === selectedCustomer.id)
-                  const newBalance = (customerWallet?.balance || 0) + parseFloat(walletAmount)
-
-                  if (customerWallet) {
-                    await supabase.from('wallet').update({ balance: newBalance }).eq('user_id', selectedCustomer.id)
-                  } else {
-                    await supabase.from('wallet').insert({ user_id: selectedCustomer.id, balance: newBalance })
-                  }
-
-                  await supabase.from('wallet_transactions').insert({
-                    user_id: selectedCustomer.id,
-                    amount: parseFloat(walletAmount),
-                    type: 'credit',
-                    description: walletNote || 'Added by admin'
+                  const { data: { session } } = await supabase.auth.getSession()
+                  const res = await fetch('/api/admin/wallet-update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                    body: JSON.stringify({ target_user_id: selectedCustomer.id, action: 'add', amount: parseFloat(walletAmount), note: walletNote || 'Added by admin' }),
                   })
-                  
-                  await loadWallets()
-                  setWalletAmount('')
-                  setWalletNote('')
-                  setWalletMessage('Rs.' + walletAmount + ' added successfully!')
+                  const result = await res.json()
+                  if (!res.ok) {
+                    setWalletMessage('Error: ' + (result.error || 'Could not update wallet'))
+                  } else {
+                    await loadWallets()
+                    setWalletAmount('')
+                    setWalletNote('')
+                    setWalletMessage('Rs.' + walletAmount + ' added! New balance: Rs.' + result.new_balance)
+                  }
                   setWalletLoading(false)
                 }}
                 disabled={walletLoading}
@@ -1390,18 +1465,21 @@ export default function AdminDashboard() {
                   }
                   setWalletLoading(true)
                   setWalletMessage('')
-                  const newBalance = (customerWallet?.balance || 0) - parseFloat(walletAmount)
-                  await supabase.from('wallet').update({ balance: newBalance }).eq('user_id', selectedCustomer.id)
-                  await supabase.from('wallet_transactions').insert({
-                    user_id: selectedCustomer.id,
-                    amount: parseFloat(walletAmount),
-                    type: 'debit',
-                    description: walletNote || 'Deducted by admin'
+                  const { data: { session } } = await supabase.auth.getSession()
+                  const res = await fetch('/api/admin/wallet-update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                    body: JSON.stringify({ target_user_id: selectedCustomer.id, action: 'deduct', amount: parseFloat(walletAmount), note: walletNote || 'Deducted by admin' }),
                   })
-                  await loadWallets()
-                  setWalletAmount('')
-                  setWalletNote('')
-                  setWalletMessage('Rs.' + walletAmount + ' deducted successfully!')
+                  const result = await res.json()
+                  if (!res.ok) {
+                    setWalletMessage('Error: ' + (result.error || 'Could not update wallet'))
+                  } else {
+                    await loadWallets()
+                    setWalletAmount('')
+                    setWalletNote('')
+                    setWalletMessage('Rs.' + walletAmount + ' deducted! New balance: Rs.' + result.new_balance)
+                  }
                   setWalletLoading(false)
                 }}
                 disabled={walletLoading}
@@ -1414,6 +1492,143 @@ export default function AdminDashboard() {
       </div>
     </div>
   </div>
+  </div>
+)}
+
+{/* Delivery History Tab */}
+{activeTab === 'delivery_history' && (
+  <div className="flex flex-col gap-5">
+    <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+      <div className="px-6 py-5 border-b border-[#f5f0e8] flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">📋 Delivery History</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Past 7 days — subscriptions and one-time orders</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <input
+            type="date"
+            value={historyDateFilter}
+            onChange={e => setHistoryDateFilter(e.target.value)}
+            className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38]"
+          />
+          <input
+            type="text"
+            placeholder="Filter by agent..."
+            value={historyAgentFilter}
+            onChange={e => setHistoryAgentFilter(e.target.value)}
+            className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] w-36"
+          />
+          <button
+            onClick={() => { setHistoryLoaded(false); loadDeliveryHistory() }}
+            className="text-xs border border-[#1a5c38] text-[#1a5c38] px-3 py-2 rounded-lg hover:bg-[#f0faf4] transition font-semibold"
+          >
+            ↻ Refresh
+          </button>
+          <button
+            onClick={() => {
+              const filtered = deliveryHistory.filter(d => {
+                if (historyDateFilter && d.date !== historyDateFilter) return false
+                if (historyAgentFilter && !d.deliveredBy?.toLowerCase().includes(historyAgentFilter.toLowerCase())) return false
+                return true
+              })
+              const headers = ['Date', 'Type', 'Customer', 'Phone', 'Product', 'Qty', 'Delivered By', 'Delivered At']
+              const rows = filtered.map(d => [
+                d.date,
+                d.type === 'subscription' ? 'Subscription' : 'One-time',
+                d.customerName,
+                d.phone,
+                d.product,
+                d.quantity,
+                d.deliveredBy,
+                d.deliveredAt ? new Date(d.deliveredAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '-',
+              ])
+              const csv = [headers, ...rows].map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+              const blob = new Blob([csv], { type: 'text/csv' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a'); a.href = url; a.download = `delivery_history_${new Date().toISOString().split('T')[0]}.csv`; a.click()
+              setTimeout(() => URL.revokeObjectURL(url), 5000)
+            }}
+            className="text-xs bg-[#1a5c38] text-white px-3 py-2 rounded-lg hover:bg-[#14472c] transition font-semibold"
+          >
+            Export CSV
+          </button>
+        </div>
+      </div>
+      {historyLoading ? (
+        <div className="px-6 py-12 text-center text-gray-400 text-sm">Loading delivery history...</div>
+      ) : (() => {
+        const filtered = deliveryHistory.filter(d => {
+          if (historyDateFilter && d.date !== historyDateFilter) return false
+          if (historyAgentFilter && !d.deliveredBy?.toLowerCase().includes(historyAgentFilter.toLowerCase())) return false
+          return true
+        })
+        if (filtered.length === 0) {
+          return (
+            <div className="px-6 py-12 text-center">
+              <div className="text-5xl mb-3">📋</div>
+              <p className="text-gray-400 text-sm">No delivery records found for the selected filters.</p>
+            </div>
+          )
+        }
+        // Group by date
+        const byDate = filtered.reduce((acc, d) => {
+          if (!acc[d.date]) acc[d.date] = []
+          acc[d.date].push(d)
+          return acc
+        }, {})
+        return (
+          <div>
+            {Object.entries(byDate).map(([date, items]) => (
+              <div key={date}>
+                <div className="px-6 py-3 bg-[#f5f0e8] flex items-center justify-between border-b border-[#e8e0d0]">
+                  <p className="font-semibold text-[#1c1c1c] text-sm">
+                    {new Date(date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  </p>
+                  <span className="bg-[#f0faf4] text-[#1a5c38] text-xs font-bold px-2.5 py-1 rounded-full border border-[#c8e6d4]">
+                    ✅ {items.length} delivered
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-[#fdfbf7] text-xs text-gray-400 uppercase tracking-widest">
+                      <tr>
+                        <th className="px-5 py-2 text-left">Customer</th>
+                        <th className="px-5 py-2 text-left">Product</th>
+                        <th className="px-5 py-2 text-left">Type</th>
+                        <th className="px-5 py-2 text-left">Delivered By</th>
+                        <th className="px-5 py-2 text-left">Time</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((d, idx) => (
+                        <tr key={d.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#fdfbf7]'}>
+                          <td className="px-5 py-3">
+                            <p className="font-semibold text-[#1c1c1c]">{d.customerName}</p>
+                            <p className="text-xs text-gray-400">{d.phone}</p>
+                          </td>
+                          <td className="px-5 py-3 text-[#1c1c1c]">
+                            {d.product} <span className="text-gray-400 text-xs">x{d.quantity}</span>
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${d.type === 'subscription' ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]'}`}>
+                              {d.type === 'subscription' ? '📅 Sub' : '🛒 Order'}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-gray-500 text-xs">{d.deliveredBy || '-'}</td>
+                          <td className="px-5 py-3 text-gray-400 text-xs">
+                            {d.deliveredAt ? new Date(d.deliveredAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      })()}
+    </div>
   </div>
 )}
 

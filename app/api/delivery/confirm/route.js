@@ -244,6 +244,13 @@ export async function POST(request) {
         } else if (wallet && balance < dailyAmount) {
           // Insufficient balance — deactivate subscription
           await supabase.from('subscriptions').update({ is_active: false, pending_delivery: false }).eq('id', subscription_id)
+          // Record in failed_deductions so admin dashboard count is accurate
+          await supabase.from('failed_deductions').insert({
+            user_id: sub.user_id,
+            subscription_id,
+            amount: dailyAmount,
+            reason: 'Insufficient balance — deactivated on delivery confirm',
+          }).catch(() => {})
           // Notify customer their delivery has been stopped
           try {
             const { data: stoppedProfile } = await supabase

@@ -72,12 +72,13 @@ export default function DeliveryDashboard() {
     const { data: allOrders } = await ordersQuery
     setOrders(allOrders || [])
 
-    // Load today's subscriptions assigned to this agent (only started on/before today)
+    // Load today's subscriptions assigned to this agent (only started on/before today, not expired, not paused)
     let subsQuery = supabase
       .from('subscriptions')
       .select('*, products(*), profiles(*)')
       .eq('is_active', true)
       .lte('start_date', today)
+      .or(`end_date.is.null,end_date.gte.${today}`)
       .order('delivery_slot', { ascending: true })
 
     if (!profile?.is_admin) {
@@ -85,7 +86,9 @@ export default function DeliveryDashboard() {
     }
 
     const { data: allSubs } = await subsQuery
-    setSubscriptions(allSubs || [])
+    // Filter out subscriptions paused today (can't do array NOT CONTAINS in PostgREST easily)
+    const activeSubs = (allSubs || []).filter(sub => !(sub.paused_dates || []).includes(today))
+    setSubscriptions(activeSubs)
 
     // Load today's add-on orders
     const { data: allAddons } = await supabase
@@ -95,11 +98,11 @@ export default function DeliveryDashboard() {
       .eq('status', 'pending')
     setAddonOrders(allAddons || [])
 
-    // Calculate stats
+    // Calculate stats — include subscriptions in total
     const allDeliveries = [...(allOrders || [])]
     setStats({
-      total: allDeliveries.length,
-      pending: allDeliveries.filter(o => o.status === 'pending').length,
+      total: allDeliveries.length + activeSubs.length,
+      pending: allDeliveries.filter(o => o.status === 'pending').length + activeSubs.length,
       out: allDeliveries.filter(o => o.status === 'out_for_delivery').length,
       delivered: allDeliveries.filter(o => o.status === 'delivered').length,
     })
@@ -230,6 +233,9 @@ export default function DeliveryDashboard() {
       }),
     })
     setDeliveredSubs(prev => new Set([...prev, subId]))
+    if (!notDelivered) {
+      setStats(s => ({ ...s, pending: Math.max(0, s.pending - 1), delivered: s.delivered + 1 }))
+    }
     setDeliveringId(null)
   }
 
