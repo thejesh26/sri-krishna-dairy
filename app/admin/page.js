@@ -96,8 +96,17 @@ export default function AdminDashboard() {
   const [customWaLoading, setCustomWaLoading] = useState(false)
   const [walletsLastUpdated, setWalletsLastUpdated] = useState(null)
   const [deliveryHistory, setDeliveryHistory] = useState([])
-  const [historyDateFilter, setHistoryDateFilter] = useState('')
+  const [historyStartDate, setHistoryStartDate] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 7)
+    return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  })
+  const [historyEndDate, setHistoryEndDate] = useState(
+    new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  )
   const [historyAgentFilter, setHistoryAgentFilter] = useState('')
+  const [reportsSubTab, setReportsSubTab] = useState('missed')
+  const [suggestions, setSuggestions] = useState([])
+  const [deliveryIssues, setDeliveryIssues] = useState([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyLoaded, setHistoryLoaded] = useState(false)
   const [cancelledSubCounts, setCancelledSubCounts] = useState({})
@@ -232,6 +241,20 @@ export default function AdminDashboard() {
       .order('created_at', { ascending: false })
     setBulkEnquiries(enquiries || [])
 
+    // Load customer suggestions
+    const { data: custSuggestions } = await supabase
+      .from('customer_suggestions')
+      .select('*, profiles(full_name, phone)')
+      .order('created_at', { ascending: false })
+    setSuggestions(custSuggestions || [])
+
+    // Load delivery agent issues
+    const { data: agentIssues } = await supabase
+      .from('delivery_issues')
+      .select('*')
+      .order('created_at', { ascending: false })
+    setDeliveryIssues(agentIssues || [])
+
     // Load quality feedback
     const { data: qFeedback } = await supabase
       .from('quality_feedback')
@@ -353,17 +376,17 @@ export default function AdminDashboard() {
     if (id === 'delivery_history' && !historyLoaded) loadDeliveryHistory()
   }
 
-  const loadDeliveryHistory = async () => {
+  const loadDeliveryHistory = async (startDate, endDate) => {
     setHistoryLoading(true)
-    const sevenDaysAgo = new Date()
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-    const fromDate = sevenDaysAgo.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+    const fromDate = startDate || historyStartDate
+    const toDate = endDate || historyEndDate
 
     // Fetch subscription delivery records
     const { data: subDeliveries } = await supabase
       .from('subscription_deliveries')
       .select('*')
       .gte('delivery_date', fromDate)
+      .lte('delivery_date', toDate)
       .order('delivery_date', { ascending: false })
 
     // Fetch delivered orders
@@ -372,6 +395,7 @@ export default function AdminDashboard() {
       .select('*, profiles(*), products(*)')
       .eq('status', 'delivered')
       .gte('delivery_date', fromDate)
+      .lte('delivery_date', toDate)
       .order('delivery_date', { ascending: false })
 
     const combined = [
@@ -388,6 +412,8 @@ export default function AdminDashboard() {
           deliveredBy: d.delivered_by || '-',
           deliveredAt: d.delivered_at,
           date: d.delivery_date,
+          status: 'delivered',
+          photo_url: d.photo_url || null,
         }
       }),
       ...(deliveredOrders || []).map(o => ({
@@ -400,6 +426,8 @@ export default function AdminDashboard() {
         deliveredBy: o.delivered_by || '-',
         deliveredAt: o.delivered_at || o.updated_at,
         date: o.delivery_date,
+        status: 'delivered',
+        photo_url: null,
       })),
     ].sort((a, b) => new Date(b.date) - new Date(a.date))
 
@@ -784,76 +812,6 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        {/* Revenue Chart — last 7 days */}
-        {(() => {
-          const days = Array.from({ length: 7 }, (_, i) => {
-            const d = new Date()
-            d.setDate(d.getDate() - (6 - i))
-            return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-          })
-          const dayRevenue = days.map(day => ({
-            label: new Date(day).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }),
-            rev: orders.filter(o => (o.delivery_date || o.created_at?.split('T')[0]) === day)
-                       .reduce((s, o) => s + (o.total_price || 0), 0),
-          }))
-          const maxRev = Math.max(...dayRevenue.map(d => d.rev), 1)
-          return (
-            <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 mb-6 shadow-sm">
-              <h3 className="font-[family-name:var(--font-playfair)] text-base font-bold text-[#1c1c1c] mb-4">📈 Revenue — Last 7 Days</h3>
-              <div className="flex items-end gap-2 h-28">
-                {dayRevenue.map(({ label, rev }) => (
-                  <div key={label} className="flex-1 flex flex-col items-center gap-1">
-                    <span className="text-[10px] font-bold text-[#1a5c38]">{rev > 0 ? `₹${rev}` : ''}</span>
-                    <div className="w-full rounded-t-md transition-all"
-                      style={{
-                        height: `${Math.round((rev / maxRev) * 80)}px`,
-                        minHeight: rev > 0 ? '4px' : '0',
-                        background: 'linear-gradient(to top, #1a5c38, #2d7a50)',
-                      }} />
-                    <span className="text-[9px] text-gray-400 text-center leading-tight">{label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )
-        })()}
-
-        {/* Low Balance Alerts */}
-        {(() => {
-          const lowBalance = wallets
-            .filter(w => w.balance < 300)
-            .map(w => ({ ...w, customer: customers.find(c => c.id === w.user_id) }))
-            .filter(w => w.customer)
-          if (lowBalance.length === 0) return null
-          return (
-            <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-5 mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-xl">🚨</span>
-                <p className="font-bold text-red-700">{lowBalance.length} Customer{lowBalance.length > 1 ? 's' : ''} with Low Wallet Balance</p>
-              </div>
-              <div className="flex flex-col gap-2">
-                {lowBalance.map(w => (
-                  <div key={w.user_id} className="flex items-center justify-between bg-white rounded-xl px-4 py-3 border border-red-200">
-                    <div>
-                      <p className="font-semibold text-[#1c1c1c] text-sm">{w.customer.full_name}</p>
-                      <p className="text-xs text-gray-400">📞 {w.customer.phone} • {w.customer.area}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-sm font-bold px-3 py-1 rounded-full ${w.balance === 0 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
-                        {w.balance === 0 ? '🚫 ₹0 — Paused' : `⚠️ ₹${w.balance}`}
-                      </span>
-                      <a href={`https://wa.me/91${w.customer.phone}?text=Hi ${w.customer.full_name}, your Sri Krishnaa Dairy wallet balance is low (Rs.${w.balance}). Please top up to continue daily deliveries.`}
-                        target="_blank"
-                        className="bg-[#25D366] text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-[#1da851] transition">
-                        Remind
-                      </a>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )
-        })()}
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 bg-white border border-[#e8e0d0] rounded-xl p-1 shadow-sm overflow-x-auto">
@@ -864,9 +822,7 @@ export default function AdminDashboard() {
     { id: 'customers', label: 'Customers', icon: '👥' },
     { id: 'delivery_history', label: 'Delivery History', icon: '📋' },
     { id: 'delivery', label: 'Delivery Agents', icon: '🚴' },
-    { id: 'products', label: 'Products & Pricing', icon: '🥛' },
     { id: 'reviews', label: 'Reviews', icon: '⭐' },
-    { id: 'discounts', label: 'Discount Codes', icon: '🏷️' },
     { id: 'reports', label: 'Issue Reports', icon: '⚠️' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ].map(({ id, label, icon }) => (
@@ -2133,57 +2089,51 @@ export default function AdminDashboard() {
 {activeTab === 'delivery_history' && (
   <div className="flex flex-col gap-5">
     <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
-      <div className="px-6 py-5 border-b border-[#f5f0e8] flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">📋 Delivery History</h3>
-          <p className="text-xs text-gray-400 mt-0.5">Past 7 days — subscriptions and one-time orders</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <input
-            type="date"
-            value={historyDateFilter}
-            onChange={e => setHistoryDateFilter(e.target.value)}
-            className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38]"
-          />
-          <input
-            type="text"
-            placeholder="Filter by agent..."
-            value={historyAgentFilter}
-            onChange={e => setHistoryAgentFilter(e.target.value)}
-            className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] w-36"
-          />
+      <div className="px-6 py-5 border-b border-[#f5f0e8]">
+        <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-3">📋 Delivery History</h3>
+        <div className="flex flex-wrap items-end gap-2">
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Start Date</label>
+            <input type="date" value={historyStartDate}
+              onChange={e => setHistoryStartDate(e.target.value)}
+              className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38]" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">End Date</label>
+            <input type="date" value={historyEndDate}
+              onChange={e => setHistoryEndDate(e.target.value)}
+              className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38]" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Agent</label>
+            <input type="text" placeholder="Filter by agent..."
+              value={historyAgentFilter}
+              onChange={e => setHistoryAgentFilter(e.target.value)}
+              className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] w-36" />
+          </div>
           <button
-            onClick={() => { setHistoryLoaded(false); loadDeliveryHistory() }}
-            className="text-xs border border-[#1a5c38] text-[#1a5c38] px-3 py-2 rounded-lg hover:bg-[#f0faf4] transition font-semibold"
-          >
-            ↻ Refresh
+            onClick={() => { setHistoryLoaded(false); loadDeliveryHistory(historyStartDate, historyEndDate) }}
+            className="text-xs bg-[#1a5c38] text-white px-4 py-2 rounded-lg hover:bg-[#14472c] transition font-semibold">
+            Load History
           </button>
           <button
             onClick={() => {
-              const filtered = deliveryHistory.filter(d => {
-                if (historyDateFilter && d.date !== historyDateFilter) return false
-                if (historyAgentFilter && !d.deliveredBy?.toLowerCase().includes(historyAgentFilter.toLowerCase())) return false
-                return true
-              })
+              const filtered = deliveryHistory.filter(d =>
+                !historyAgentFilter || d.deliveredBy?.toLowerCase().includes(historyAgentFilter.toLowerCase())
+              )
               const headers = ['Date', 'Type', 'Customer', 'Phone', 'Product', 'Qty', 'Delivered By', 'Delivered At']
               const rows = filtered.map(d => [
-                d.date,
-                d.type === 'subscription' ? 'Subscription' : 'One-time',
-                d.customerName,
-                d.phone,
-                d.product,
-                d.quantity,
-                d.deliveredBy,
+                d.date, d.type === 'subscription' ? 'Subscription' : 'One-time',
+                d.customerName, d.phone, d.product, d.quantity, d.deliveredBy,
                 d.deliveredAt ? new Date(d.deliveredAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '-',
               ])
               const csv = [headers, ...rows].map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
               const blob = new Blob([csv], { type: 'text/csv' })
               const url = URL.createObjectURL(blob)
-              const a = document.createElement('a'); a.href = url; a.download = `delivery_history_${new Date().toISOString().split('T')[0]}.csv`; a.click()
+              const a = document.createElement('a'); a.href = url; a.download = `delivery_history_${historyStartDate}_${historyEndDate}.csv`; a.click()
               setTimeout(() => URL.revokeObjectURL(url), 5000)
             }}
-            className="text-xs bg-[#1a5c38] text-white px-3 py-2 rounded-lg hover:bg-[#14472c] transition font-semibold"
-          >
+            className="text-xs border border-[#1a5c38] text-[#1a5c38] px-3 py-2 rounded-lg hover:bg-[#f0faf4] transition font-semibold">
             Export CSV
           </button>
         </div>
@@ -2191,20 +2141,17 @@ export default function AdminDashboard() {
       {historyLoading ? (
         <div className="px-6 py-12 text-center text-gray-400 text-sm">Loading delivery history...</div>
       ) : (() => {
-        const filtered = deliveryHistory.filter(d => {
-          if (historyDateFilter && d.date !== historyDateFilter) return false
-          if (historyAgentFilter && !d.deliveredBy?.toLowerCase().includes(historyAgentFilter.toLowerCase())) return false
-          return true
-        })
+        const filtered = deliveryHistory.filter(d =>
+          !historyAgentFilter || d.deliveredBy?.toLowerCase().includes(historyAgentFilter.toLowerCase())
+        )
         if (filtered.length === 0) {
           return (
             <div className="px-6 py-12 text-center">
               <div className="text-5xl mb-3">📋</div>
-              <p className="text-gray-400 text-sm">No delivery records found for the selected filters.</p>
+              <p className="text-gray-400 text-sm">No delivery records found. Click Load History to fetch data.</p>
             </div>
           )
         }
-        // Group by date
         const byDate = filtered.reduce((acc, d) => {
           if (!acc[d.date]) acc[d.date] = []
           acc[d.date].push(d)
@@ -2212,53 +2159,70 @@ export default function AdminDashboard() {
         }, {})
         return (
           <div>
-            {Object.entries(byDate).map(([date, items]) => (
-              <div key={date}>
-                <div className="px-6 py-3 bg-[#f5f0e8] flex items-center justify-between border-b border-[#e8e0d0]">
-                  <p className="font-semibold text-[#1c1c1c] text-sm">
-                    {new Date(date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
-                  </p>
-                  <span className="bg-[#f0faf4] text-[#1a5c38] text-xs font-bold px-2.5 py-1 rounded-full border border-[#c8e6d4]">
-                    ✅ {items.length} delivered
-                  </span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-[#fdfbf7] text-xs text-gray-400 uppercase tracking-widest">
-                      <tr>
-                        <th className="px-5 py-2 text-left">Customer</th>
-                        <th className="px-5 py-2 text-left">Product</th>
-                        <th className="px-5 py-2 text-left">Type</th>
-                        <th className="px-5 py-2 text-left">Delivered By</th>
-                        <th className="px-5 py-2 text-left">Time</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((d, idx) => (
-                        <tr key={d.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#fdfbf7]'}>
-                          <td className="px-5 py-3">
-                            <p className="font-semibold text-[#1c1c1c]">{d.customerName}</p>
-                            <p className="text-xs text-gray-400">{d.phone}</p>
-                          </td>
-                          <td className="px-5 py-3 text-[#1c1c1c]">
-                            {d.product} <span className="text-gray-400 text-xs">x{d.quantity}</span>
-                          </td>
-                          <td className="px-5 py-3">
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${d.type === 'subscription' ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]'}`}>
-                              {d.type === 'subscription' ? '📅 Sub' : '🛒 Order'}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3 text-gray-500 text-xs">{d.deliveredBy || '-'}</td>
-                          <td className="px-5 py-3 text-gray-400 text-xs">
-                            {d.deliveredAt ? new Date(d.deliveredAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '-'}
-                          </td>
+            {Object.entries(byDate).map(([date, items]) => {
+              const delivered = items.filter(i => i.status === 'delivered').length
+              const missed = items.filter(i => i.status === 'missed').length
+              const cancelled = items.filter(i => i.status === 'cancelled').length
+              const failed = items.filter(i => i.status === 'failed').length
+              return (
+                <div key={date}>
+                  <div className="px-6 py-3 bg-[#f5f0e8] flex items-center justify-between gap-3 border-b border-[#e8e0d0] flex-wrap">
+                    <p className="font-semibold text-[#1c1c1c] text-sm">
+                      {new Date(date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="bg-[#f0faf4] text-[#1a5c38] text-xs font-bold px-2.5 py-1 rounded-full border border-[#c8e6d4]">✅ {delivered} delivered</span>
+                      {missed > 0 && <span className="bg-orange-50 text-orange-600 text-xs font-bold px-2.5 py-1 rounded-full border border-orange-200">⚠️ {missed} missed</span>}
+                      {cancelled > 0 && <span className="bg-red-50 text-red-600 text-xs font-bold px-2.5 py-1 rounded-full border border-red-200">❌ {cancelled} cancelled</span>}
+                      {failed > 0 && <span className="bg-red-50 text-red-600 text-xs font-bold px-2.5 py-1 rounded-full border border-red-200">🚫 {failed} failed</span>}
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-[#fdfbf7] text-xs text-gray-400 uppercase tracking-widest">
+                        <tr>
+                          <th className="px-5 py-2 text-left">Customer</th>
+                          <th className="px-5 py-2 text-left">Product</th>
+                          <th className="px-5 py-2 text-left">Type</th>
+                          <th className="px-5 py-2 text-left">Delivered By</th>
+                          <th className="px-5 py-2 text-left">Time</th>
+                          <th className="px-5 py-2 text-left">Photo</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {items.map((d, idx) => (
+                          <tr key={d.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#fdfbf7]'}>
+                            <td className="px-5 py-3">
+                              <p className="font-semibold text-[#1c1c1c]">{d.customerName}</p>
+                              <p className="text-xs text-gray-400">{d.phone}</p>
+                            </td>
+                            <td className="px-5 py-3 text-[#1c1c1c]">
+                              {d.product} <span className="text-gray-400 text-xs">x{d.quantity}</span>
+                            </td>
+                            <td className="px-5 py-3">
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${d.type === 'subscription' ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]'}`}>
+                                {d.type === 'subscription' ? '📅 Sub' : '🛒 Order'}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3 text-gray-500 text-xs">{d.deliveredBy || '-'}</td>
+                            <td className="px-5 py-3 text-gray-400 text-xs">
+                              {d.deliveredAt ? new Date(d.deliveredAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '-'}
+                            </td>
+                            <td className="px-5 py-3">
+                              {d.photo_url ? (
+                                <a href={d.photo_url} target="_blank" rel="noreferrer">
+                                  <img src={d.photo_url} alt="proof" className="w-10 h-10 rounded-lg object-cover border border-[#e8e0d0] hover:opacity-80 transition" />
+                                </a>
+                              ) : <span className="text-xs text-gray-300">—</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )
       })()}
@@ -2573,85 +2537,6 @@ export default function AdminDashboard() {
   </div>
 )}
 
-{activeTab === 'products' && (
-  <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
-    <div className="px-6 py-5 border-b border-[#f5f0e8]">
-      <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Products & Pricing</h3>
-      <p className="text-xs text-gray-400 mt-0.5">Update prices here — deductions use these values directly</p>
-    </div>
-    {products.length === 0 ? (
-      <div className="px-6 py-12 text-center text-gray-400">No products found</div>
-    ) : (
-      <div>
-        {products.map((product, index) => (
-          <div key={product.id}
-            className={`px-6 py-5 flex items-center gap-4 ${index !== products.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
-            <div className="w-12 h-12 rounded-xl bg-[#f0faf4] flex items-center justify-center flex-shrink-0 p-1.5">
-              <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain" />
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold text-[#1c1c1c]">{product.name || `Fresh Cow Milk ${product.size}`}</p>
-              <p className="text-xs text-gray-400 mt-0.5">Size: {product.size}</p>
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full mt-1 inline-block ${product.is_available ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-red-50 text-red-500 border border-red-200'}`}>
-                {product.is_available ? 'Available' : 'Unavailable'}
-              </span>
-            </div>
-            {editingProduct?.id === product.id ? (
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">Price (Rs.)</p>
-                  <input
-                    type="number"
-                    value={editingProduct.price}
-                    onChange={e => setEditingProduct({ ...editingProduct, price: e.target.value })}
-                    className="border border-[#1a5c38] rounded-lg px-3 py-2 text-sm w-24 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">Status</p>
-                  <select
-                    value={editingProduct.is_available ? 'true' : 'false'}
-                    onChange={e => setEditingProduct({ ...editingProduct, is_available: e.target.value === 'true' })}
-                    className="border border-[#e8e0d0] rounded-lg px-3 py-2 text-sm focus:outline-none">
-                    <option value="true">Available</option>
-                    <option value="false">Unavailable</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1 mt-4">
-                  <button
-                    onClick={() => saveProductPrice(product.id, editingProduct.price, editingProduct.is_available)}
-                    disabled={productSaving}
-                    className="text-xs bg-[#1a5c38] text-white px-3 py-1.5 rounded-lg hover:bg-[#14472c] transition font-semibold disabled:opacity-50">
-                    {productSaving ? 'Saving...' : 'Save'}
-                  </button>
-                  <button
-                    onClick={() => setEditingProduct(null)}
-                    className="text-xs border border-[#e8e0d0] text-gray-500 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="text-right flex-shrink-0">
-                <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">Rs.{product.price}</p>
-                <p className="text-xs text-gray-400 mb-2">per bottle/day</p>
-                <button
-                  onClick={() => setEditingProduct({ ...product })}
-                  className="text-xs bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0] px-3 py-1.5 rounded-lg hover:bg-[#f5e9a0] transition font-semibold">
-                  Edit Price
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    )}
-    <div className="px-6 py-4 bg-[#fdf6e3] border-t border-[#f0dfa0]">
-      <p className="text-xs text-[#8a6e0a]">⚠️ Changing a price here immediately affects all future wallet deductions for active subscriptions.</p>
-    </div>
-  </div>
-)}
-
 {activeTab === 'reviews' && (
   <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
     <div className="px-6 py-5 border-b border-[#f5f0e8]">
@@ -2713,235 +2598,234 @@ export default function AdminDashboard() {
   </div>
 )}
 
-{/* Discount Codes Tab */}
-{activeTab === 'discounts' && (
-  <div className="flex flex-col gap-6">
-    {/* Add new code */}
-    <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
-      <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-4">🏷️ Add Discount Code</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-        <div>
-          <label className="text-xs font-semibold text-gray-600 mb-1 block">Code *</label>
-          <input type="text" placeholder="e.g. SUMMER20"
-            value={newCode.code}
-            onChange={e => setNewCode(c => ({ ...c, code: e.target.value.toUpperCase() }))}
-            className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-gray-600 mb-1 block">Discount % *</label>
-          <input type="number" placeholder="e.g. 15" min="1" max="99"
-            value={newCode.percent}
-            onChange={e => setNewCode(c => ({ ...c, percent: e.target.value }))}
-            className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-gray-600 mb-1 block">Description (optional)</label>
-          <input type="text" placeholder="e.g. Summer promotion"
-            value={newCode.description}
-            onChange={e => setNewCode(c => ({ ...c, description: e.target.value }))}
-            className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
-        </div>
-      </div>
-      <button
-        disabled={discountSaving || !newCode.code.trim() || !newCode.percent}
-        onClick={async () => {
-          setDiscountSaving(true)
-          const { data: { session } } = await supabase.auth.getSession()
-          const res = await fetch('/api/admin/discount-codes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-            body: JSON.stringify({ code: newCode.code.trim(), percent: parseInt(newCode.percent), description: newCode.description.trim() }),
-          })
-          if (res.ok) {
-            const { data } = await res.json()
-            setDiscountCodes(prev => [data, ...prev])
-            setNewCode({ code: '', percent: '', description: '' })
-          }
-          setDiscountSaving(false)
-        }}
-        className="bg-[#1a5c38] text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-[#14472c] transition disabled:opacity-50">
-        {discountSaving ? 'Saving...' : '+ Add Code'}
-      </button>
-    </div>
-
-    {/* Existing codes */}
-    <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
-      <div className="px-6 py-5 border-b border-[#f5f0e8]">
-        <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Active Discount Codes</h3>
-        <p className="text-xs text-gray-400 mt-0.5">{discountCodes.length} codes total</p>
-      </div>
-      {discountCodes.length === 0 ? (
-        <div className="px-6 py-12 text-center text-gray-400 text-sm">No discount codes yet. Add one above.</div>
-      ) : (
-        <div className="divide-y divide-[#f5f0e8]">
-          {discountCodes.map((dc) => (
-            <div key={dc.id} className="px-6 py-4 flex items-center gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono font-bold text-[#1a5c38] text-base">{dc.code}</span>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${dc.is_active ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-gray-100 text-gray-400'}`}>
-                    {dc.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-                <p className="text-sm text-[#d4a017] font-bold mt-0.5">{dc.percent}% off</p>
-                {dc.description && <p className="text-xs text-gray-400 mt-0.5">{dc.description}</p>}
-              </div>
-              <div className="flex gap-2 flex-shrink-0">
-                <button onClick={async () => {
-                  const { data: { session } } = await supabase.auth.getSession()
-                  const res = await fetch('/api/admin/discount-codes', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-                    body: JSON.stringify({ id: dc.id, is_active: !dc.is_active }),
-                  })
-                  if (res.ok) setDiscountCodes(prev => prev.map(x => x.id === dc.id ? { ...x, is_active: !dc.is_active } : x))
-                }} className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition ${dc.is_active ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4] hover:bg-[#e0f5ea]'}`}>
-                  {dc.is_active ? 'Disable' : 'Enable'}
-                </button>
-                <button onClick={async () => {
-                  if (!confirm(`Delete code "${dc.code}"?`)) return
-                  const { data: { session } } = await supabase.auth.getSession()
-                  const res = await fetch('/api/admin/discount-codes', {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-                    body: JSON.stringify({ id: dc.id }),
-                  })
-                  if (res.ok) setDiscountCodes(prev => prev.filter(x => x.id !== dc.id))
-                }} className="text-xs bg-red-50 text-red-500 border border-red-200 px-3 py-1.5 rounded-lg font-semibold hover:bg-red-100 transition">
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  </div>
-)}
 
 {/* Issue Reports Tab */}
 {activeTab === 'reports' && (
-  <div className="flex flex-col gap-6">
-    {/* Missed Delivery Reports */}
-    <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
-      <div className="px-6 py-5 border-b border-[#f5f0e8]">
-        <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">⚠️ Missed Delivery Reports</h3>
-        <p className="text-xs text-gray-400 mt-0.5">{missedReports.length} reports total</p>
+  <div className="flex flex-col gap-5">
+    {/* Sub-tabs */}
+    <div className="flex gap-1 bg-white border border-[#e8e0d0] rounded-xl p-1 shadow-sm overflow-x-auto">
+      {[
+        { id: 'missed',           label: '⚠️ Missed',           count: missedReports.length     },
+        { id: 'quality',          label: '👎 Quality',          count: qualityReports.length    },
+        { id: 'suggestions',      label: '💬 Suggestions',      count: suggestions.length       },
+        { id: 'delivery_issues',  label: '🚴 Agent Reports',    count: deliveryIssues.length    },
+        { id: 'failed',           label: '❌ Failed Deductions', count: failedDeductions.length  },
+      ].map(({ id, label, count }) => (
+        <button key={id} onClick={() => setReportsSubTab(id)}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
+            reportsSubTab === id ? 'bg-[#1a5c38] text-white shadow' : 'text-gray-500 hover:text-[#1a5c38]'
+          }`}>
+          {label}
+          <span className={`text-xs px-1.5 py-0.5 rounded-full ${reportsSubTab === id ? 'bg-white text-[#1a5c38]' : 'bg-gray-100'}`}>{count}</span>
+        </button>
+      ))}
+    </div>
+
+    {/* missed */}
+    {reportsSubTab === 'missed' && (
+      <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+        <div className="px-6 py-5 border-b border-[#f5f0e8]">
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">⚠️ Missed Delivery Reports</h3>
+          <p className="text-xs text-gray-400 mt-0.5">{missedReports.length} reports total</p>
+        </div>
+        {missedReports.length === 0 ? (
+          <div className="px-6 py-12 text-center text-gray-400 text-sm">No missed delivery reports. Great!</div>
+        ) : (
+          <div className="divide-y divide-[#f5f0e8]">
+            {missedReports.map((r) => {
+              const prof = r.profiles
+              const order = r.orders
+              const dateStr = order?.delivery_date ? new Date(order.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+              const slot = order?.delivery_slot === 'morning' ? 'Morning (7AM–9AM)' : 'Evening (5PM–7PM)'
+              const address = [prof?.flat_number, prof?.apartment_name, prof?.area].filter(Boolean).join(', ')
+              return (
+                <div key={r.id} className="px-6 py-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-semibold text-sm text-[#1c1c1c]">{prof?.full_name || 'Customer'}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">📞 {prof?.phone || 'N/A'} · 📍 {address || 'N/A'}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">🥛 {order?.products?.size || 'Milk'} · 📅 {dateStr} · ⏰ {slot}</p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <span className="text-xs bg-red-50 text-red-600 border border-red-200 font-semibold px-2 py-0.5 rounded-full">Reported</span>
+                      <p className="text-xs text-gray-400 mt-1">{new Date(r.reported_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
-      {missedReports.length === 0 ? (
-        <div className="px-6 py-12 text-center text-gray-400 text-sm">No missed delivery reports. Great!</div>
-      ) : (
-        <div className="divide-y divide-[#f5f0e8]">
-          {missedReports.map((r) => {
-            const profile = r.profiles
-            const order = r.orders
-            const dateStr = order?.delivery_date ? new Date(order.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
-            const slot = order?.delivery_slot === 'morning' ? 'Morning (7AM–9AM)' : 'Evening (5PM–7PM)'
-            const address = [profile?.flat_number, profile?.apartment_name, profile?.area].filter(Boolean).join(', ')
-            return (
-              <div key={r.id} className="px-6 py-4">
+    )}
+
+    {/* quality */}
+    {reportsSubTab === 'quality' && (
+      <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+        <div className="px-6 py-5 border-b border-[#f5f0e8]">
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">👎 Quality Feedback</h3>
+          <p className="text-xs text-gray-400 mt-0.5">{qualityReports.length} reports</p>
+        </div>
+        {qualityReports.length === 0 ? (
+          <div className="px-6 py-12 text-center text-gray-400 text-sm">No quality complaints. Excellent!</div>
+        ) : (
+          <div className="divide-y divide-[#f5f0e8]">
+            {qualityReports.map((r) => {
+              const dateStr = r.orders?.delivery_date
+                ? new Date(r.orders.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                : '—'
+              return (
+                <div key={r.id} className="px-6 py-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-semibold text-sm text-[#1c1c1c]">{r.profiles?.full_name || 'Customer'}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">📞 {r.profiles?.phone || 'N/A'} · 🥛 {r.orders?.products?.size || 'Milk'} · {dateStr}</p>
+                      <p className="text-sm text-orange-700 mt-1 italic">"{r.issue}"</p>
+                    </div>
+                    <p className="text-xs text-gray-400 flex-shrink-0">{new Date(r.reported_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* suggestions */}
+    {reportsSubTab === 'suggestions' && (
+      <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+        <div className="px-6 py-5 border-b border-[#f5f0e8]">
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">💬 Customer Suggestions</h3>
+          <p className="text-xs text-gray-400 mt-0.5">{suggestions.length} total</p>
+        </div>
+        {suggestions.length === 0 ? (
+          <div className="px-6 py-12 text-center text-gray-400 text-sm">No customer suggestions yet.</div>
+        ) : (
+          <div className="divide-y divide-[#f5f0e8]">
+            {suggestions.map((s) => (
+              <div key={s.id} className="px-6 py-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-semibold text-sm text-[#1c1c1c]">{s.profiles?.full_name || 'Customer'}</p>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                        s.type === 'complaint' ? 'bg-red-50 text-red-600 border border-red-200'
+                        : s.type === 'compliment' ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]'
+                        : 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]'
+                      }`}>
+                        {s.type === 'complaint' ? '⚠️ Complaint' : s.type === 'compliment' ? '⭐ Compliment' : '💡 Suggestion'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-1">📞 {s.profiles?.phone || 'N/A'}</p>
+                    <p className="text-sm text-[#1c1c1c]">{s.message}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                    <p className="text-xs text-gray-400">{new Date(s.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.status === 'resolved' ? 'bg-[#f0faf4] text-[#1a5c38]' : 'bg-yellow-50 text-yellow-600'}`}>
+                      {s.status === 'resolved' ? '✅ Resolved' : '⏳ Open'}
+                    </span>
+                    {s.status !== 'resolved' && (
+                      <button onClick={async () => {
+                        await supabase.from('customer_suggestions').update({ status: 'resolved' }).eq('id', s.id)
+                        setSuggestions(prev => prev.map(x => x.id === s.id ? { ...x, status: 'resolved' } : x))
+                        showSuccess('Marked as resolved')
+                      }} className="text-xs bg-[#1a5c38] text-white font-bold px-3 py-1 rounded-lg hover:bg-[#14472c] transition">
+                        Mark Resolved
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* delivery_issues */}
+    {reportsSubTab === 'delivery_issues' && (
+      <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+        <div className="px-6 py-5 border-b border-[#f5f0e8]">
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">🚴 Delivery Agent Reports</h3>
+          <p className="text-xs text-gray-400 mt-0.5">{deliveryIssues.length} total</p>
+        </div>
+        {deliveryIssues.length === 0 ? (
+          <div className="px-6 py-12 text-center text-gray-400 text-sm">No agent reports yet.</div>
+        ) : (
+          <div className="divide-y divide-[#f5f0e8]">
+            {deliveryIssues.map((issue) => {
+              const agentName = deliveryAgents.find(a => a.id === issue.reported_by)?.full_name || 'Agent'
+              const agentPhone = deliveryAgents.find(a => a.id === issue.reported_by)?.phone || ''
+              return (
+                <div key={issue.id} className="px-6 py-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-semibold text-sm text-[#1c1c1c]">{agentName}</p>
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          issue.type === 'issue' ? 'bg-red-50 text-red-600 border border-red-200'
+                          : issue.type === 'feedback' ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                          : 'bg-yellow-50 text-yellow-600 border border-yellow-200'
+                        }`}>
+                          {issue.type === 'issue' ? '⚠️ Issue' : issue.type === 'feedback' ? '💬 Feedback' : '💡 Suggestion'}
+                        </span>
+                      </div>
+                      {agentPhone && <p className="text-xs text-gray-500 mb-1">📞 {agentPhone}</p>}
+                      <p className="text-sm text-[#1c1c1c]">{issue.message}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                      <p className="text-xs text-gray-400">{new Date(issue.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${issue.status === 'resolved' ? 'bg-[#f0faf4] text-[#1a5c38]' : 'bg-yellow-50 text-yellow-600'}`}>
+                        {issue.status === 'resolved' ? '✅ Resolved' : '⏳ Open'}
+                      </span>
+                      {issue.status !== 'resolved' && (
+                        <button onClick={async () => {
+                          await supabase.from('delivery_issues').update({ status: 'resolved' }).eq('id', issue.id)
+                          setDeliveryIssues(prev => prev.map(x => x.id === issue.id ? { ...x, status: 'resolved' } : x))
+                          showSuccess('Marked as resolved')
+                        }} className="text-xs bg-[#1a5c38] text-white font-bold px-3 py-1 rounded-lg hover:bg-[#14472c] transition">
+                          Mark Resolved
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* failed */}
+    {reportsSubTab === 'failed' && (
+      <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+        <div className="px-6 py-5 border-b border-[#f5f0e8]">
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">❌ Failed Subscription Deductions</h3>
+          <p className="text-xs text-gray-400 mt-0.5">{failedDeductions.length} total failures</p>
+        </div>
+        {failedDeductions.length === 0 ? (
+          <div className="px-6 py-12 text-center text-gray-400 text-sm">No failed deductions. All subscriptions are healthy!</div>
+        ) : (
+          <div className="divide-y divide-[#f5f0e8]">
+            {failedDeductions.map((d) => (
+              <div key={d.id} className="px-6 py-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="font-semibold text-sm text-[#1c1c1c]">{profile?.full_name || 'Customer'}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">📞 {profile?.phone || 'N/A'} · 📍 {address || 'N/A'}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">🥛 {order?.products?.size || 'Milk'} · 📅 {dateStr} · ⏰ {slot}</p>
+                    <p className="font-semibold text-sm text-[#1c1c1c]">{customers.find(c => c.id === d.user_id)?.full_name || 'Customer'}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">📞 {customers.find(c => c.id === d.user_id)?.phone || 'N/A'} · Sub #{d.subscription_id}</p>
+                    <p className="text-xs text-red-500 mt-0.5 font-medium">{d.reason}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Amount due: ₹{d.amount}</p>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <span className="text-xs bg-red-50 text-red-600 border border-red-200 font-semibold px-2 py-0.5 rounded-full">Reported</span>
-                    <p className="text-xs text-gray-400 mt-1">{new Date(r.reported_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                  </div>
+                  <p className="text-xs text-gray-400 flex-shrink-0">{new Date(d.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                 </div>
               </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-
-    {/* Quality Feedback */}
-    <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
-      <div className="px-6 py-5 border-b border-[#f5f0e8]">
-        <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">👎 Quality Feedback</h3>
-        <p className="text-xs text-gray-400 mt-0.5">{qualityReports.length} reports</p>
+            ))}
+          </div>
+        )}
       </div>
-      {qualityReports.length === 0 ? (
-        <div className="px-6 py-12 text-center text-gray-400 text-sm">No quality complaints. Excellent!</div>
-      ) : (
-        <div className="divide-y divide-[#f5f0e8]">
-          {qualityReports.map((r) => {
-            const dateStr = r.orders?.delivery_date
-              ? new Date(r.orders.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-              : '—'
-            return (
-              <div key={r.id} className="px-6 py-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-semibold text-sm text-[#1c1c1c]">{r.profiles?.full_name || 'Customer'}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">📞 {r.profiles?.phone || 'N/A'} · 🥛 {r.orders?.products?.size || 'Milk'} · {dateStr}</p>
-                    <p className="text-sm text-orange-700 mt-1 italic">"{r.issue}"</p>
-                  </div>
-                  <p className="text-xs text-gray-400 flex-shrink-0">{new Date(r.reported_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-
-    {/* Failed Deductions */}
-    <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
-      <div className="px-6 py-5 border-b border-[#f5f0e8]">
-        <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">❌ Failed Subscription Deductions</h3>
-        <p className="text-xs text-gray-400 mt-0.5">{failedDeductions.length} total failures</p>
-      </div>
-      {failedDeductions.length === 0 ? (
-        <div className="px-6 py-12 text-center text-gray-400 text-sm">No failed deductions. All subscriptions are healthy!</div>
-      ) : (
-        <div className="divide-y divide-[#f5f0e8]">
-          {failedDeductions.map((d) => (
-            <div key={d.id} className="px-6 py-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="font-semibold text-sm text-[#1c1c1c]">{customers.find(c => c.id === d.user_id)?.full_name || 'Customer'}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">📞 {customers.find(c => c.id === d.user_id)?.phone || 'N/A'} · Sub #{d.subscription_id}</p>
-                  <p className="text-xs text-red-500 mt-0.5 font-medium">{d.reason}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Amount due: ₹{d.amount}</p>
-                </div>
-                <p className="text-xs text-gray-400 flex-shrink-0">{new Date(d.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-
-    {/* Bulk Enquiries */}
-    <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
-      <div className="px-6 py-5 border-b border-[#f5f0e8]">
-        <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">📦 Bulk Order Enquiries</h3>
-        <p className="text-xs text-gray-400 mt-0.5">{bulkEnquiries.length} enquiries total</p>
-      </div>
-      {bulkEnquiries.length === 0 ? (
-        <div className="px-6 py-12 text-center text-gray-400 text-sm">No bulk enquiries yet.</div>
-      ) : (
-        <div className="divide-y divide-[#f5f0e8]">
-          {bulkEnquiries.map((e) => (
-            <div key={e.id} className="px-6 py-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="font-semibold text-sm text-[#1c1c1c]">{e.name}</p>
-                  {e.institution && <p className="text-xs text-gray-500 mt-0.5">🏢 {e.institution}</p>}
-                  <p className="text-xs text-gray-500 mt-0.5">📞 {e.phone}{e.quantity ? ` · 🥛 ${e.quantity}` : ''}</p>
-                  {e.message && <p className="text-xs text-gray-400 mt-1 italic">"{e.message}"</p>}
-                </div>
-                <p className="text-xs text-gray-400 flex-shrink-0">{new Date(e.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    )}
   </div>
 )}
 
@@ -3268,6 +3152,125 @@ export default function AdminDashboard() {
                 </div>
               </div>
             ))
+          )}
+        </div>
+
+        {/* G. Discount Codes */}
+        <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-4">🏷️ Discount Codes</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">Code *</label>
+              <input type="text" placeholder="e.g. SUMMER20"
+                value={newCode.code}
+                onChange={e => setNewCode(c => ({ ...c, code: e.target.value.toUpperCase() }))}
+                className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">Discount % *</label>
+              <input type="number" placeholder="e.g. 15" min="1" max="99"
+                value={newCode.percent}
+                onChange={e => setNewCode(c => ({ ...c, percent: e.target.value }))}
+                className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">Description (optional)</label>
+              <input type="text" placeholder="e.g. Summer promotion"
+                value={newCode.description}
+                onChange={e => setNewCode(c => ({ ...c, description: e.target.value }))}
+                className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
+            </div>
+          </div>
+          <button
+            disabled={discountSaving || !newCode.code.trim() || !newCode.percent}
+            onClick={async () => {
+              setDiscountSaving(true)
+              const { data: { session } } = await supabase.auth.getSession()
+              const res = await fetch('/api/admin/discount-codes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                body: JSON.stringify({ code: newCode.code.trim(), percent: parseInt(newCode.percent), description: newCode.description.trim() }),
+              })
+              if (res.ok) {
+                const { data } = await res.json()
+                setDiscountCodes(prev => [data, ...prev])
+                setNewCode({ code: '', percent: '', description: '' })
+              }
+              setDiscountSaving(false)
+            }}
+            className="bg-[#1a5c38] text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-[#14472c] transition disabled:opacity-50 mb-5">
+            {discountSaving ? 'Saving...' : '+ Add Code'}
+          </button>
+          {discountCodes.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">No discount codes yet.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {discountCodes.map((dc) => (
+                <div key={dc.id} className="flex items-center gap-4 bg-[#f5f0e8] rounded-xl px-4 py-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-[#1a5c38]">{dc.code}</span>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${dc.is_active ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-gray-100 text-gray-400'}`}>
+                        {dc.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    <p className="text-sm text-[#d4a017] font-bold mt-0.5">{dc.percent}% off{dc.description ? ` · ${dc.description}` : ''}</p>
+                  </div>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button onClick={async () => {
+                      const { data: { session } } = await supabase.auth.getSession()
+                      const res = await fetch('/api/admin/discount-codes', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                        body: JSON.stringify({ id: dc.id, is_active: !dc.is_active }),
+                      })
+                      if (res.ok) setDiscountCodes(prev => prev.map(x => x.id === dc.id ? { ...x, is_active: !dc.is_active } : x))
+                    }} className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition ${dc.is_active ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4] hover:bg-[#e0f5ea]'}`}>
+                      {dc.is_active ? 'Disable' : 'Enable'}
+                    </button>
+                    <button onClick={async () => {
+                      if (!confirm(`Delete code "${dc.code}"?`)) return
+                      const { data: { session } } = await supabase.auth.getSession()
+                      const res = await fetch('/api/admin/discount-codes', {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                        body: JSON.stringify({ id: dc.id }),
+                      })
+                      if (res.ok) setDiscountCodes(prev => prev.filter(x => x.id !== dc.id))
+                    }} className="text-xs bg-red-50 text-red-500 border border-red-200 px-3 py-1.5 rounded-lg font-semibold hover:bg-red-100 transition">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* H. Bulk Enquiries */}
+        <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+          <div className="px-6 py-5 border-b border-[#f5f0e8]">
+            <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">📦 Bulk Enquiries</h3>
+            <p className="text-xs text-gray-400 mt-0.5">{bulkEnquiries.length} enquiries total</p>
+          </div>
+          {bulkEnquiries.length === 0 ? (
+            <div className="px-6 py-12 text-center text-gray-400 text-sm">No bulk enquiries yet.</div>
+          ) : (
+            <div className="divide-y divide-[#f5f0e8]">
+              {bulkEnquiries.map((e) => (
+                <div key={e.id} className="px-6 py-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-semibold text-sm text-[#1c1c1c]">{e.name}</p>
+                      {e.institution && <p className="text-xs text-gray-500 mt-0.5">🏢 {e.institution}</p>}
+                      <p className="text-xs text-gray-500 mt-0.5">📞 {e.phone}{e.quantity ? ` · 🥛 ${e.quantity}` : ''}</p>
+                      {e.message && <p className="text-xs text-gray-400 mt-1 italic">"{e.message}"</p>}
+                    </div>
+                    <p className="text-xs text-gray-400 flex-shrink-0">{new Date(e.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
