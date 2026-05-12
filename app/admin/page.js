@@ -13,12 +13,14 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
   const [overviewSubTab, setOverviewSubTab] = useState('today')
+  const [ordersSubTab, setOrdersSubTab] = useState('pending')
   const [orders, setOrders] = useState([])
   const [subscriptions, setSubscriptions] = useState([])
   const [customers, setCustomers] = useState([])
   const [todayOrders, setTodayOrders] = useState([])
   const [todaySubscriptions, setTodaySubscriptions] = useState([])
   const [subDeliveryStatuses, setSubDeliveryStatuses] = useState({})
+  const [subDeliveryCounts, setSubDeliveryCounts] = useState({})
   const [deliveryAgents, setDeliveryAgents] = useState([])
   const [assigningOrder, setAssigningOrder] = useState(null)
   const [stopSubPopup, setStopSubPopup] = useState(null)
@@ -250,6 +252,21 @@ export default function AdminDashboard() {
       new Date(o.created_at) >= monthStart
     )
     const monthlyRevenue = monthOrders.reduce((sum, o) => sum + (o.total_price || 0), 0)
+
+    // Load subscription delivery counts for Day X display
+    if (todaySubs.length > 0) {
+      const subIds = todaySubs.map(s => s.id)
+      const { data: deliveryRows } = await supabase
+        .from('subscription_deliveries')
+        .select('subscription_id')
+        .in('subscription_id', subIds)
+        .eq('not_delivered', false)
+      const counts = {}
+      ;(deliveryRows || []).forEach(d => {
+        counts[d.subscription_id] = (counts[d.subscription_id] || 0) + 1
+      })
+      setSubDeliveryCounts(counts)
+    }
 
     // Load all wallets via service-role API (bypasses RLS)
     await loadWallets()
@@ -532,6 +549,35 @@ export default function AdminDashboard() {
     base.setDate(base.getDate() + parseInt(days))
     await supabase.from('subscriptions').update({ end_date: base.toISOString().split('T')[0] }).eq('id', sub.id)
     showSuccess(`${name}'s subscription extended by ${days} days`)
+  }
+
+  const handleSubStatusChange = async (subId, newStatus) => {
+    setSubDeliveryStatuses(prev => ({ ...prev, [subId]: newStatus }))
+    if (newStatus === 'delivered' || newStatus === 'missed') {
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+      const { data: { session } } = await supabase.auth.getSession()
+      await fetch('/api/delivery/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({
+          type: 'subscription',
+          subscription_id: subId,
+          delivery_date: today,
+          bottle_returned: newStatus === 'delivered',
+          not_delivered: newStatus === 'missed',
+        }),
+      })
+    }
+  }
+
+  const getSubDayLabel = (sub) => {
+    const count = subDeliveryCounts[sub.id] || 0
+    const dayX = count + 1
+    if (sub.subscription_type === 'ongoing' || !sub.end_date) return `Day ${dayX}`
+    const totalDays = Math.round(
+      (new Date(sub.end_date) - new Date(sub.start_date)) / (1000 * 60 * 60 * 24)
+    ) + 1
+    return `Day ${dayX} of ${totalDays}`
   }
 
   const reactivateSub = async (subId) => {
@@ -837,14 +883,24 @@ export default function AdminDashboard() {
             ) : (
               <div>
                 {/* Subscription deliveries */}
-                {todaySubscriptions.map((sub) => (
-                  <div key={sub.id}
-                    className={`px-6 py-5 flex items-center gap-4 border-b border-[#f5f0e8]`}>
+                {todaySubscriptions.map((sub) => {
+                  const subStatus = subDeliveryStatuses[sub.id] || 'pending'
+                  const statusCls = subStatus === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
+                    : subStatus === 'out_for_delivery' ? 'bg-blue-50 text-blue-600 border-blue-200'
+                    : subStatus === 'missed' ? 'bg-orange-50 text-orange-500 border-orange-200'
+                    : subStatus === 'cancelled' ? 'bg-red-50 text-red-500 border-red-200'
+                    : 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'
+                  return (
+                  <div key={sub.id} className="px-6 py-5 flex items-center gap-4 border-b border-[#f5f0e8]">
                     <div className="w-12 h-12 rounded-xl bg-[#f0faf4] flex items-center justify-center flex-shrink-0 p-1.5">
                       <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain" />
                     </div>
                     <div className="flex-1">
-                      <p className="font-semibold text-[#1c1c1c]">{sub.profiles?.full_name}</p>
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <p className="font-semibold text-[#1c1c1c]">{sub.profiles?.full_name}</p>
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]">📅 Subscription</span>
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]">{getSubDayLabel(sub)}</span>
+                      </div>
                       <p className="text-sm text-gray-400">{sub.profiles?.apartment_name}, Flat {sub.profiles?.flat_number}</p>
                       <p className="text-xs text-gray-400 mt-0.5">{sub.profiles?.area} • 📞 {sub.profiles?.phone}</p>
                       <p className="text-xs text-[#1a5c38] font-medium mt-1">
@@ -852,19 +908,14 @@ export default function AdminDashboard() {
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0 flex flex-col gap-1">
-                      <p className="font-bold text-[#1a5c38] mb-1">Rs.{(sub.products?.price || 0) * sub.quantity}</p>
+                      <p className="font-bold text-[#1a5c38] mb-0.5">Rs.{(sub.products?.price || 0) * sub.quantity}</p>
+                      <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border mb-1 inline-block ${statusCls}`}>
+                        {subStatus === 'delivered' ? '✅ Delivered' : subStatus === 'out_for_delivery' ? '🚴 Out' : subStatus === 'missed' ? '⚠️ Missed' : subStatus === 'cancelled' ? '❌ Cancelled' : '🕐 Pending'}
+                      </span>
                       <select
-                        value={subDeliveryStatuses[sub.id] || 'pending'}
-                        onChange={(e) => setSubDeliveryStatuses(prev => ({ ...prev, [sub.id]: e.target.value }))}
-                        className={`text-xs font-semibold px-3 py-1.5 rounded-full border cursor-pointer ${
-                          subDeliveryStatuses[sub.id] === 'delivered'
-                            ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
-                            : subDeliveryStatuses[sub.id] === 'out_for_delivery'
-                            ? 'bg-blue-50 text-blue-600 border-blue-200'
-                            : subDeliveryStatuses[sub.id] === 'missed'
-                            ? 'bg-red-50 text-red-500 border-red-200'
-                            : 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'
-                        }`}>
+                        value={subStatus}
+                        onChange={(e) => handleSubStatusChange(sub.id, e.target.value)}
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-full border cursor-pointer ${statusCls}`}>
                         <option value="pending">Pending</option>
                         <option value="out_for_delivery">Out for Delivery</option>
                         <option value="delivered">Delivered</option>
@@ -889,14 +940,28 @@ export default function AdminDashboard() {
                       )}
                     </div>
                   </div>
-                ))}
+                  )
+                })}
                 {/* One-time orders */}
-                {todayOrders.map((order, index) => (
+                {todayOrders.map((order, index) => {
+                  const isTrial = order.payment_method === 'COD'
+                  const ordCls = order.status === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
+                    : order.status === 'out_for_delivery' ? 'bg-blue-50 text-blue-600 border-blue-200'
+                    : order.status === 'cancelled' ? 'bg-red-50 text-red-500 border-red-200'
+                    : 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'
+                  return (
                   <div key={order.id}
                     className={`px-6 py-5 flex items-center gap-4 ${index !== todayOrders.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
-                    <div className="w-12 h-12 rounded-xl bg-[#f5f0e8] flex items-center justify-center text-2xl flex-shrink-0">🛒</div>
+                    <div className="w-12 h-12 rounded-xl bg-[#f5f0e8] flex items-center justify-center text-2xl flex-shrink-0">
+                      {isTrial ? '🎁' : '🛒'}
+                    </div>
                     <div className="flex-1">
-                      <p className="font-semibold text-[#1c1c1c]">{order.profiles?.full_name}</p>
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <p className="font-semibold text-[#1c1c1c]">{order.profiles?.full_name}</p>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${isTrial ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'}`}>
+                          {isTrial ? '🎁 Trial' : '🛒 Order'}
+                        </span>
+                      </div>
                       <p className="text-sm text-gray-400">{order.profiles?.apartment_name}, Flat {order.profiles?.flat_number}</p>
                       <p className="text-xs text-gray-400 mt-0.5">{order.profiles?.area} • 📞 {order.profiles?.phone}</p>
                       <p className="text-xs text-[#1a5c38] font-medium mt-1">
@@ -904,17 +969,14 @@ export default function AdminDashboard() {
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0 flex flex-col gap-1">
-                      <p className="font-bold text-[#1a5c38] mb-1">Rs.{order.total_price}</p>
+                      <p className="font-bold text-[#1a5c38] mb-0.5">Rs.{order.total_price}</p>
+                      <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border mb-1 inline-block ${ordCls}`}>
+                        {order.status === 'delivered' ? '✅ Delivered' : order.status === 'out_for_delivery' ? '🚴 Out' : order.status === 'cancelled' ? '❌ Cancelled' : '🕐 Pending'}
+                      </span>
                       <select
                         value={order.status}
                         onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                        className={`text-xs font-semibold px-3 py-1.5 rounded-full border cursor-pointer ${
-                          order.status === 'delivered'
-                            ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
-                            : order.status === 'pending'
-                            ? 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'
-                            : 'bg-gray-50 text-gray-500 border-gray-200'
-                        }`}>
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-full border cursor-pointer ${ordCls}`}>
                         <option value="pending">Pending</option>
                         <option value="out_for_delivery">Out for Delivery</option>
                         <option value="delivered">Delivered</option>
@@ -939,7 +1001,8 @@ export default function AdminDashboard() {
                       )}
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
@@ -1064,165 +1127,144 @@ export default function AdminDashboard() {
 
         {/* All Orders Tab */}
         {activeTab === 'orders' && (
-          <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
-            <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between">
-              <div>
-                <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">All Orders</h3>
-                <p className="text-xs text-gray-400 mt-0.5">{orders.length} total orders</p>
-              </div>
-              <button onClick={() => {
-                const headers = ['Customer Name','Phone','Product','Quantity','Delivery Date','Slot','Amount','Status','Payment Method','Delivery Mode']
-                const rows = orders.map(o => [
-                  o.profiles?.full_name || '',
-                  o.profiles?.phone || '',
-                  o.products?.name || o.products?.size || '',
-                  o.quantity,
-                  o.delivery_date,
-                  o.delivery_slot,
-                  o.total_price || o.total_amount || '',
-                  o.status,
-                  o.payment_method || 'COD',
-                  o.delivery_mode || '',
-                ])
-                const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
-                const blob = new Blob([csv], { type: 'text/csv' })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a'); a.href = url; a.download = `orders_${new Date().toISOString().split('T')[0]}.csv`; a.click()
-                setTimeout(() => URL.revokeObjectURL(url), 5000)
-              }} className="text-sm bg-[#1a5c38] text-white px-4 py-2 rounded-lg hover:bg-[#14472c] transition font-semibold flex-shrink-0">
+          <div className="flex flex-col gap-4">
+          {(() => {
+          const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+          const combined = [
+            ...orders.map(o => ({ ...o, _itemType: 'order', orderType: o.payment_method === 'COD' ? 'trial' : 'order', _status: o.status })),
+            ...todaySubscriptions.map(sub => ({ ...sub, _itemType: 'subscription', orderType: 'subscription', _status: subDeliveryStatuses[sub.id] || 'pending' })),
+          ]
+          const visibleRows = combined.filter(item =>
+            ordersSubTab === 'pending' ? item._status === 'pending'
+            : ordersSubTab === 'out_for_delivery' ? item._status === 'out_for_delivery'
+            : ordersSubTab === 'delivered' ? item._status === 'delivered'
+            : item._status === 'cancelled' || item._status === 'missed'
+          )
+          const subTabCounts = {
+            pending: combined.filter(i => i._status === 'pending').length,
+            out_for_delivery: combined.filter(i => i._status === 'out_for_delivery').length,
+            delivered: combined.filter(i => i._status === 'delivered').length,
+            cancelled: combined.filter(i => i._status === 'cancelled' || i._status === 'missed').length,
+          }
+          return (
+          <div>
+            {/* Sub-tab nav */}
+            <div className="flex gap-2 bg-white border border-[#e8e0d0] rounded-xl p-1 shadow-sm overflow-x-auto">
+              {[
+                { id: 'pending', label: 'Pending' },
+                { id: 'out_for_delivery', label: 'Out for Delivery' },
+                { id: 'delivered', label: 'Delivered' },
+                { id: 'cancelled', label: 'Cancelled' },
+              ].map(({ id, label }) => (
+                <button key={id} onClick={() => setOrdersSubTab(id)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
+                    ordersSubTab === id ? 'bg-[#1a5c38] text-white shadow' : 'text-gray-500 hover:text-[#1a5c38]'
+                  }`}>
+                  {label}
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full ${ordersSubTab === id ? 'bg-white text-[#1a5c38]' : 'bg-gray-100 text-gray-500'}`}>
+                    {subTabCounts[id]}
+                  </span>
+                </button>
+              ))}
+              <button
+                onClick={() => {
+                  const headers = ['Type','Customer','Phone','Product','Qty','Date','Slot','Amount','Status']
+                  const rows = visibleRows.map(item => [
+                    item.orderType === 'trial' ? 'Trial' : item.orderType === 'subscription' ? 'Subscription' : 'Order',
+                    item.profiles?.full_name || '',
+                    item.profiles?.phone || '',
+                    item.products?.size || '',
+                    item.quantity || '',
+                    item._itemType === 'order' ? (item.delivery_date || '') : todayIST,
+                    item.delivery_slot || '',
+                    item._itemType === 'order' ? (item.total_price || '') : (item.products?.price || 0) * (item.quantity || 1),
+                    item._status,
+                  ])
+                  const csv = [headers, ...rows].map(r => r.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(',')).join('\n')
+                  const blob = new Blob([csv], { type: 'text/csv' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a'); a.href = url; a.download = `orders_${ordersSubTab}_${todayIST}.csv`; a.click()
+                  setTimeout(() => URL.revokeObjectURL(url), 5000)
+                }}
+                className="ml-auto text-xs bg-[#1a5c38] text-white px-3 py-2 rounded-lg hover:bg-[#14472c] transition font-semibold whitespace-nowrap flex-shrink-0">
                 Export CSV
               </button>
             </div>
-            {orders.length === 0 ? (
-              <div className="px-6 py-12 text-center">
-                <div className="text-5xl mb-3">📦</div>
-                <p className="text-gray-400">No orders yet</p>
+
+            <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+              <div className="px-6 py-4 border-b border-[#f5f0e8]">
+                <p className="text-xs text-gray-400">{visibleRows.length} {ordersSubTab.replace('_', ' ')} · orders + today&apos;s subscriptions combined</p>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-[#f5f0e8] text-xs uppercase tracking-widest text-gray-500">
-                    <tr>
-                      <th className="px-6 py-3 text-left">Customer</th>
-                      <th className="px-6 py-3 text-left">Product</th>
-                      <th className="px-6 py-3 text-left">Date</th>
-                      <th className="px-6 py-3 text-left">Slot</th>
-                      <th className="px-6 py-3 text-left">Amount</th>
-                      <th className="px-6 py-3 text-left">Status</th>
-                      <th className="px-6 py-3 text-left">Invoice</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.map((order, index) => (
-                      <tr key={order.id}
-                        className={index % 2 === 0 ? 'bg-white' : 'bg-[#fdfbf7]'}>
-                        <td className="px-6 py-4">
-                          <p className="font-semibold text-[#1c1c1c]">{order.profiles?.full_name}</p>
-                          <p className="text-xs text-gray-400">{order.profiles?.phone}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="text-[#1c1c1c]">{order.products?.size}</p>
-                          <p className="text-xs text-gray-400">x{order.quantity}</p>
-                          {order.payment_method?.toUpperCase() === 'COD' && (
-                            <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 inline-block mt-1">
-                              TRIAL
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-gray-500">
-                          {new Date(order.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </td>
-                        <td className="px-6 py-4 text-gray-500">
-                          {order.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
-                        </td>
-                        <td className="px-6 py-4 font-bold text-[#1a5c38]">Rs.{order.total_price}</td>
-                        <td className="px-6 py-4">
-                          <select
-                            value={order.status}
-                            onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                            className={`text-xs font-semibold px-3 py-1.5 rounded-full border cursor-pointer ${
-                              order.status === 'delivered'
-                                ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
-                                : order.status === 'pending'
-                                ? 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'
-                                : 'bg-gray-50 text-gray-500 border-gray-200'
-                            }`}>
-                            <option value="pending">Pending</option>
-                            <option value="out_for_delivery">Out for Delivery</option>
-                            <option value="delivered">Delivered</option>
-                            <option value="cancelled">Cancelled</option>
-                          </select>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col gap-1.5">
-                            <button onClick={async () => {
-                              const { data: { session } } = await supabase.auth.getSession()
-                              const res = await fetch(`/api/invoice/${order.id}`, { headers: { Authorization: `Bearer ${session?.access_token}` } })
-                              const html = await res.text()
-                              const blob = new Blob([html], { type: 'text/html' })
-                              const url = URL.createObjectURL(blob)
-                              const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.click()
-                              setTimeout(() => URL.revokeObjectURL(url), 5000)
-                            }} className="text-xs text-[#1a5c38] underline hover:text-[#14472c]">Invoice</button>
-                            <button
-                              disabled={resendWaLoading[order.id]}
-                              onClick={async () => {
-                                setResendWaLoading(prev => ({ ...prev, [order.id]: true }))
-                                const { data: { session } } = await supabase.auth.getSession()
-                                const res = await fetch('/api/admin/resend-whatsapp', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-                                  body: JSON.stringify({ userId: order.user_id, messageType: 'order_confirmation', targetId: order.id }),
-                                })
-                                setResendWaLoading(prev => ({ ...prev, [order.id]: false }))
-                                res.ok ? showSuccess('WhatsApp sent!') : showError('Failed to send WhatsApp')
-                              }}
-                              className="text-xs text-[#25D366] underline hover:text-[#1da851] disabled:opacity-40">
-                              {resendWaLoading[order.id] ? 'Sending...' : 'Resend WA'}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {todaySubscriptions.map((sub, index) => (
-                      <tr key={'sub-' + sub.id} className={orders.length % 2 === 0 && index % 2 === 0 ? 'bg-white' : 'bg-[#fdfbf7]'}>
-                        <td className="px-6 py-4">
-                          <p className="font-semibold text-[#1c1c1c]">{sub.profiles?.full_name}</p>
-                          <p className="text-xs text-gray-400">{sub.profiles?.phone}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="text-[#1c1c1c]">{sub.products?.size}</p>
-                          <p className="text-xs text-gray-400">x{sub.quantity}</p>
-                        </td>
-                        <td className="px-6 py-4 text-gray-500">
-                          Today <span className="text-xs bg-[#f0faf4] text-[#1a5c38] px-1.5 py-0.5 rounded-full border border-[#c8e6d4] ml-1">📅 Sub</span>
-                        </td>
-                        <td className="px-6 py-4 text-gray-500">
-                          {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
-                        </td>
-                        <td className="px-6 py-4 font-bold text-[#1a5c38]">Rs.{(sub.products?.price || 0) * sub.quantity}</td>
-                        <td className="px-6 py-4">
-                          <select
-                            value={subDeliveryStatuses[sub.id] || 'pending'}
-                            onChange={(e) => setSubDeliveryStatuses(prev => ({ ...prev, [sub.id]: e.target.value }))}
-                            className={`text-xs font-semibold px-3 py-1.5 rounded-full border cursor-pointer ${
-                              subDeliveryStatuses[sub.id] === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
-                              : subDeliveryStatuses[sub.id] === 'out_for_delivery' ? 'bg-blue-50 text-blue-600 border-blue-200'
-                              : subDeliveryStatuses[sub.id] === 'missed' ? 'bg-red-50 text-red-500 border-red-200'
-                              : 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'
-                            }`}>
-                            <option value="pending">Pending</option>
-                            <option value="out_for_delivery">Out for Delivery</option>
-                            <option value="delivered">Delivered</option>
-                            <option value="missed">Missed</option>
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+              {visibleRows.length === 0 ? (
+                <div className="px-6 py-12 text-center">
+                  <div className="text-4xl mb-3">📭</div>
+                  <p className="text-gray-400 text-sm">No {ordersSubTab.replace('_', ' ')} items</p>
+                </div>
+              ) : visibleRows.map((item, index) => {
+                const isSub = item._itemType === 'subscription'
+                const statusCls = item._status === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
+                  : item._status === 'out_for_delivery' ? 'bg-blue-50 text-blue-600 border-blue-200'
+                  : item._status === 'missed' ? 'bg-orange-50 text-orange-500 border-orange-200'
+                  : item._status === 'cancelled' ? 'bg-red-50 text-red-500 border-red-200'
+                  : 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'
+                const statusLabel = item._status === 'delivered' ? '✅ Delivered'
+                  : item._status === 'out_for_delivery' ? '🚴 Out'
+                  : item._status === 'missed' ? '⚠️ Missed'
+                  : item._status === 'cancelled' ? '❌ Cancelled' : '🕐 Pending'
+                return (
+                  <div key={(isSub ? 'sub-' : 'ord-') + item.id}
+                    className={`px-6 py-4 flex items-start gap-4 ${index !== visibleRows.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-[#f5f0e8]">
+                      {item.orderType === 'subscription' ? '📅' : item.orderType === 'trial' ? '🎁' : '🛒'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <p className="font-semibold text-[#1c1c1c] text-sm">{item.profiles?.full_name}</p>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                          item.orderType === 'subscription' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
+                          : item.orderType === 'trial' ? 'bg-orange-50 text-orange-600 border-orange-200'
+                          : 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'
+                        }`}>
+                          {item.orderType === 'subscription' ? '📅 Subscription' : item.orderType === 'trial' ? '🎁 Trial' : '🛒 Order'}
+                        </span>
+                        {isSub && (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]">
+                            {getSubDayLabel(item)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400">📞 {item.profiles?.phone}</p>
+                      <p className="text-xs text-[#1a5c38] font-medium mt-0.5">
+                        {item.products?.size} × {item.quantity} · {item.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
+                        {!isSub && item.delivery_date && (
+                          <span className="text-gray-400 ml-1">
+                            · {new Date(item.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex-shrink-0 flex flex-col items-end gap-1">
+                      <p className="font-bold text-[#1a5c38] text-sm">
+                        Rs.{isSub ? (item.products?.price || 0) * item.quantity : item.total_price}
+                      </p>
+                      <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${statusCls}`}>{statusLabel}</span>
+                      <select
+                        value={item._status}
+                        onChange={(e) => isSub ? handleSubStatusChange(item.id, e.target.value) : updateOrderStatus(item.id, e.target.value)}
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-full border cursor-pointer ${statusCls}`}>
+                        <option value="pending">Pending</option>
+                        <option value="out_for_delivery">Out for Delivery</option>
+                        <option value="delivered">Delivered</option>
+                        {isSub ? <option value="missed">Missed</option> : <option value="cancelled">Cancelled</option>}
+                      </select>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+          )
+        })()}
           </div>
         )}
 

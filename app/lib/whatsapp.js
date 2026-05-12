@@ -94,30 +94,30 @@ async function sendTemplate(phone, templateName, parameters) {
 // Parameters must exactly match the approved template variable order.
 
 async function sendOrderConfirmed(phone, name, product, date, slot, amount) {
-  return sendTemplate(phone, 'order_confirmed', [name, product, date, slot, String(amount)])
+  return sendTemplate(phone, 'order_confirmed_v2', [name, product, date, slot, String(amount)])
 }
 
 async function sendSubscriptionActivated(phone, name, product, startDate, slot, dailyAmount) {
-  return sendTemplate(phone, 'subscription_activated', [name, product, startDate, slot, String(dailyAmount)])
+  return sendTemplate(phone, 'subscription_activated_v2', [name, product, startDate, slot, String(dailyAmount)])
 }
 
 async function sendLowBalanceAlert(phone, name, balance) {
   const balanceStr = (balance != null && balance !== '' && !isNaN(balance))
     ? String(Number(balance))
     : '0'
-  return sendTemplate(phone, 'low_balance_alert', [name, balanceStr])
+  return sendTemplate(phone, 'low_balance_alert_v2', [name, balanceStr])
 }
 
 async function sendDeliveryConfirmed(phone, name, date, product) {
-  return sendTemplate(phone, 'delivery_confirmed', [name, date, product])
+  return sendTemplate(phone, 'delivery_confirmed_v2', [name, date, product])
 }
 
 async function sendSubscriptionExpiry(phone, name, endDate, product) {
-  return sendTemplate(phone, 'subscription_expiry', [name, endDate, product])
+  return sendTemplate(phone, 'subscription_expiry_reminder', [name, endDate, product])
 }
 
 async function sendDeliveryStopped(phone, name, balance) {
-  return sendTemplate(phone, 'delivery_stopped', [name, String(balance)])
+  return sendTemplate(phone, 'delivery_stopped_v2', [name, String(balance)])
 }
 
 async function sendAdminAlert(message) {
@@ -153,7 +153,7 @@ async function notifyOrderPlaced({ phone, name, size, quantity, deliveryDate, sl
     ? new Date(deliveryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
     : '-'
   const slotLabel = slot === 'morning' ? 'Morning 7-9AM' : 'Evening 5-7PM'
-  await sendTemplate(phone, 'order_confirmed', [name, product, date, slotLabel, String(amount || 0)])
+  await sendTemplate(phone, 'order_confirmed_v2', [name, product, date, slotLabel, String(amount || 0)])
   await notifyAdmin(
     `New Order – ${name}`,
     `🛒 New Order Placed!\nCustomer: ${name}\nProduct: ${product}\nDate: ${date}\nSlot: ${slotLabel}\nAmount: Rs.${amount || 0}`,
@@ -166,7 +166,7 @@ async function notifySubscriptionActivated({ phone, name, size, quantity, startD
     ? new Date(startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
     : '-'
   const slotLabel = slot === 'morning' ? 'Morning 7-9AM' : 'Evening 5-7PM'
-  await sendTemplate(phone, 'subscription_activated', [name, product, date, slotLabel, String(dailyAmount || 0)])
+  await sendTemplate(phone, 'subscription_activated_v2', [name, product, date, slotLabel, String(dailyAmount || 0)])
   await notifyAdmin(
     `New Subscription – ${name}`,
     `📅 New Subscription Activated!\nCustomer: ${name}\nProduct: ${product}\nStart Date: ${date}\nSlot: ${slotLabel}\nDaily: Rs.${dailyAmount || 0}/day`,
@@ -177,18 +177,18 @@ async function notifyOrderDelivered({ phone, name, date, product }) {
   const dateLabel = date
     ? new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
     : new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-  await sendTemplate(phone, 'delivery_confirmed', [name, dateLabel, product || 'Milk'])
+  await sendTemplate(phone, 'delivery_confirmed_v2', [name, dateLabel, product || 'Milk'])
 }
 
 async function notifyLowBalance({ phone, name, balance }) {
   const balanceStr = (balance != null && balance !== '' && !isNaN(balance))
     ? String(Number(balance))
     : '0'
-  await sendTemplate(phone, 'low_balance_alert', [name, balanceStr])
+  await sendTemplate(phone, 'low_balance_alert_v2', [name, balanceStr])
 }
 
 async function notifySubscriptionStopped({ phone, name, balance }) {
-  await sendTemplate(phone, 'delivery_stopped', [name, String(balance ?? 0)])
+  await sendTemplate(phone, 'delivery_stopped_v2', [name, String(balance ?? 0)])
 }
 
 async function notifySubscriptionExpiryReminder({ phone, name, product, endDate, daysLeft }) {
@@ -196,7 +196,7 @@ async function notifySubscriptionExpiryReminder({ phone, name, product, endDate,
     ? new Date(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
     : '-'
   // daysLeft is not a template variable — endDate and product are
-  await sendTemplate(phone, 'subscription_expiry', [name, dateLabel, product || 'Milk'])
+  await sendTemplate(phone, 'subscription_expiry_reminder', [name, dateLabel, product || 'Milk'])
 }
 
 // ── Remaining helpers (no approved template — free-form, 24h session required) ─
