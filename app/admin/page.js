@@ -100,6 +100,9 @@ export default function AdminDashboard() {
   const [historyAgentFilter, setHistoryAgentFilter] = useState('')
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyLoaded, setHistoryLoaded] = useState(false)
+  const [cancelledSubCounts, setCancelledSubCounts] = useState({})
+  const [stopCancelledBy, setStopCancelledBy] = useState('admin')
+  const [stopCancellationReason, setStopCancellationReason] = useState('')
 
   useEffect(() => { checkAdmin() }, [])
 
@@ -578,6 +581,25 @@ export default function AdminDashboard() {
       (new Date(sub.end_date) - new Date(sub.start_date)) / (1000 * 60 * 60 * 24)
     ) + 1
     return `Day ${dayX} of ${totalDays}`
+  }
+
+  const getSubPlanLabel = (sub) => {
+    if (sub.subscription_type === 'ongoing' || !sub.end_date) return 'Ongoing'
+    const days = Math.round((new Date(sub.end_date) - new Date(sub.start_date)) / (1000 * 60 * 60 * 24)) + 1
+    if (days <= 7) return '1 Week'
+    if (days <= 14) return '2 Weeks'
+    if (days <= 31) return '1 Month'
+    if (days <= 92) return '3 Months'
+    return `${days} Days`
+  }
+
+  const loadCancelledSubCounts = async () => {
+    const inactIds = subscriptions.filter(s => !s.is_active).map(s => s.id)
+    if (!inactIds.length) return
+    const { data } = await supabase.from('subscription_deliveries').select('subscription_id').in('subscription_id', inactIds)
+    const counts = {}
+    ;(data || []).forEach(d => { counts[d.subscription_id] = (counts[d.subscription_id] || 0) + 1 })
+    setCancelledSubCounts(counts)
   }
 
   const reactivateSub = async (subId) => {
@@ -1318,8 +1340,20 @@ export default function AdminDashboard() {
                             {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
                           </span>
                           <span className="bg-[#f5f0e8] text-[#1c1c1c] text-xs font-medium px-2 py-0.5 rounded-full">
-                            {sub.subscription_type === 'ongoing' ? 'Ongoing' : sub.subscription_type === 'fixed' ? 'Fixed' : '1 Day'}
+                            {getSubPlanLabel(sub)}
                           </span>
+                          {(() => {
+                            const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+                            const dayLabel = getSubDayLabel(sub)
+                            const daysLeft = sub.end_date
+                              ? Math.max(0, Math.round((new Date(sub.end_date) - new Date(today)) / (1000 * 60 * 60 * 24)))
+                              : null
+                            return (
+                              <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-medium px-2 py-0.5 rounded-full border border-[#f0dfa0]">
+                                {dayLabel}{daysLeft !== null ? ` · ${daysLeft}d left` : ''}
+                              </span>
+                            )
+                          })()}
                           {sub.start_date > new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) && (
                             <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-medium px-2 py-0.5 rounded-full border border-[#f0dfa0]">
                               Starting {new Date(sub.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
@@ -1360,20 +1394,28 @@ export default function AdminDashboard() {
                           disabled={resendWaLoading[sub.id]}
                           onClick={async () => {
                             setResendWaLoading(prev => ({ ...prev, [sub.id]: true }))
+                            const bal = wallets.find(w => w.user_id === sub.user_id)?.balance ?? 0
+                            const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+                            const daysLeft = sub.end_date
+                              ? Math.round((new Date(sub.end_date) - new Date(today)) / (1000 * 60 * 60 * 24))
+                              : null
+                            const messageType = bal < 300 ? 'low_balance'
+                              : daysLeft !== null && daysLeft <= 3 ? 'subscription_expiring'
+                              : 'subscription_active'
                             const { data: { session } } = await supabase.auth.getSession()
                             const res = await fetch('/api/admin/resend-whatsapp', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-                              body: JSON.stringify({ userId: sub.user_id, messageType: 'subscription_active', targetId: sub.id }),
+                              body: JSON.stringify({ userId: sub.user_id, messageType, targetId: sub.id }),
                             })
                             setResendWaLoading(prev => ({ ...prev, [sub.id]: false }))
-                            res.ok ? showSuccess('WhatsApp sent!') : showError('Failed to send WhatsApp')
+                            res.ok ? showSuccess(`WhatsApp sent (${messageType})!`) : showError('Failed to send WhatsApp')
                           }}
                           className="text-xs bg-[#25D366] text-white px-3 py-1.5 rounded-lg hover:bg-[#1da851] transition font-semibold disabled:opacity-50">
-                          {resendWaLoading[sub.id] ? '...' : 'Resend WA'}
+                          {resendWaLoading[sub.id] ? '...' : '📲 Smart WA'}
                         </button>
                         <button
-                          onClick={() => setStopSubPopup(sub)}
+                          onClick={() => { setStopSubPopup(sub); setStopCancelledBy('admin'); setStopCancellationReason('') }}
                           className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition font-semibold">
                           Stop
                         </button>
@@ -1388,7 +1430,11 @@ export default function AdminDashboard() {
             {subscriptions.filter(s => !s.is_active).length > 0 && (
               <div className="rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
                 <button
-                  onClick={() => setShowCancelledSubs(v => !v)}
+                  onClick={() => {
+                    const next = !showCancelledSubs
+                    setShowCancelledSubs(next)
+                    if (next && Object.keys(cancelledSubCounts).length === 0) loadCancelledSubCounts()
+                  }}
                   className="w-full px-6 py-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition">
                   <div className="flex items-center gap-3">
                     <div className="w-2 h-6 rounded-full bg-gray-400" />
@@ -1425,13 +1471,30 @@ export default function AdminDashboard() {
                             <span className="bg-red-50 text-red-500 text-xs font-bold px-2 py-0.5 rounded-full border border-red-200">
                               Cancelled
                             </span>
+                            {getSubPlanLabel(sub) !== 'Ongoing' && (
+                              <span className="bg-gray-100 text-gray-400 text-xs font-medium px-2 py-0.5 rounded-full border border-gray-200">
+                                {getSubPlanLabel(sub)}
+                              </span>
+                            )}
+                            {cancelledSubCounts[sub.id] > 0 && (
+                              <span className="bg-gray-100 text-gray-500 text-xs font-medium px-2 py-0.5 rounded-full border border-gray-200">
+                                {cancelledSubCounts[sub.id]} days delivered
+                              </span>
+                            )}
                           </div>
                           <p className="text-xs text-gray-400 mt-1.5">
                             {new Date(sub.start_date).toLocaleDateString('en-IN')}
                             {sub.end_date ? ` → ${new Date(sub.end_date).toLocaleDateString('en-IN')}` : ''}
                           </p>
+                          {sub.cancelled_by && (
+                            <p className="text-xs text-gray-400 mt-1">
+                              {sub.cancelled_by === 'admin' ? 'Cancelled by Admin'
+                                : sub.cancelled_by === 'customer' ? 'Cancelled by Customer'
+                                : 'Cancelled by Delivery Agent'}
+                            </p>
+                          )}
                           {sub.cancellation_reason && (
-                            <p className="text-xs text-red-400 mt-1">Reason: {sub.cancellation_reason}</p>
+                            <p className="text-xs text-red-400 mt-0.5">Reason: {sub.cancellation_reason}</p>
                           )}
                         </div>
                         <div className="flex-shrink-0">
@@ -2772,12 +2835,33 @@ export default function AdminDashboard() {
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
           <h3 className="font-bold text-lg text-[#1c1c1c] mb-3">Stop Subscription?</h3>
-          <p className="text-sm text-gray-500 mb-5">
+          <p className="text-sm text-gray-500 mb-4">
             Are you sure you want to stop this subscription for{' '}
             <strong>{stopSubPopup.profiles?.full_name}</strong>?
             <br />
             <span className="text-xs text-gray-400">This will send an email and WhatsApp notification to the customer.</span>
           </p>
+          <div className="mb-3">
+            <label className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-1.5 block">Cancelled by</label>
+            <select
+              value={stopCancelledBy}
+              onChange={e => setStopCancelledBy(e.target.value)}
+              className="w-full border border-[#e8e0d0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]">
+              <option value="admin">Admin</option>
+              <option value="customer">Customer</option>
+              <option value="delivery_agent">Delivery Agent</option>
+            </select>
+          </div>
+          <div className="mb-5">
+            <label className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-1.5 block">Reason (optional)</label>
+            <input
+              type="text"
+              value={stopCancellationReason}
+              onChange={e => setStopCancellationReason(e.target.value)}
+              placeholder="e.g. Customer relocated"
+              className="w-full border border-[#e8e0d0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
+            />
+          </div>
           <div className="flex gap-3">
             <button
               onClick={() => setStopSubPopup(null)}
@@ -2792,10 +2876,18 @@ export default function AdminDashboard() {
                 const res = await fetch('/api/admin/stop-subscription', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-                  body: JSON.stringify({ subscription_id: stopSubPopup.id }),
+                  body: JSON.stringify({
+                    subscription_id: stopSubPopup.id,
+                    cancelled_by: stopCancelledBy,
+                    cancellation_reason: stopCancellationReason || null,
+                  }),
                 })
                 if (res.ok) {
-                  setSubscriptions(prev => prev.map(s => s.id !== stopSubPopup.id ? s : { ...s, is_active: false }))
+                  setSubscriptions(prev => prev.map(s => s.id !== stopSubPopup.id ? s : {
+                    ...s, is_active: false,
+                    cancelled_by: stopCancelledBy,
+                    cancellation_reason: stopCancellationReason || null,
+                  }))
                   setTodaySubscriptions(prev => prev.filter(s => s.id !== stopSubPopup.id))
                   showSuccess(`Subscription stopped for ${stopSubPopup.profiles?.full_name}`)
                   setStopSubPopup(null)

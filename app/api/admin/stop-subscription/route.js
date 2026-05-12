@@ -23,7 +23,7 @@ export async function POST(request) {
       return Response.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { subscription_id } = await request.json()
+    const { subscription_id, cancelled_by, cancellation_reason } = await request.json()
     if (!subscription_id) {
       return Response.json({ error: 'subscription_id required' }, { status: 400 })
     }
@@ -46,9 +46,13 @@ export async function POST(request) {
 
     const { data: { user: customerUser } } = await supabase.auth.admin.getUserById(sub.user_id)
 
+    const updatePayload = { is_active: false }
+    if (cancelled_by) updatePayload.cancelled_by = cancelled_by
+    if (cancellation_reason) updatePayload.cancellation_reason = cancellation_reason
+
     await supabase
       .from('subscriptions')
-      .update({ is_active: false })
+      .update(updatePayload)
       .eq('id', subscription_id)
 
     const name = profile?.full_name || 'Customer'
