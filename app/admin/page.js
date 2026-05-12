@@ -103,11 +103,15 @@ export default function AdminDashboard() {
   const [cancelledSubCounts, setCancelledSubCounts] = useState({})
   const [stopCancelledBy, setStopCancelledBy] = useState('admin')
   const [stopCancellationReason, setStopCancellationReason] = useState('')
+  const [customersSubTab, setCustomersSubTab] = useState('all')
+  const [areaFilter, setAreaFilter] = useState('all')
+  const [walletRequests, setWalletRequests] = useState([])
+  const [inlineWallet, setInlineWallet] = useState({})
 
   useEffect(() => { checkAdmin() }, [])
 
   useEffect(() => {
-    if (activeTab !== 'wallet') return
+    if (activeTab !== 'customers') return
     const interval = setInterval(() => { loadWallets() }, 30000)
     return () => clearInterval(interval)
   }, [activeTab])
@@ -239,6 +243,13 @@ export default function AdminDashboard() {
       .order('created_at', { ascending: false })
     setFailedDeductions(failedDeds || [])
 
+    // Load wallet requests (agent-submitted top-up/deduct requests)
+    const { data: walletReqs } = await supabase
+      .from('wallet_requests')
+      .select('*, profiles(*)')
+      .order('created_at', { ascending: false })
+    setWalletRequests(walletReqs || [])
+
     // Load all customers
     const { data: allCustomers } = await supabase
       .from('profiles')
@@ -324,7 +335,7 @@ export default function AdminDashboard() {
 
   const handleAdminTabChange = async (id) => {
     setActiveTab(id)
-    if (id === 'wallet') await loadWallets()
+    if (id === 'customers') await loadWallets()
     if (id === 'delivery_history' && !historyLoaded) loadDeliveryHistory()
   }
 
@@ -602,6 +613,22 @@ export default function AdminDashboard() {
     setCancelledSubCounts(counts)
   }
 
+  const approveWalletRequest = async (reqId, approved) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/wallet-request-action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ request_id: reqId, approved }),
+    })
+    if (res.ok) {
+      setWalletRequests(prev => prev.map(r => r.id === reqId ? { ...r, status: approved ? 'approved' : 'rejected' } : r))
+      showSuccess(approved ? 'Request approved!' : 'Request rejected.')
+      await loadWallets()
+    } else {
+      showError('Failed to process request.')
+    }
+  }
+
   const reactivateSub = async (subId) => {
     setReactivatingSubId(subId)
     const { error } = await supabase.from('subscriptions').update({ is_active: true }).eq('id', subId)
@@ -821,7 +848,6 @@ export default function AdminDashboard() {
     { id: 'orders', label: 'All Orders', icon: '📦' },
     { id: 'subscriptions', label: 'Subscriptions', icon: '📅' },
     { id: 'customers', label: 'Customers', icon: '👥' },
-    { id: 'wallet', label: 'Wallet', icon: '💰' },
     { id: 'delivery_history', label: 'Delivery History', icon: '📋' },
     { id: 'delivery', label: 'Delivery Agents', icon: '🚴' },
     { id: 'products', label: 'Products & Pricing', icon: '🥛' },
@@ -1517,41 +1543,281 @@ export default function AdminDashboard() {
 
         {/* Customers Tab */}
         {activeTab === 'customers' && (
+          <div className="flex flex-col gap-5">
+
+          {/* Daily Auto-Deduction — all sub-tab only */}
+          {customersSubTab === 'all' && (
+            <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+              <div className="px-6 py-5 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Daily Auto-Deduction</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Deduct today&apos;s subscription charges from customer wallets</p>
+                </div>
+                <button onClick={runDailyDeductions} disabled={deductionLoading}
+                  className="text-white px-5 py-2.5 rounded-xl font-bold hover:opacity-90 transition shadow text-sm disabled:opacity-60"
+                  style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
+                  {deductionLoading ? 'Running...' : "Run Today's Deductions"}
+                </button>
+              </div>
+              {deductionResult && (
+                <div className="px-6 pb-5 border-t border-[#f5f0e8] pt-4">
+                  <div className="grid grid-cols-3 gap-3 text-center mb-3">
+                    <div className="bg-[#f0faf4] rounded-xl p-3">
+                      <p className="text-2xl font-bold text-[#1a5c38]">{deductionResult.deducted}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Deducted</p>
+                    </div>
+                    <div className="bg-[#fdfbf7] rounded-xl p-3">
+                      <p className="text-2xl font-bold text-gray-400">{deductionResult.skipped}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Already done</p>
+                    </div>
+                    <div className={`rounded-xl p-3 ${deductionResult.failed > 0 ? 'bg-red-50' : 'bg-[#fdfbf7]'}`}>
+                      <p className={`text-2xl font-bold ${deductionResult.failed > 0 ? 'text-red-500' : 'text-gray-400'}`}>{deductionResult.failed}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Low balance</p>
+                    </div>
+                  </div>
+                  {deductionResult.failed > 0 && (
+                    <p className="text-xs text-red-500 text-center mb-1">
+                      {deductionResult.failed} customer{deductionResult.failed > 1 ? 's' : ''} have insufficient wallet balance.
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-400 text-center">
+                    {deductionResult.date} &middot; {deductionResult.total} active subscription{deductionResult.total !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Main customer list card */}
           <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
-            <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between">
+
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-[#f5f0e8] flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">All Customers</h3>
+                <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Customers</h3>
                 <p className="text-xs text-gray-400 mt-0.5">{customers.length} registered customers</p>
               </div>
-              <button onClick={() => {
-                const headers = ['Name','Phone','Email','Area','Building','Flat Number','Landmark','Joined Date']
-                const rows = customers.map(c => [
-                  c.full_name || '',
-                  c.phone || '',
-                  c.email || '',
-                  c.area || '',
-                  c.apartment_name || '',
-                  c.flat_number || '',
-                  c.landmark || '',
-                  c.created_at ? new Date(c.created_at).toLocaleDateString('en-IN') : '',
-                ])
-                const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
-                const blob = new Blob([csv], { type: 'text/csv' })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a'); a.href = url; a.download = `customers_${new Date().toISOString().split('T')[0]}.csv`; a.click()
-                setTimeout(() => URL.revokeObjectURL(url), 5000)
-              }} className="text-sm bg-[#1a5c38] text-white px-4 py-2 rounded-lg hover:bg-[#14472c] transition font-semibold flex-shrink-0">
-                Export CSV
-              </button>
-            </div>
-            {customers.length === 0 ? (
-              <div className="px-6 py-12 text-center">
-                <div className="text-5xl mb-3">👥</div>
-                <p className="text-gray-400">No customers yet</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <select value={areaFilter} onChange={e => setAreaFilter(e.target.value)}
+                  className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]">
+                  <option value="all">All Areas</option>
+                  {[...new Set(customers.map(c => c.area).filter(Boolean))].sort().map(area => (
+                    <option key={area} value={area}>{area}</option>
+                  ))}
+                </select>
+                <button onClick={() => {
+                  const headers = ['Name','Phone','Email','Area','Building','Flat Number','Landmark','Joined Date']
+                  const rows = customers.map(c => [
+                    c.full_name || '', c.phone || '', c.email || '', c.area || '',
+                    c.apartment_name || '', c.flat_number || '', c.landmark || '',
+                    c.created_at ? new Date(c.created_at).toLocaleDateString('en-IN') : '',
+                  ])
+                  const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
+                  const blob = new Blob([csv], { type: 'text/csv' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a'); a.href = url; a.download = `customers_${new Date().toISOString().split('T')[0]}.csv`; a.click()
+                  setTimeout(() => URL.revokeObjectURL(url), 5000)
+                }} className="text-xs bg-[#1a5c38] text-white px-3 py-2 rounded-lg hover:bg-[#14472c] transition font-semibold">
+                  Export CSV
+                </button>
               </div>
-            ) : (
-              <div>
-                {customers.map((customer, index) => (
+            </div>
+            {/* Sub-tabs */}
+            <div className="flex gap-1 px-4 py-3 border-b border-[#f5f0e8] overflow-x-auto">
+              {[
+                { id: 'all', label: `All (${customers.length})` },
+                { id: 'active_subs', label: `Active Subs (${subscriptions.filter(s => s.is_active).length})` },
+                { id: 'inactive_subs', label: 'Inactive Subs' },
+                { id: 'low_balance', label: `Low Balance (${wallets.filter(w => (w.balance ?? 0) < 300).length})` },
+                { id: 'wallet_requests', label: `💳 Agent Requests (${walletRequests.filter(r => r.status === 'pending').length})` },
+              ].map(({ id, label }) => (
+                <button key={id} onClick={() => setCustomersSubTab(id)}
+                  className={`text-xs font-semibold px-3 py-2 rounded-lg whitespace-nowrap transition ${
+                    customersSubTab === id ? 'bg-[#1a5c38] text-white' : 'text-gray-500 hover:text-[#1a5c38] hover:bg-[#f0faf4]'
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Wallet Requests sub-tab */}
+            {customersSubTab === 'wallet_requests' && (
+              walletRequests.length === 0 ? (
+                <div className="px-6 py-12 text-center">
+                  <div className="text-4xl mb-3">💳</div>
+                  <p className="text-gray-400 text-sm">No wallet requests</p>
+                </div>
+              ) : (
+                <div>
+                  {walletRequests.map((req, index, arr) => (
+                    <div key={req.id} className={`px-6 py-4 flex items-start gap-4 ${index !== arr.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <p className="font-semibold text-[#1c1c1c] text-sm">{req.profiles?.full_name}</p>
+                          <span className="text-xs text-gray-400">({req.profiles?.phone})</span>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
+                            req.status === 'approved' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
+                            : req.status === 'rejected' ? 'bg-red-50 text-red-500 border-red-200'
+                            : 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'
+                          }`}>
+                            {req.status === 'approved' ? '✅ Approved' : req.status === 'rejected' ? '❌ Rejected' : '🕐 Pending'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          {req.action === 'add' ? '➕ Add' : req.action === 'deduct' ? '➖ Deduct' : '⚙️ Set'}
+                          {' '}Rs.{req.amount}{' → '}
+                          <span className="font-medium">{customers.find(c => c.id === req.target_user_id)?.full_name || req.target_user_id}</span>
+                        </p>
+                        {req.note && <p className="text-xs text-gray-400 mt-0.5">Note: {req.note}</p>}
+                        <p className="text-xs text-gray-400 mt-0.5">{new Date(req.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                      </div>
+                      {req.status === 'pending' && (
+                        <div className="flex flex-col gap-1.5 flex-shrink-0">
+                          <button onClick={() => approveWalletRequest(req.id, true)}
+                            className="text-xs bg-[#1a5c38] text-white px-3 py-1.5 rounded-lg hover:bg-[#14472c] transition font-semibold">
+                            Approve
+                          </button>
+                          <button onClick={() => approveWalletRequest(req.id, false)}
+                            className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition font-semibold">
+                            Reject
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
+
+            {/* Customer list for other sub-tabs */}
+            {customersSubTab !== 'wallet_requests' && (() => {
+              const activeSubByUser = {}
+              subscriptions.filter(s => s.is_active).forEach(s => { activeSubByUser[s.user_id] = s })
+              const inactiveSubUserIds = new Set(subscriptions.filter(s => !s.is_active).map(s => s.user_id))
+              const filteredCustomers = customers.filter(c => {
+                if (areaFilter !== 'all' && c.area !== areaFilter) return false
+                if (customersSubTab === 'active_subs') return !!activeSubByUser[c.id]
+                if (customersSubTab === 'inactive_subs') return !activeSubByUser[c.id] && inactiveSubUserIds.has(c.id)
+                if (customersSubTab === 'low_balance') return (wallets.find(w => w.user_id === c.id)?.balance ?? 1000) < 300
+                return true
+              })
+              if (filteredCustomers.length === 0) return (
+                <div className="px-6 py-12 text-center">
+                  <div className="text-5xl mb-3">👥</div>
+                  <p className="text-gray-400 text-sm">No customers match this filter</p>
+                </div>
+              )
+              return (
+                <div>
+                  {filteredCustomers.map((customer, index, arr) => {
+                    const w = wallets.find(wt => wt.user_id === customer.id)
+                    const balance = w?.balance ?? null
+                    const activeSub = activeSubByUser[customer.id]
+                    const hasInactiveSub = !activeSub && inactiveSubUserIds.has(customer.id)
+                    const iw = inlineWallet[customer.id] || { open: null, amount: '', note: '' }
+                    return (
+                      <div key={customer.id} className={`px-5 py-4 ${index !== arr.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                        <div className="flex items-start gap-3">
+                          <div className="w-11 h-11 rounded-full bg-[#1a5c38] flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                            {customer.full_name?.[0] || '?'}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                              <p className="font-semibold text-[#1c1c1c]">{customer.full_name}</p>
+                              {activeSub ? (
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]">📅 Active Sub</span>
+                              ) : hasInactiveSub ? (
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200">⏸ Inactive Sub</span>
+                              ) : (
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-400 border border-red-200">❌ No Sub</span>
+                              )}
+                              {balance !== null && (
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                                  balance === 0 ? 'bg-red-100 text-red-700' : balance < 300 ? 'bg-orange-100 text-orange-700' : 'bg-[#f0faf4] text-[#1a5c38]'
+                                }`}>
+                                  💰 ₹{balance}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-400">📞 {customer.phone}</p>
+                            <p className="text-xs text-gray-400">{customer.area} • {customer.apartment_name}{customer.flat_number ? `, Flat ${customer.flat_number}` : ''}</p>
+                            {activeSub && (
+                              <p className="text-xs text-[#1a5c38] font-medium mt-0.5">
+                                {activeSub.products?.size} × {activeSub.quantity} · {getSubDayLabel(activeSub)}
+                              </p>
+                            )}
+                            {iw.open && (
+                              <div className="mt-2 flex flex-wrap gap-2 items-center">
+                                <input type="number" placeholder="Amount" value={iw.amount}
+                                  onChange={e => setInlineWallet(prev => ({ ...prev, [customer.id]: { ...iw, amount: e.target.value } }))}
+                                  className="w-24 border border-[#e8e0d0] rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-[#1a5c38]" />
+                                <input type="text" placeholder="Note (optional)" value={iw.note}
+                                  onChange={e => setInlineWallet(prev => ({ ...prev, [customer.id]: { ...iw, note: e.target.value } }))}
+                                  className="flex-1 min-w-0 border border-[#e8e0d0] rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-[#1a5c38]" />
+                                <button onClick={async () => {
+                                  const amt = parseFloat(iw.amount)
+                                  if (!amt || amt <= 0) return
+                                  const { data: { session } } = await supabase.auth.getSession()
+                                  const res = await fetch('/api/admin/wallet-update', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                                    body: JSON.stringify({ target_user_id: customer.id, action: iw.open, amount: amt, note: iw.note || (iw.open === 'add' ? 'Added by admin' : 'Deducted by admin') }),
+                                  })
+                                  if (res.ok) {
+                                    await loadWallets()
+                                    setInlineWallet(prev => ({ ...prev, [customer.id]: { open: null, amount: '', note: '' } }))
+                                    showSuccess('Wallet updated!')
+                                  } else { showError('Wallet update failed.') }
+                                }} className="text-xs bg-[#1a5c38] text-white px-3 py-1.5 rounded-lg hover:bg-[#14472c] transition font-semibold">
+                                  Confirm
+                                </button>
+                                <button onClick={() => setInlineWallet(prev => ({ ...prev, [customer.id]: { open: null, amount: '', note: '' } }))}
+                                  className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5">✕</button>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                            {w?.deposit_balance > 0 && (
+                              <button onClick={() => { setRefundModal({ customer, depositBalance: w.deposit_balance }); setRefundGoodBottles(''); setRefundDamagedBottles(''); setRefundNotes('') }}
+                                className="text-xs bg-[#d4a017] text-white px-2.5 py-1 rounded-lg hover:bg-[#b8860b] transition font-semibold">
+                                🍼 ₹{w.deposit_balance}
+                              </button>
+                            )}
+                            <div className="flex gap-1.5">
+                              <button onClick={() => setInlineWallet(prev => ({ ...prev, [customer.id]: iw.open === 'add' ? { open: null, amount: '', note: '' } : { open: 'add', amount: '', note: '' } }))}
+                                className="text-xs bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4] px-2.5 py-1 rounded-lg font-semibold hover:bg-[#e0f5e8] transition">
+                                + Add
+                              </button>
+                              <button onClick={() => setInlineWallet(prev => ({ ...prev, [customer.id]: iw.open === 'deduct' ? { open: null, amount: '', note: '' } : { open: 'deduct', amount: '', note: '' } }))}
+                                className="text-xs bg-red-50 text-red-500 border border-red-200 px-2.5 py-1 rounded-lg font-semibold hover:bg-red-100 transition">
+                                - Deduct
+                              </button>
+                            </div>
+                            <div className="flex gap-1.5">
+                              <a href={'https://wa.me/91' + customer.phone} target="_blank"
+                                className="text-xs bg-[#25D366] text-white px-2.5 py-1 rounded-lg font-semibold hover:bg-[#1da851] transition">
+                                WhatsApp
+                              </a>
+                              <button onClick={() => { setCustomWaModal(customer); setCustomWaType('custom'); setCustomWaMessage('') }}
+                                className="text-xs border border-[#25D366] text-[#25D366] px-2.5 py-1 rounded-lg font-semibold hover:bg-[#f0fff4] transition">
+                                Send WA
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
+
+          </div>
+          </div>
+        )}
+
+        {/* ~~~ OLD_DEAD_CODE_START ~~~ */}
+        {false && false && customers.map((customer, index) => (
                   <div key={customer.id}
                     className={`px-6 py-5 flex items-center gap-4 ${index !== customers.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
                     <div className="w-12 h-12 rounded-full bg-[#1a5c38] flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
@@ -1618,13 +1884,9 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
-      </div>
-    )}
 
-{/* Wallet Tab */}
-{activeTab === 'wallet' && (
+{/* _wallet_tab_dead_code_ */}
+{activeTab === 'wallet_DISABLED' && (
   <div className="flex flex-col gap-6">
 
   {/* Daily Auto-Deduction */}
