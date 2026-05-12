@@ -28,7 +28,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { type, order_id, subscription_id, delivery_date, bottle_returned, not_delivered } = await request.json()
+    const { type, order_id, subscription_id, delivery_date, bottle_returned, not_delivered, photo_url } = await request.json()
     const deliveredAt = new Date().toISOString()
     const deliveredBy = callerProfile.full_name || user.id
 
@@ -128,6 +128,7 @@ export async function POST(request) {
         delivery_date,
         delivered_at: deliveredAt,
         delivered_by: deliveredBy,
+        ...(photo_url ? { photo_url } : {}),
       }, { onConflict: 'subscription_id,delivery_date' }).select()
 
       // ── Send delivery WhatsApp confirmation — always, regardless of wallet state ─
