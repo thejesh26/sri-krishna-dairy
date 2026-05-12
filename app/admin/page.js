@@ -12,6 +12,7 @@ export default function AdminDashboard() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
+  const [overviewSubTab, setOverviewSubTab] = useState('today')
   const [orders, setOrders] = useState([])
   const [subscriptions, setSubscriptions] = useState([])
   const [customers, setCustomers] = useState([])
@@ -23,6 +24,7 @@ export default function AdminDashboard() {
   const [stopSubPopup, setStopSubPopup] = useState(null)
   const [stoppingSubId, setStoppingSubId] = useState(null)
   const [wallets, setWallets] = useState([])
+  const [walletsWithProfiles, setWalletsWithProfiles] = useState([])
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [walletAmount, setWalletAmount] = useState('')
   const [walletNote, setWalletNote] = useState('')
@@ -96,6 +98,12 @@ export default function AdminDashboard() {
   const [historyLoaded, setHistoryLoaded] = useState(false)
 
   useEffect(() => { checkAdmin() }, [])
+
+  useEffect(() => {
+    if (activeTab !== 'wallet') return
+    const interval = setInterval(() => { loadWallets() }, 30000)
+    return () => clearInterval(interval)
+  }, [activeTab])
 
   const checkAdmin = async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -217,13 +225,10 @@ export default function AdminDashboard() {
       .order('created_at', { ascending: false })
     setDiscountCodes(codes || [])
 
-    // Load failed deductions (last 30 days)
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    // Load all failed deductions
     const { data: failedDeds } = await supabase
       .from('failed_deductions')
       .select('*')
-      .gte('created_at', thirtyDaysAgo.toISOString())
       .order('created_at', { ascending: false })
     setFailedDeductions(failedDeds || [])
 
@@ -265,22 +270,34 @@ export default function AdminDashboard() {
     setWaitlistEntries(waitlist || [])
   }
 
-  // Fetches all wallets via service-role API (anon key blocked by RLS on wallet table)
   const loadWallets = async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/admin/wallets', {
-      headers: { Authorization: `Bearer ${session?.access_token}` },
-    })
-    if (!res.ok) {
-      const err = await res.text()
-      console.error('[Admin] Wallets API error:', res.status, err)
-      return []
+    const { data: walletData, error: walletError } = await supabase.from('wallet').select('*')
+    if (walletError) {
+      console.error('[Admin] Wallets fetch error:', walletError.message)
+      // Fall back to service-role API
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/admin/wallets', {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      })
+      if (res.ok) {
+        const json = await res.json()
+        setWallets(json.wallets || [])
+        setWalletsLastUpdated(new Date())
+      }
+      return
     }
-    const json = await res.json()
-    console.log('[Admin] Wallets loaded:', json.wallets?.length || 0)
-    setWallets(json.wallets || [])
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('id, full_name, phone, area')
+      .eq('is_admin', false)
+      .eq('is_delivery', false)
+    const merged = (walletData || []).map(w => ({
+      ...w,
+      profile: profileData?.find(p => p.id === w.user_id) || null,
+    }))
+    setWallets(walletData || [])
+    setWalletsWithProfiles(merged)
     setWalletsLastUpdated(new Date())
-    return json.wallets || []
   }
 
   const handleAdminTabChange = async (id) => {
@@ -762,6 +779,29 @@ export default function AdminDashboard() {
 
         {/* Today's Deliveries Tab */}
         {activeTab === 'overview' && (
+          <div className="flex flex-col gap-5">
+
+          {/* Sub-tabs */}
+          <div className="flex gap-2 bg-white border border-[#e8e0d0] rounded-xl p-1 shadow-sm">
+            {[
+              { id: 'today', label: "Today's List", icon: '📋' },
+              { id: 'history', label: 'History (7 days)', icon: '📊' },
+            ].map(({ id, label, icon }) => (
+              <button key={id}
+                onClick={() => {
+                  setOverviewSubTab(id)
+                  if (id === 'history' && !historyLoaded) loadDeliveryHistory()
+                }}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition ${
+                  overviewSubTab === id ? 'bg-[#1a5c38] text-white shadow' : 'text-gray-500 hover:text-[#1a5c38]'
+                }`}>
+                {icon} {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Today sub-tab */}
+          {overviewSubTab === 'today' && (
           <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
             <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between">
               <div>
@@ -888,6 +928,123 @@ export default function AdminDashboard() {
                 ))}
               </div>
             )}
+          </div>
+          )}
+
+          {/* History sub-tab */}
+          {overviewSubTab === 'history' && (
+            <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+              <div className="px-6 py-5 border-b border-[#f5f0e8] flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">📋 Delivery History</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Past 7 days — subscriptions and one-time orders</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <input type="date" value={historyDateFilter} onChange={e => setHistoryDateFilter(e.target.value)}
+                    className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38]" />
+                  <input type="text" placeholder="Filter by agent..." value={historyAgentFilter}
+                    onChange={e => setHistoryAgentFilter(e.target.value)}
+                    className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] w-36" />
+                  <button onClick={() => { setHistoryLoaded(false); loadDeliveryHistory() }}
+                    className="text-xs border border-[#1a5c38] text-[#1a5c38] px-3 py-2 rounded-lg hover:bg-[#f0faf4] transition font-semibold">
+                    ↻ Refresh
+                  </button>
+                  <button onClick={() => {
+                    const filtered = deliveryHistory.filter(d => {
+                      if (historyDateFilter && d.date !== historyDateFilter) return false
+                      if (historyAgentFilter && !d.deliveredBy?.toLowerCase().includes(historyAgentFilter.toLowerCase())) return false
+                      return true
+                    })
+                    const headers = ['Date', 'Type', 'Customer', 'Phone', 'Product', 'Qty', 'Delivered By', 'Delivered At']
+                    const rows = filtered.map(d => [
+                      d.date, d.type === 'subscription' ? 'Subscription' : 'One-time',
+                      d.customerName, d.phone, d.product, d.quantity, d.deliveredBy,
+                      d.deliveredAt ? new Date(d.deliveredAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '-',
+                    ])
+                    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+                    const blob = new Blob([csv], { type: 'text/csv' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a'); a.href = url; a.download = `delivery_history_${new Date().toISOString().split('T')[0]}.csv`; a.click()
+                    setTimeout(() => URL.revokeObjectURL(url), 5000)
+                  }} className="text-xs bg-[#1a5c38] text-white px-3 py-2 rounded-lg hover:bg-[#14472c] transition font-semibold">
+                    Export CSV
+                  </button>
+                </div>
+              </div>
+              {historyLoading ? (
+                <div className="px-6 py-12 text-center text-gray-400 text-sm">Loading delivery history...</div>
+              ) : (() => {
+                const filtered = deliveryHistory.filter(d => {
+                  if (historyDateFilter && d.date !== historyDateFilter) return false
+                  if (historyAgentFilter && !d.deliveredBy?.toLowerCase().includes(historyAgentFilter.toLowerCase())) return false
+                  return true
+                })
+                if (filtered.length === 0) {
+                  return (
+                    <div className="px-6 py-12 text-center">
+                      <div className="text-5xl mb-3">📋</div>
+                      <p className="text-gray-400 text-sm">No delivery records found.</p>
+                    </div>
+                  )
+                }
+                const byDate = filtered.reduce((acc, d) => {
+                  if (!acc[d.date]) acc[d.date] = []
+                  acc[d.date].push(d)
+                  return acc
+                }, {})
+                return (
+                  <div>
+                    {Object.entries(byDate).map(([date, items]) => (
+                      <div key={date}>
+                        <div className="px-6 py-3 bg-[#f5f0e8] flex items-center justify-between border-b border-[#e8e0d0]">
+                          <p className="font-semibold text-[#1c1c1c] text-sm">
+                            {new Date(date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+                          </p>
+                          <span className="bg-[#f0faf4] text-[#1a5c38] text-xs font-bold px-2.5 py-1 rounded-full border border-[#c8e6d4]">
+                            ✅ {items.length} delivered
+                          </span>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-[#fdfbf7] text-xs text-gray-400 uppercase tracking-widest">
+                              <tr>
+                                <th className="px-5 py-2 text-left">Customer</th>
+                                <th className="px-5 py-2 text-left">Product</th>
+                                <th className="px-5 py-2 text-left">Type</th>
+                                <th className="px-5 py-2 text-left">Delivered By</th>
+                                <th className="px-5 py-2 text-left">Time</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {items.map((d, idx) => (
+                                <tr key={d.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#fdfbf7]'}>
+                                  <td className="px-5 py-3">
+                                    <p className="font-semibold text-[#1c1c1c]">{d.customerName}</p>
+                                    <p className="text-xs text-gray-400">{d.phone}</p>
+                                  </td>
+                                  <td className="px-5 py-3 text-[#1c1c1c]">{d.product} <span className="text-gray-400 text-xs">x{d.quantity}</span></td>
+                                  <td className="px-5 py-3">
+                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${d.type === 'subscription' ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]'}`}>
+                                      {d.type === 'subscription' ? '📅 Sub' : '🛒 Order'}
+                                    </span>
+                                  </td>
+                                  <td className="px-5 py-3 text-gray-500 text-xs">{d.deliveredBy || '-'}</td>
+                                  <td className="px-5 py-3 text-gray-400 text-xs">
+                                    {d.deliveredAt ? new Date(d.deliveredAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '-'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
           </div>
         )}
 
@@ -1333,21 +1490,21 @@ export default function AdminDashboard() {
           ↻ Refresh
         </button>
       </div>
-      {customers.length === 0 ? (
+      {walletsWithProfiles.filter(w => w.profile).length === 0 ? (
         <div className="px-6 py-12 text-center">
-          <p className="text-gray-400">No customers yet</p>
+          <p className="text-gray-400">No wallet data yet</p>
         </div>
       ) : (
-        customers.map((customer, index) => {
-          const customerWallet = wallets.find(w => w.user_id === customer.id)
+        walletsWithProfiles.filter(w => w.profile).map((w, index, arr) => {
+          const customer = w.profile
           return (
-            <div key={customer.id}
+            <div key={w.user_id}
               onClick={() => { setSelectedCustomer(customer); setWalletMessage('') }}
               className={`px-6 py-4 flex items-center justify-between cursor-pointer transition ${
                 selectedCustomer?.id === customer.id
                   ? 'bg-[#f0faf4] border-l-4 border-[#1a5c38]'
                   : 'hover:bg-[#fdfbf7]'
-              } ${index !== customers.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+              } ${index !== arr.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-[#1a5c38] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                   {customer.full_name?.[0] || '?'}
@@ -1355,13 +1512,14 @@ export default function AdminDashboard() {
                 <div>
                   <p className="font-semibold text-[#1c1c1c] text-sm">{customer.full_name}</p>
                   <p className="text-xs text-gray-400">{customer.phone}</p>
+                  <p className="text-xs text-gray-400">{customer.area}</p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="font-bold text-[#1a5c38]">Rs.{customerWallet?.balance ?? 0}</p>
-                <p className="text-xs text-gray-400">balance</p>
-                {customerWallet?.deposit_balance > 0 && (
-                  <p className="text-xs text-[#d4a017] font-semibold">🍼 Rs.{customerWallet.deposit_balance}</p>
+                <p className="font-bold text-[#1a5c38]">Rs.{w.balance ?? 0}</p>
+                <p className="text-xs text-gray-400">available</p>
+                {w.deposit_balance > 0 && (
+                  <p className="text-xs text-[#d4a017] font-semibold">🍼 Deposit: Rs.{w.deposit_balance}</p>
                 )}
               </div>
             </div>
@@ -2091,7 +2249,7 @@ export default function AdminDashboard() {
     <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
       <div className="px-6 py-5 border-b border-[#f5f0e8]">
         <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">❌ Failed Subscription Deductions</h3>
-        <p className="text-xs text-gray-400 mt-0.5">{failedDeductions.length} failures in last 30 days</p>
+        <p className="text-xs text-gray-400 mt-0.5">{failedDeductions.length} total failures</p>
       </div>
       {failedDeductions.length === 0 ? (
         <div className="px-6 py-12 text-center text-gray-400 text-sm">No failed deductions. All subscriptions are healthy!</div>

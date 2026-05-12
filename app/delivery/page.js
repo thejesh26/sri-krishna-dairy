@@ -57,11 +57,12 @@ export default function DeliveryDashboard() {
   const loadDeliveries = async (userId, profile) => {
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 
-    // Load today's orders assigned to this agent
+    // Load today's pending/out-for-delivery orders assigned to this agent
     let ordersQuery = supabase
       .from('orders')
       .select('*, products(*), profiles(*)')
       .eq('delivery_date', today)
+      .in('status', ['pending', 'out_for_delivery'])
       .order('delivery_slot', { ascending: true })
 
     // If not admin, only show assigned orders
@@ -318,8 +319,11 @@ export default function DeliveryDashboard() {
             style={{background:'radial-gradient(circle, #d4a017, transparent)'}}></div>
           <div className="relative z-10">
             <p className="text-green-300 text-xs font-medium uppercase tracking-widest mb-1">Today's Deliveries</p>
-            <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-white mb-4">
+            <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-white">
               {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </p>
+            <p className="text-green-200 text-xs mb-4 mt-0.5">
+              Deliveries for: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Kolkata' })}
             </p>
             <div className="grid grid-cols-4 gap-3">
               {[
