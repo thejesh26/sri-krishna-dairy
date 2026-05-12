@@ -1,5 +1,5 @@
 import { createServerClient } from '../../../lib/supabase-server'
-import { sendWhatsAppMessage, notifyOrderPlaced, notifySubscriptionActivated, notifyLowBalance } from '../../../lib/whatsapp'
+import { sendWhatsAppMessage, notifyOrderPlaced, notifySubscriptionActivated, notifyLowBalance, sendLowBalanceAlert, sendSubscriptionExpiry } from '../../../lib/whatsapp'
 
 const WA_API_URL = `https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`
 
@@ -51,7 +51,7 @@ export async function POST(request) {
 
     const { userId, messageType, customMessage, targetId } = await request.json()
 
-    const VALID_TYPES = ['test', 'custom', 'low_balance', 'order_confirmation', 'subscription_active']
+    const VALID_TYPES = ['test', 'custom', 'low_balance', 'order_confirmation', 'subscription_active', 'subscription_expiring', 'subscription_reactivate']
 
     if (!messageType) {
       return Response.json({ error: 'messageType required', accepted: VALID_TYPES }, { status: 400 })
@@ -196,6 +196,39 @@ export async function POST(request) {
         dailyAmount: Math.round((sub.products?.price || 0) * (sub.quantity || 1) * (1 - (sub.discount_percent || 0) / 100)),
       })
       return Response.json({ success: true })
+    }
+
+    if (messageType === 'subscription_expiring') {
+      let sub = null
+      if (targetId) {
+        const { data } = await supabase
+          .from('subscriptions')
+          .select('end_date, products(size)')
+          .eq('id', targetId)
+          .single()
+        sub = data
+      } else {
+        const { data } = await supabase
+          .from('subscriptions')
+          .select('end_date, products(size)')
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        sub = data
+      }
+      if (!sub) return Response.json({ error: 'No subscription found' }, { status: 404 })
+      await sendSubscriptionExpiry(phone, name, sub.end_date || '-', sub.products?.size || 'Milk')
+      return Response.json({ success: true })
+    }
+
+    if (messageType === 'subscription_reactivate') {
+      const ok = await sendWhatsAppMessage(
+        phone,
+        `Hi ${name}! Your Sri Krishnaa Dairy subscription has expired. Reactivate now at srikrishnaadairy.in/subscribe to continue receiving fresh milk daily. 🥛`
+      )
+      return Response.json({ success: ok })
     }
 
     return Response.json({ error: `Invalid messageType: "${messageType}"`, accepted: VALID_TYPES }, { status: 400 })
