@@ -107,6 +107,16 @@ export default function AdminDashboard() {
   const [areaFilter, setAreaFilter] = useState('all')
   const [walletRequests, setWalletRequests] = useState([])
   const [inlineWallet, setInlineWallet] = useState({})
+  const [agentsSubTab, setAgentsSubTab] = useState('list')
+  const [deliveryAgentRecords, setDeliveryAgentRecords] = useState([])
+  const [agentForm, setAgentForm] = useState({ full_name: '', phone: '', email: '', password: '', address: '', dl_number: '', bike_number: '' })
+  const [agentPhoto, setAgentPhoto] = useState(null)
+  const [agentDoc, setAgentDoc] = useState(null)
+  const [agentSaving, setAgentSaving] = useState(false)
+  const [assignSearch, setAssignSearch] = useState('')
+  const [assignAreaFilter, setAssignAreaFilter] = useState('all')
+  const [assignDateFilter, setAssignDateFilter] = useState('')
+  const [assignSlotFilter, setAssignSlotFilter] = useState('all')
 
   useEffect(() => { checkAdmin() }, [])
 
@@ -257,6 +267,10 @@ export default function AdminDashboard() {
       .order('created_at', { ascending: false })
     setCustomers((allCustomers || []).filter(c => !c.is_admin))
     setDeliveryAgents((allCustomers || []).filter(c => c.is_delivery))
+
+    // Load delivery_agents table for extra fields (DL, bike, photo, active status)
+    const { data: daRecords } = await supabase.from('delivery_agents').select('*')
+    setDeliveryAgentRecords(daRecords || [])
 
     // Calculate stats
     const todayRevenue = todayO.reduce((sum, o) => sum + (o.total_price || 0), 0)
@@ -2254,139 +2268,307 @@ export default function AdminDashboard() {
 
 {/* Delivery Agents Tab */}
 {activeTab === 'delivery' && (
-  <div className="flex flex-col gap-6">
+  <div className="flex flex-col gap-5">
 
-    {/* Delivery Agents List */}
-    <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
-      <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-4">
-        Delivery Agents
-      </h3>
-      {deliveryAgents.length === 0 ? (
-        <div className="text-center py-6">
-          <div className="text-4xl mb-3">🚴</div>
-          <p className="text-gray-400 text-sm mb-2">No delivery agents yet</p>
-          <p className="text-gray-400 text-xs">Promote a customer to delivery agent below</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {deliveryAgents.map((agent) => (
-            <div key={agent.id} className="flex items-center justify-between border border-[#e8e0d0] rounded-xl p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#1a5c38] flex items-center justify-center text-white font-bold">
-                  {agent.full_name?.[0]}
-                </div>
-                <div>
-                  <p className="font-semibold text-[#1c1c1c]">{agent.full_name}</p>
-                  <p className="text-sm text-gray-400">{agent.phone}</p>
-                  <p className="text-xs text-[#d4a017]">{agent.area}</p>
-                </div>
-              </div>
-              <button
-  onClick={async () => {
-    await supabase.from('profiles')
-      .update({ is_delivery: false })
-      .eq('id', agent.id)
-    setDeliveryAgents(deliveryAgents.filter(a => a.id !== agent.id))
-  }}
-  className="text-xs border border-red-300 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition font-semibold">
-  Remove
-</button>
-            </div>
-          ))}
-        </div>
-      )}
+    {/* Sub-tabs */}
+    <div className="flex gap-2 bg-white border border-[#e8e0d0] rounded-xl p-1 shadow-sm">
+      {[
+        { id: 'list', label: `Agents (${deliveryAgents.length})` },
+        { id: 'add_new', label: '+ Add New Agent' },
+        { id: 'assign', label: 'Assign Orders' },
+      ].map(({ id, label }) => (
+        <button key={id} onClick={() => setAgentsSubTab(id)}
+          className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-semibold transition ${
+            agentsSubTab === id ? 'bg-[#1a5c38] text-white shadow' : 'text-gray-500 hover:text-[#1a5c38] hover:bg-[#f0faf4]'
+          }`}>
+          {label}
+        </button>
+      ))}
     </div>
 
-    {/* Assign Today's Orders */}
-    <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
-      <div className="px-6 py-5 border-b border-[#f5f0e8]">
-        <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">
-          Assign Today's Orders
-        </h3>
-        <p className="text-xs text-gray-400 mt-0.5">Assign orders to delivery agents</p>
-      </div>
-      {orders.filter(o => o.delivery_date === new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })).length === 0 ? (
-        <div className="px-6 py-12 text-center">
-          <div className="text-5xl mb-3">📭</div>
-          <p className="text-gray-400">No orders for today</p>
+    {/* List sub-tab */}
+    {agentsSubTab === 'list' && (
+      <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+        <div className="px-6 py-5 border-b border-[#f5f0e8]">
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Delivery Agents</h3>
+          <p className="text-xs text-gray-400 mt-0.5">{deliveryAgents.length} agents</p>
         </div>
-      ) : (
-        <div>
-          {orders
-            .filter(o => o.delivery_date === new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))
-            .map((order, index) => (
-            <div key={order.id}
-              className={`px-6 py-4 flex items-center gap-4 ${index !== orders.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
-              <div className="w-12 h-12 rounded-xl bg-[#f5f0e8] flex items-center justify-center flex-shrink-0 p-1.5">
-                <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-[#1c1c1c]">{order.profiles?.full_name}</p>
-                <p className="text-sm text-gray-400">{order.profiles?.apartment_name}, {order.profiles?.area}</p>
-                <p className="text-xs text-gray-400">{order.products?.size} x {order.quantity} • {order.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}</p>
-              </div>
-              <div className="flex-shrink-0">
-                {deliveryAgents.length === 0 ? (
-                  <span className="text-xs text-gray-400 border border-[#e8e0d0] px-3 py-1.5 rounded-lg">No agents</span>
-                ) : (
-                  <select
-                    value={order.assigned_to || ''}
-                    onChange={async (e) => {
-                      const agentId = e.target.value
-                      await supabase.from('orders')
-                        .update({ assigned_to: agentId || null })
-                        .eq('id', order.id)
-                      setOrders(orders.map(o =>
-                        o.id === order.id ? { ...o, assigned_to: agentId } : o
-                      ))
-                    }}
-                    className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]">
-                    <option value="">Unassigned</option>
-                    {deliveryAgents.map(agent => (
-                      <option key={agent.id} value={agent.id}>{agent.full_name}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-
-    {/* Promote to Delivery Agent */}
-    <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
-      <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-2">
-        Promote to Delivery Agent
-      </h3>
-      <p className="text-sm text-gray-400 mb-4">Select a customer to make them a delivery agent</p>
-      <div className="flex flex-col gap-2">
-        {customers.filter(c => !c.is_delivery && !c.is_admin).map((customer) => (
-          <div key={customer.id} className="flex items-center justify-between border border-[#e8e0d0] rounded-xl p-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-[#1a5c38] flex items-center justify-center text-white text-xs font-bold">
-                {customer.full_name?.[0]}
-              </div>
-              <div>
-                <p className="font-semibold text-[#1c1c1c] text-sm">{customer.full_name}</p>
-                <p className="text-xs text-gray-400">{customer.phone}</p>
-              </div>
-            </div>
-            <button
-              onClick={async () => {
-                await supabase.from('profiles')
-                  .update({ is_delivery: true })
-                  .eq('id', customer.id)
-                setDeliveryAgents([...deliveryAgents, { ...customer, is_delivery: true }])
-                showSuccess(customer.full_name + ' is now a delivery agent!')
-              }}
-              className="text-xs bg-[#1a5c38] text-white px-3 py-1.5 rounded-lg hover:bg-[#14472c] transition font-semibold">
-              Make Agent
-            </button>
+        {deliveryAgents.length === 0 ? (
+          <div className="px-6 py-12 text-center">
+            <div className="text-4xl mb-3">🚴</div>
+            <p className="text-gray-400 text-sm">No delivery agents yet</p>
           </div>
-        ))}
+        ) : (
+          <div>
+            {deliveryAgents.map((agent, index, arr) => {
+              const rec = deliveryAgentRecords.find(r => r.phone === agent.phone || r.user_id === agent.id)
+              return (
+                <div key={agent.id} className={`px-6 py-4 flex items-start gap-4 ${index !== arr.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                  <div className="w-11 h-11 rounded-full bg-[#1a5c38] flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                    {agent.full_name?.[0] || '?'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <p className="font-semibold text-[#1c1c1c]">{agent.full_name}</p>
+                      {rec ? (
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${rec.is_active !== false ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+                          {rec.is_active !== false ? 'Active' : 'Inactive'}
+                        </span>
+                      ) : (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full border bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]">Active</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-400">📞 {agent.phone}</p>
+                    {agent.area && <p className="text-xs text-gray-400">{agent.area}</p>}
+                    {rec?.dl_number && <p className="text-xs text-gray-400 mt-0.5">DL: {rec.dl_number}</p>}
+                    {rec?.bike_number && <p className="text-xs text-gray-400">Bike: {rec.bike_number}</p>}
+                  </div>
+                  <button
+                    onClick={async () => {
+                      await supabase.from('profiles').update({ is_delivery: false }).eq('id', agent.id)
+                      setDeliveryAgents(deliveryAgents.filter(a => a.id !== agent.id))
+                    }}
+                    className="text-xs border border-red-300 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition font-semibold flex-shrink-0">
+                    Remove
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
-    </div>
+    )}
+
+    {/* Add New Agent sub-tab */}
+    {agentsSubTab === 'add_new' && (
+      <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+        <div className="px-6 py-5 border-b border-[#f5f0e8]">
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Add New Delivery Agent</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Creates a login account and sends WhatsApp welcome</p>
+        </div>
+        <div className="px-6 py-5 flex flex-col gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-1.5 block">Full Name *</label>
+              <input type="text" value={agentForm.full_name} onChange={e => setAgentForm(f => ({ ...f, full_name: e.target.value }))}
+                placeholder="Agent full name" className="w-full border border-[#e8e0d0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-1.5 block">Phone Number *</label>
+              <input type="text" value={agentForm.phone} onChange={e => setAgentForm(f => ({ ...f, phone: e.target.value }))}
+                placeholder="10-digit mobile" className="w-full border border-[#e8e0d0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-1.5 block">Email ID *</label>
+              <input type="email" value={agentForm.email} onChange={e => setAgentForm(f => ({ ...f, email: e.target.value }))}
+                placeholder="agent@example.com" className="w-full border border-[#e8e0d0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-1.5 block">Password *</label>
+              <input type="password" value={agentForm.password} onChange={e => setAgentForm(f => ({ ...f, password: e.target.value }))}
+                placeholder="Set login password" className="w-full border border-[#e8e0d0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-1.5 block">DL / ID Number</label>
+              <input type="text" value={agentForm.dl_number} onChange={e => setAgentForm(f => ({ ...f, dl_number: e.target.value }))}
+                placeholder="Driving licence number" className="w-full border border-[#e8e0d0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-1.5 block">Bike Number</label>
+              <input type="text" value={agentForm.bike_number} onChange={e => setAgentForm(f => ({ ...f, bike_number: e.target.value }))}
+                placeholder="Vehicle registration" className="w-full border border-[#e8e0d0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-1.5 block">Address</label>
+            <textarea value={agentForm.address} onChange={e => setAgentForm(f => ({ ...f, address: e.target.value }))}
+              rows={2} placeholder="Agent&apos;s home address"
+              className="w-full border border-[#e8e0d0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] resize-none" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-1.5 block">Photo</label>
+              <input type="file" accept="image/*" onChange={e => setAgentPhoto(e.target.files?.[0] || null)}
+                className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#f0faf4] file:text-[#1a5c38] hover:file:bg-[#e0f5e8]" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-1.5 block">DL / ID Document</label>
+              <input type="file" accept="image/*,application/pdf" onChange={e => setAgentDoc(e.target.files?.[0] || null)}
+                className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#f0faf4] file:text-[#1a5c38] hover:file:bg-[#e0f5e8]" />
+            </div>
+          </div>
+          <div className="bg-[#fdf6e3] border border-[#f0dfa0] rounded-xl px-4 py-3 text-xs text-[#a07830]">
+            After saving, the agent will receive a WhatsApp message to login at <strong>srikrishnaadairy.in/delivery</strong>
+          </div>
+          <button
+            disabled={agentSaving || !agentForm.full_name || !agentForm.phone || !agentForm.email || !agentForm.password}
+            onClick={async () => {
+              setAgentSaving(true)
+              try {
+                const ts = Date.now()
+                let photo_url = null, document_url = null
+                if (agentPhoto) {
+                  const { data: pData } = await supabase.storage
+                    .from('delivery-agent-docs')
+                    .upload(`photos/${agentForm.phone}_${ts}`, agentPhoto, { upsert: true })
+                  if (pData) {
+                    const { data: { publicUrl } } = supabase.storage.from('delivery-agent-docs').getPublicUrl(pData.path)
+                    photo_url = publicUrl
+                  }
+                }
+                if (agentDoc) {
+                  const { data: dData } = await supabase.storage
+                    .from('delivery-agent-docs')
+                    .upload(`docs/${agentForm.phone}_${ts}`, agentDoc, { upsert: true })
+                  if (dData) {
+                    const { data: { publicUrl } } = supabase.storage.from('delivery-agent-docs').getPublicUrl(dData.path)
+                    document_url = publicUrl
+                  }
+                }
+                const { data: { session } } = await supabase.auth.getSession()
+                const res = await fetch('/api/admin/create-delivery-agent', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                  body: JSON.stringify({ ...agentForm, photo_url, document_url }),
+                })
+                const json = await res.json()
+                if (!res.ok) throw new Error(json.error || 'Failed to save agent')
+                setDeliveryAgents(prev => [...prev, { id: json.user_id, full_name: agentForm.full_name, phone: agentForm.phone, is_delivery: true }])
+                setDeliveryAgentRecords(prev => [...prev, { ...agentForm, photo_url, document_url, is_active: true, user_id: json.user_id }])
+                setAgentForm({ full_name: '', phone: '', email: '', password: '', address: '', dl_number: '', bike_number: '' })
+                setAgentPhoto(null)
+                setAgentDoc(null)
+                showSuccess(`Agent ${agentForm.full_name} added!`)
+                setAgentsSubTab('list')
+              } catch (err) {
+                showError(err.message || 'Failed to save agent')
+              }
+              setAgentSaving(false)
+            }}
+            className="text-white py-3 rounded-xl font-bold hover:opacity-90 transition shadow text-sm disabled:opacity-50"
+            style={{background: 'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
+            {agentSaving ? 'Saving...' : 'Save Agent'}
+          </button>
+        </div>
+      </div>
+    )}
+
+    {/* Assign Orders sub-tab */}
+    {agentsSubTab === 'assign' && (() => {
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+      const combined = [
+        ...orders.map(o => ({
+          ...o,
+          _type: o.payment_method === 'COD' ? 'trial' : 'order',
+          _date: o.delivery_date || '',
+          _profile: o.profiles,
+        })),
+        ...todaySubscriptions.map(sub => ({
+          ...sub,
+          _type: 'subscription',
+          _date: today,
+          _profile: sub.profiles,
+        })),
+      ]
+      const areas = [...new Set(combined.map(i => i._profile?.area).filter(Boolean))].sort()
+      const filtered = combined.filter(item => {
+        const p = item._profile
+        if (assignSearch) {
+          const q = assignSearch.toLowerCase()
+          if (!p?.full_name?.toLowerCase().includes(q) && !p?.phone?.includes(q)) return false
+        }
+        if (assignAreaFilter !== 'all' && p?.area !== assignAreaFilter) return false
+        if (assignDateFilter && item._date !== assignDateFilter) return false
+        if (assignSlotFilter !== 'all' && item.delivery_slot !== assignSlotFilter) return false
+        return true
+      })
+      return (
+        <div className="flex flex-col gap-4">
+          {/* Filters */}
+          <div className="bg-white rounded-2xl border border-[#e8e0d0] p-4 shadow-sm flex flex-wrap gap-3">
+            <input type="text" placeholder="Search customer or phone…" value={assignSearch} onChange={e => setAssignSearch(e.target.value)}
+              className="flex-1 min-w-0 border border-[#e8e0d0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#1a5c38]" />
+            <select value={assignAreaFilter} onChange={e => setAssignAreaFilter(e.target.value)}
+              className="text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]">
+              <option value="all">All Areas</option>
+              {areas.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+            <input type="date" value={assignDateFilter} onChange={e => setAssignDateFilter(e.target.value)}
+              className="text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38]" />
+            <select value={assignSlotFilter} onChange={e => setAssignSlotFilter(e.target.value)}
+              className="text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]">
+              <option value="all">All Slots</option>
+              <option value="morning">Morning</option>
+              <option value="evening">Evening</option>
+            </select>
+          </div>
+          {/* Order list */}
+          <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+            <div className="px-6 py-4 border-b border-[#f5f0e8]">
+              <p className="text-xs text-gray-400">{filtered.length} items · orders + subscriptions</p>
+            </div>
+            {filtered.length === 0 ? (
+              <div className="px-6 py-12 text-center">
+                <div className="text-4xl mb-3">📭</div>
+                <p className="text-gray-400 text-sm">No orders match filters</p>
+              </div>
+            ) : (
+              <div>
+                {filtered.map((item, index, arr) => (
+                  <div key={(item._type === 'subscription' ? 'sub-' : 'ord-') + item.id}
+                    className={`px-6 py-4 flex items-start gap-3 ${index !== arr.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                    <div className="w-9 h-9 rounded-xl bg-[#f5f0e8] flex items-center justify-center flex-shrink-0 text-base">
+                      {item._type === 'subscription' ? '📅' : item._type === 'trial' ? '🎁' : '🛒'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <p className="font-semibold text-[#1c1c1c] text-sm">{item._profile?.full_name}</p>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                          item._type === 'subscription' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
+                          : item._type === 'trial' ? 'bg-orange-50 text-orange-600 border-orange-200'
+                          : 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'
+                        }`}>
+                          {item._type === 'subscription' ? '📅 Sub' : item._type === 'trial' ? '🎁 Trial' : '🛒 Order'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400">📞 {item._profile?.phone}</p>
+                      <p className="text-xs text-gray-400">{item._profile?.area} · {item._profile?.apartment_name}{item._profile?.flat_number ? `, Flat ${item._profile.flat_number}` : ''}</p>
+                      <p className="text-xs text-[#1a5c38] font-medium mt-0.5">
+                        {item.products?.size} × {item.quantity} · {item.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'} · {item._date}
+                      </p>
+                    </div>
+                    <div className="flex-shrink-0">
+                      {deliveryAgents.length === 0 ? (
+                        <span className="text-xs text-gray-400 border border-[#e8e0d0] px-3 py-1.5 rounded-lg">No agents</span>
+                      ) : (
+                        <select
+                          value={item.assigned_to || ''}
+                          onChange={async (e) => {
+                            const agentId = e.target.value
+                            const table = item._type === 'subscription' ? 'subscriptions' : 'orders'
+                            await supabase.from(table).update({ assigned_to: agentId || null }).eq('id', item.id)
+                            if (item._type === 'subscription') {
+                              setTodaySubscriptions(prev => prev.map(s => s.id === item.id ? { ...s, assigned_to: agentId } : s))
+                            } else {
+                              setOrders(prev => prev.map(o => o.id === item.id ? { ...o, assigned_to: agentId } : o))
+                            }
+                          }}
+                          className="text-xs border border-[#e8e0d0] rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]">
+                          <option value="">Unassigned</option>
+                          {deliveryAgents.map(agent => (
+                            <option key={agent.id} value={agent.id}>{agent.full_name}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )
+    })()}
 
   </div>
 )}
