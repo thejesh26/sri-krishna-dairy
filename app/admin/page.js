@@ -23,6 +23,8 @@ export default function AdminDashboard() {
   const [assigningOrder, setAssigningOrder] = useState(null)
   const [stopSubPopup, setStopSubPopup] = useState(null)
   const [stoppingSubId, setStoppingSubId] = useState(null)
+  const [showCancelledSubs, setShowCancelledSubs] = useState(false)
+  const [reactivatingSubId, setReactivatingSubId] = useState(null)
   const [wallets, setWallets] = useState([])
   const [walletsWithProfiles, setWalletsWithProfiles] = useState([])
   const [selectedCustomer, setSelectedCustomer] = useState(null)
@@ -530,6 +532,18 @@ export default function AdminDashboard() {
     base.setDate(base.getDate() + parseInt(days))
     await supabase.from('subscriptions').update({ end_date: base.toISOString().split('T')[0] }).eq('id', sub.id)
     showSuccess(`${name}'s subscription extended by ${days} days`)
+  }
+
+  const reactivateSub = async (subId) => {
+    setReactivatingSubId(subId)
+    const { error } = await supabase.from('subscriptions').update({ is_active: true }).eq('id', subId)
+    if (!error) {
+      setSubscriptions(prev => prev.map(s => s.id === subId ? { ...s, is_active: true } : s))
+      showSuccess('Subscription reactivated!')
+    } else {
+      showError('Failed to reactivate subscription.')
+    }
+    setReactivatingSubId(null)
   }
 
   const pauseDelivery = async (userId, name, date) => {
@@ -1214,104 +1228,185 @@ export default function AdminDashboard() {
 
         {/* Subscriptions Tab */}
         {activeTab === 'subscriptions' && (
-          <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
-            <div className="px-6 py-5 border-b border-[#f5f0e8]">
-              <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">All Subscriptions</h3>
-              <p className="text-xs text-gray-400 mt-0.5">{subscriptions.filter(s => s.is_active).length} active · {subscriptions.filter(s => !s.is_active).length} inactive</p>
+          <div className="flex flex-col gap-5">
+
+            {/* Count summary */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4] text-sm font-bold px-4 py-1.5 rounded-full">
+                Active: {subscriptions.filter(s => s.is_active).length}
+              </span>
+              <span className="text-gray-300 font-bold text-lg">|</span>
+              <span className="bg-gray-100 text-gray-500 border border-gray-200 text-sm font-bold px-4 py-1.5 rounded-full">
+                Cancelled: {subscriptions.filter(s => !s.is_active).length}
+              </span>
             </div>
-            {subscriptions.length === 0 ? (
-              <div className="px-6 py-12 text-center">
-                <div className="text-5xl mb-3">📅</div>
-                <p className="text-gray-400">No subscriptions yet</p>
+
+            {/* Section 1: Active Subscriptions */}
+            <div className="bg-white rounded-2xl border border-[#c8e6d4] overflow-hidden shadow-sm">
+              <div className="px-6 py-4 border-b border-[#e8f5ec] flex items-center gap-3"
+                style={{background: 'linear-gradient(135deg, #f0faf4 0%, #e8f5ec 100%)'}}>
+                <div className="w-2 h-6 rounded-full bg-[#1a5c38]" />
+                <div>
+                  <h3 className="font-[family-name:var(--font-playfair)] text-base font-bold text-[#1a5c38]">Active Subscriptions</h3>
+                  <p className="text-xs text-[#2d7a50]">{subscriptions.filter(s => s.is_active).length} running</p>
+                </div>
               </div>
-            ) : (
-              <div>
-                {subscriptions.map((sub, index) => (
-                  <div key={sub.id}
-                    className={`px-6 py-5 flex items-center gap-4 ${index !== subscriptions.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
-                    <div className="w-12 h-12 rounded-xl bg-[#f5f0e8] flex items-center justify-center flex-shrink-0 p-1.5">
-                      <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-[#1c1c1c]">{sub.profiles?.full_name}</p>
-                      <p className="text-sm text-gray-400">{sub.profiles?.area}, {sub.profiles?.apartment_name}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">📞 {sub.profiles?.phone}</p>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        <span className="bg-[#f0faf4] text-[#1a5c38] text-xs font-medium px-2 py-0.5 rounded-full border border-[#c8e6d4]">
-                          {sub.products?.size} x {sub.quantity}/day
-                        </span>
-                        <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-medium px-2 py-0.5 rounded-full border border-[#f0dfa0]">
-                          {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
-                        </span>
-                        <span className="bg-[#f5f0e8] text-[#1c1c1c] text-xs font-medium px-2 py-0.5 rounded-full">
-                          {sub.subscription_type === 'ongoing' ? 'Ongoing' : sub.subscription_type === 'fixed' ? 'Fixed' : '1 Day'}
-                        </span>
-                        {!sub.is_active && (
-                          <span className="bg-red-50 text-red-600 text-xs font-medium px-2 py-0.5 rounded-full border border-red-200">
-                            Inactive
+              {subscriptions.filter(s => s.is_active).length === 0 ? (
+                <div className="px-6 py-10 text-center">
+                  <div className="text-4xl mb-3">📅</div>
+                  <p className="text-gray-400 text-sm">No active subscriptions</p>
+                </div>
+              ) : (
+                <div>
+                  {subscriptions.filter(s => s.is_active).map((sub, index, arr) => (
+                    <div key={sub.id}
+                      className={`px-6 py-5 flex items-start gap-4 ${index !== arr.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                      <div className="w-11 h-11 rounded-xl bg-[#f0faf4] border border-[#c8e6d4] flex items-center justify-center flex-shrink-0 p-1.5">
+                        <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-[#1c1c1c]">{sub.profiles?.full_name}</p>
+                        <p className="text-sm text-gray-400">{sub.profiles?.area}, {sub.profiles?.apartment_name}</p>
+                        <p className="text-xs text-gray-400">📞 {sub.profiles?.phone}</p>
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          <span className="bg-[#f0faf4] text-[#1a5c38] text-xs font-medium px-2 py-0.5 rounded-full border border-[#c8e6d4]">
+                            {sub.products?.size} × {sub.quantity}/day
                           </span>
-                        )}
-                        {sub.is_active && sub.start_date > new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) && (
                           <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-medium px-2 py-0.5 rounded-full border border-[#f0dfa0]">
-                            Starting {new Date(sub.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                            {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
                           </span>
-                        )}
-                        {sub.paused_dates?.length > 0 && (
-                          <span className="bg-yellow-50 text-yellow-600 text-xs font-medium px-2 py-0.5 rounded-full border border-yellow-200">
-                            {sub.paused_dates.length} paused
+                          <span className="bg-[#f5f0e8] text-[#1c1c1c] text-xs font-medium px-2 py-0.5 rounded-full">
+                            {sub.subscription_type === 'ongoing' ? 'Ongoing' : sub.subscription_type === 'fixed' ? 'Fixed' : '1 Day'}
                           </span>
+                          {sub.start_date > new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) && (
+                            <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-medium px-2 py-0.5 rounded-full border border-[#f0dfa0]">
+                              Starting {new Date(sub.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                            </span>
+                          )}
+                          {sub.paused_dates?.length > 0 && (
+                            <span className="bg-yellow-50 text-yellow-600 text-xs font-medium px-2 py-0.5 rounded-full border border-yellow-200">
+                              {sub.paused_dates.length} paused
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1.5">
+                          Since {new Date(sub.start_date).toLocaleDateString('en-IN')}
+                          {sub.end_date ? ` · Ends ${new Date(sub.end_date).toLocaleDateString('en-IN')}` : ''}
+                        </p>
+                      </div>
+                      <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
+                        <p className="font-bold text-[#1a5c38]">Rs.{(sub.products?.price || 0) * sub.quantity}/day</p>
+                        {sub.bottle_deposit > 0 && (
+                          <p className="text-xs text-[#d4a017]">Deposit: Rs.{sub.bottle_deposit}</p>
                         )}
+                        {deliveryAgents.length > 0 && (
+                          <select
+                            value={sub.assigned_to || ''}
+                            onChange={async (e) => {
+                              const agentId = e.target.value
+                              await supabase.from('subscriptions').update({ assigned_to: agentId || null }).eq('id', sub.id)
+                              setSubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, assigned_to: agentId } : s))
+                            }}
+                            className="text-xs border border-[#e8e0d0] rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]">
+                            <option value="">Unassigned</option>
+                            {deliveryAgents.map(agent => (
+                              <option key={agent.id} value={agent.id}>{agent.full_name}</option>
+                            ))}
+                          </select>
+                        )}
+                        <button
+                          disabled={resendWaLoading[sub.id]}
+                          onClick={async () => {
+                            setResendWaLoading(prev => ({ ...prev, [sub.id]: true }))
+                            const { data: { session } } = await supabase.auth.getSession()
+                            const res = await fetch('/api/admin/resend-whatsapp', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                              body: JSON.stringify({ userId: sub.user_id, messageType: 'subscription_active', targetId: sub.id }),
+                            })
+                            setResendWaLoading(prev => ({ ...prev, [sub.id]: false }))
+                            res.ok ? showSuccess('WhatsApp sent!') : showError('Failed to send WhatsApp')
+                          }}
+                          className="text-xs bg-[#25D366] text-white px-3 py-1.5 rounded-lg hover:bg-[#1da851] transition font-semibold disabled:opacity-50">
+                          {resendWaLoading[sub.id] ? '...' : 'Resend WA'}
+                        </button>
+                        <button
+                          onClick={() => setStopSubPopup(sub)}
+                          className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition font-semibold">
+                          Stop
+                        </button>
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0 flex flex-col gap-1.5">
-                      <p className="font-bold text-[#1a5c38]">Rs.{sub.products?.price * sub.quantity}/day</p>
-                      <p className="text-xs text-gray-400">Since {new Date(sub.start_date).toLocaleDateString('en-IN')}</p>
-                      {sub.bottle_deposit > 0 && (
-                        <p className="text-xs text-[#d4a017]">Deposit: Rs.{sub.bottle_deposit}</p>
-                      )}
-                      {deliveryAgents.length > 0 && (
-                        <select
-                          value={sub.assigned_to || ''}
-                          onChange={async (e) => {
-                            const agentId = e.target.value
-                            await supabase.from('subscriptions')
-                              .update({ assigned_to: agentId || null })
-                              .eq('id', sub.id)
-                            setSubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, assigned_to: agentId } : s))
-                          }}
-                          className="text-xs border border-[#e8e0d0] rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]">
-                          <option value="">Unassigned</option>
-                          {deliveryAgents.map(agent => (
-                            <option key={agent.id} value={agent.id}>{agent.full_name}</option>
-                          ))}
-                        </select>
-                      )}
-                      <button
-                        disabled={resendWaLoading[sub.id]}
-                        onClick={async () => {
-                          setResendWaLoading(prev => ({ ...prev, [sub.id]: true }))
-                          const { data: { session } } = await supabase.auth.getSession()
-                          const res = await fetch('/api/admin/resend-whatsapp', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-                            body: JSON.stringify({ userId: sub.user_id, messageType: 'subscription_active', targetId: sub.id }),
-                          })
-                          setResendWaLoading(prev => ({ ...prev, [sub.id]: false }))
-                          res.ok ? showSuccess('WhatsApp sent!') : showError('Failed to send WhatsApp')
-                        }}
-                        className="text-xs bg-[#25D366] text-white px-3 py-1.5 rounded-lg hover:bg-[#1da851] transition font-semibold disabled:opacity-50">
-                        {resendWaLoading[sub.id] ? '...' : 'Resend WA'}
-                      </button>
-                      <button
-                        onClick={() => setStopSubPopup(sub)}
-                        className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition font-semibold">
-                        Stop
-                      </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Section 2: Cancelled / Inactive Subscriptions */}
+            {subscriptions.filter(s => !s.is_active).length > 0 && (
+              <div className="rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+                <button
+                  onClick={() => setShowCancelledSubs(v => !v)}
+                  className="w-full px-6 py-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-6 rounded-full bg-gray-400" />
+                    <div className="text-left">
+                      <h3 className="font-[family-name:var(--font-playfair)] text-base font-bold text-gray-500">Cancelled / Inactive</h3>
+                      <p className="text-xs text-gray-400">{subscriptions.filter(s => !s.is_active).length} cancelled subscriptions</p>
                     </div>
                   </div>
-                ))}
+                  <span className={`text-xs font-bold px-3 py-1.5 rounded-full border transition ${
+                    showCancelledSubs ? 'bg-gray-200 text-gray-700 border-gray-300' : 'bg-white text-gray-600 border-gray-200'
+                  }`}>
+                    {showCancelledSubs ? '▲ Hide' : `▼ Show Cancelled (${subscriptions.filter(s => !s.is_active).length})`}
+                  </span>
+                </button>
+                {showCancelledSubs && (
+                  <div className="bg-gray-50">
+                    {subscriptions.filter(s => !s.is_active).map((sub, index, arr) => (
+                      <div key={sub.id}
+                        className={`px-6 py-5 flex items-start gap-4 ${index !== arr.length - 1 ? 'border-b border-gray-200' : ''}`}>
+                        <div className="w-11 h-11 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0 p-1.5 opacity-50">
+                          <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain grayscale" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-400 line-through">{sub.profiles?.full_name}</p>
+                          <p className="text-sm text-gray-400">{sub.profiles?.area}, {sub.profiles?.apartment_name}</p>
+                          <p className="text-xs text-gray-400">📞 {sub.profiles?.phone}</p>
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            <span className="bg-gray-100 text-gray-400 text-xs font-medium px-2 py-0.5 rounded-full border border-gray-200 line-through">
+                              {sub.products?.size} × {sub.quantity}/day
+                            </span>
+                            <span className="bg-gray-100 text-gray-400 text-xs font-medium px-2 py-0.5 rounded-full border border-gray-200">
+                              {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
+                            </span>
+                            <span className="bg-red-50 text-red-500 text-xs font-bold px-2 py-0.5 rounded-full border border-red-200">
+                              Cancelled
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1.5">
+                            {new Date(sub.start_date).toLocaleDateString('en-IN')}
+                            {sub.end_date ? ` → ${new Date(sub.end_date).toLocaleDateString('en-IN')}` : ''}
+                          </p>
+                          {sub.cancellation_reason && (
+                            <p className="text-xs text-red-400 mt-1">Reason: {sub.cancellation_reason}</p>
+                          )}
+                        </div>
+                        <div className="flex-shrink-0">
+                          <button
+                            disabled={reactivatingSubId === sub.id}
+                            onClick={() => reactivateSub(sub.id)}
+                            className="text-xs bg-[#1a5c38] text-white px-3 py-1.5 rounded-lg hover:bg-[#14472c] transition font-semibold disabled:opacity-50">
+                            {reactivatingSubId === sub.id ? '...' : '↺ Reactivate'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
+
           </div>
         )}
 
@@ -2658,7 +2753,7 @@ export default function AdminDashboard() {
                   body: JSON.stringify({ subscription_id: stopSubPopup.id }),
                 })
                 if (res.ok) {
-                  setSubscriptions(prev => prev.filter(s => s.id !== stopSubPopup.id))
+                  setSubscriptions(prev => prev.map(s => s.id !== stopSubPopup.id ? s : { ...s, is_active: false }))
                   setTodaySubscriptions(prev => prev.filter(s => s.id !== stopSubPopup.id))
                   showSuccess(`Subscription stopped for ${stopSubPopup.profiles?.full_name}`)
                   setStopSubPopup(null)
