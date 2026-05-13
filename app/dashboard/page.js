@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabase'
 import DisclaimerPopup from '../components/DisclaimerPopup'
 import PushNotificationPrompt from '../components/PushNotificationPrompt'
 import { SkeletonCard, SkeletonStatCard } from '../components/Skeleton'
-import ReviewForm from '../components/ReviewForm'
 import Footer from '../components/Footer'
 
 const BADGE_INFO = {
@@ -42,6 +41,7 @@ export default function Dashboard() {
   const [cancelPopup, setCancelPopup] = useState(null) // order object
   const [cancelReason, setCancelReason] = useState('')
   const [cancelLoading, setCancelLoading] = useState(false)
+  const [myReview, setMyReview] = useState(null)
 
   useEffect(() => { getUser() }, [])
 
@@ -89,6 +89,9 @@ export default function Dashboard() {
     const { data: refs } = await supabase.from('referrals').select('*, profiles!referrals_referred_id_fkey(full_name)')
       .eq('referrer_id', u.id).order('created_at', { ascending: false })
     setReferrals(refs || [])
+
+    const { data: rev } = await supabase.from('reviews').select('rating, review').eq('user_id', u.id).maybeSingle()
+    setMyReview(rev || null)
 
     setLoading(false)
   }
@@ -641,15 +644,28 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Review Prompt — show if sub > 7 days old and hasn't reviewed */}
-            {!profile?.has_reviewed && subscriptions.filter(s => s.is_active).length > 0 && (() => {
-              const firstActive = subscriptions.find(s => s.is_active)
-              const subAge = firstActive?.created_at
-                ? (Date.now() - new Date(firstActive.created_at)) / (1000 * 60 * 60 * 24)
-                : 0
-              return subAge >= 7
-            })() && (
-              <ReviewForm onSubmit={() => setProfile(p => ({ ...p, has_reviewed: true }))} />
+            {/* Review Card */}
+            {subscriptions.some(s => s.is_active) && (
+              <a href="/reviews" className="block bg-white border border-[#e8e0d0] rounded-2xl p-5 shadow-sm hover:shadow-md transition no-underline">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-[#1c1c1c] font-[family-name:var(--font-playfair)] text-base">
+                      {myReview ? '✏️ Edit Your Review' : '⭐ Leave a Review'}
+                    </p>
+                    {myReview ? (
+                      <div className="flex items-center gap-1 mt-1">
+                        {[1,2,3,4,5].map(s => (
+                          <span key={s} style={{ color: s <= myReview.rating ? '#d4a017' : '#e8e0d0', fontSize: 16 }}>★</span>
+                        ))}
+                        <span className="text-xs text-gray-400 ml-1">Your current rating</span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400 mt-1">Share your experience with our service</p>
+                    )}
+                  </div>
+                  <span className="text-[#1a5c38] font-bold text-sm">→</span>
+                </div>
+              </a>
             )}
 
           </div>

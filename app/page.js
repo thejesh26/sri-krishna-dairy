@@ -44,7 +44,7 @@ export default function Home() {
     const loadReviews = async () => {
       const { data } = await supabase
         .from('reviews')
-        .select('rating, review, profiles(full_name, area)')
+        .select('rating, review, photo_url, created_at, profiles(full_name, area)')
         .eq('is_approved', true)
         .order('created_at', { ascending: false })
         .limit(6)
@@ -331,49 +331,57 @@ export default function Home() {
           <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">Happy Customers</p>
           <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-8">What Our Customers Say</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {(dbReviews.length > 0 ? dbReviews.map(r => ({
-              name: r.profiles?.full_name || 'Customer',
-              area: r.profiles?.area || 'Bangalore',
-              text: r.review || 'Great fresh milk, highly recommended!',
-              rating: r.rating,
-            })) : [
+            {(dbReviews.length > 0 ? dbReviews : [
               {
-                name: 'Priya Sharma',
-                area: 'Dwaraka Nagar, Bangalore',
-                text: 'Been getting milk from Sri Krishnaa for 6 months now. Genuinely the freshest I have had in Bangalore. My kids love it and I feel good knowing exactly where it comes from.',
+                profiles: { full_name: 'Priya Sharma', area: 'Dwaraka Nagar' },
+                review: 'Been getting milk from Sri Krishnaa for 6 months now. Genuinely the freshest I have had in Bangalore. My kids love it and I feel good knowing exactly where it comes from.',
                 rating: 5,
+                photo_url: null,
+                created_at: null,
               },
               {
-                name: 'Rajesh Kumar',
-                area: 'Baba Nagar, Bangalore',
-                text: 'The subscription model is super convenient. Wallet top-up once, milk delivered daily without any hassle. Customer service is responsive and very helpful.',
+                profiles: { full_name: 'Rajesh Kumar', area: 'Baba Nagar' },
+                review: 'The subscription model is super convenient. Wallet top-up once, milk delivered daily without any hassle. Customer service is responsive and very helpful.',
                 rating: 5,
+                photo_url: null,
+                created_at: null,
               },
               {
-                name: 'Anitha Reddy',
-                area: 'Kattigenahalli',
-                text: 'Switched from packet milk to Sri Krishnaa and the difference in taste is night and day. Love the pause feature — used it during our holiday trip to Mysore.',
+                profiles: { full_name: 'Anitha Reddy', area: 'Kattigenahalli' },
+                review: 'Switched from packet milk to Sri Krishnaa and the difference in taste is night and day. Love the pause feature — used it during our holiday trip to Mysore.',
                 rating: 5,
+                photo_url: null,
+                created_at: null,
               },
-            ]).map(({ name, area, text, rating }, idx) => (
-              <div key={idx} className="bg-white rounded-xl p-6 shadow-sm border border-[#e8e0d0]">
-                <div className="flex gap-0.5 mb-3">
-                  {Array.from({ length: rating }).map((_, i) => (
-                    <span key={i} className="text-[#d4a017] text-lg">★</span>
-                  ))}
-                </div>
-                <p className="text-gray-600 text-sm leading-relaxed mb-4">"{text}"</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-[#1a5c38] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                    {name[0]}
+            ]).map((r, idx) => {
+              const firstName = (r.profiles?.full_name || 'Customer').split(' ')[0]
+              const area = r.profiles?.area || 'Bangalore'
+              const dateLabel = r.created_at
+                ? new Date(r.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+                : null
+              return (
+                <div key={idx} className="bg-white rounded-xl p-6 shadow-sm border border-[#e8e0d0]">
+                  <div className="flex gap-0.5 mb-3">
+                    {Array.from({ length: r.rating }).map((_, i) => (
+                      <span key={i} className="text-[#d4a017] text-lg">★</span>
+                    ))}
                   </div>
-                  <div>
-                    <p className="font-semibold text-[#1c1c1c] text-sm">{name}</p>
-                    <p className="text-xs text-gray-400">{area}, Bangalore</p>
+                  <p className="text-gray-600 text-sm leading-relaxed mb-4">"{r.review || 'Great fresh milk, highly recommended!'}"</p>
+                  {r.photo_url && (
+                    <img src={r.photo_url} alt="Customer photo" className="w-full h-32 object-cover rounded-lg mb-4 border border-[#e8e0d0]" />
+                  )}
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-[#1a5c38] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                      {firstName[0]}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-[#1c1c1c] text-sm">{firstName}</p>
+                      <p className="text-xs text-gray-400">{area}{dateLabel ? ` · ${dateLabel}` : ''}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </section>
