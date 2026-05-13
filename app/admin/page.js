@@ -2876,7 +2876,7 @@ export default function AdminDashboard() {
             <p className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2">Templates to delete from Meta Business Manager:</p>
             <ul className="text-sm text-gray-600 space-y-1 mb-4">
               {[
-                ['order_confirmed', 'order_confirmed_v2'],
+                ['order_confirmed', 'order_confirmed_'],
                 ['subscription_activated', 'subscription_activated_v2'],
                 ['delivery_confirmed', 'delivery_confirmed_v2'],
                 ['delivery_stopped', 'delivery_stopped_v2'],

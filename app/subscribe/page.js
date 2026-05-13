@@ -867,7 +867,7 @@ export default function Subscribe() {
             {discount > 0 && (
               <div className="flex justify-between text-sm mb-2 text-[#d4a017]">
                 <span>Discount ({discount}%)</span>
-                <span>− ₹{Math.round(selectedProduct?.price * quantity * discount / 100)}/day</span>
+                <span>− ₹{(selectedProduct?.price * quantity * discount / 100).toFixed(1).replace(/\.0$/, '')}/day</span>
               </div>
             )}
             {additionalDeposit > 0 && (
@@ -890,9 +890,9 @@ export default function Subscribe() {
               <div className="mb-2">
                 <p className="text-xs text-green-300 mb-1.5">🥛 First 3 deliveries</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {getUpcomingDeliveryDates(startDate, deliveryFrequency, 3).map((d, i) => (
-                    <span key={i} className="bg-white bg-opacity-10 text-white text-xs px-2.5 py-1 rounded-full">
-                      {d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                  {getUpcomingDeliveryDates(startDate, deliveryFrequency, 3).map((date, i) => (
+                    <span key={i} className="text-xs bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4] px-3 py-1.5 rounded-full font-medium">
+                      {date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
                     </span>
                   ))}
                 </div>
