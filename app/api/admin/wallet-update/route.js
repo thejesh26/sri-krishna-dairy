@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
+import { notifyWalletCredited, notifyWalletDebited } from '../../../lib/whatsapp'
+import { sendEmail } from '../../../lib/email'
 
 /**
  * Admin/delivery: manually adjust a customer's wallet balance.
@@ -72,6 +74,48 @@ export async function POST(request) {
         type: txnType,
         description: note || `Manual ${action} by ${callerProfile.full_name || 'admin'}`,
       })
+    }
+
+    // Notify customer (non-blocking)
+    try {
+      const { data: customerProfile } = await supabase
+        .from('profiles')
+        .select('full_name, phone')
+        .eq('id', target_user_id)
+        .single()
+
+      const { data: authUser } = await supabase.auth.admin.getUserById(target_user_id)
+      const customerEmail = authUser?.user?.email
+      const customerName = customerProfile?.full_name || 'Customer'
+
+      if (customerProfile?.phone) {
+        if (action === 'add') {
+          await notifyWalletCredited(customerProfile.phone, customerName, amt, newBalance)
+        } else if (action === 'deduct') {
+          await notifyWalletDebited(customerProfile.phone, customerName, txnAmount, newBalance)
+        }
+      }
+
+      if (customerEmail) {
+        await sendEmail({
+          to: customerEmail,
+          subject: action === 'add'
+            ? `💰 ₹${amt} added to your Sri Krishnaa Dairy wallet`
+            : `💸 ₹${txnAmount} deducted from your Sri Krishnaa Dairy wallet`,
+          html: `<div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px;">
+  <h2 style="color:#1a5c38;">${action === 'add' ? '💰 Wallet Credited' : '💸 Wallet Debited'}</h2>
+  <p>Hi ${customerName},</p>
+  <p>₹${action === 'add' ? amt : txnAmount} has been ${action === 'add' ? 'added to' : 'deducted from'} your Sri Krishnaa Dairy wallet${action === 'add' ? ' by admin' : ''}.</p>
+  <p><strong>New Balance: ₹${newBalance}</strong></p>
+  ${note ? `<p>Note: ${note}</p>` : ''}
+  <p>Visit <a href="https://srikrishnaadairy.in/wallet">srikrishnaadairy.in/wallet</a> to check your balance.</p>
+  <p style="color:#999;font-size:12px;">For queries contact 9980166221 — Sri Krishnaa Dairy Team</p>
+</div>`,
+          text: `Hi ${customerName}, ₹${action === 'add' ? amt : txnAmount} has been ${action === 'add' ? 'added to' : 'deducted from'} your wallet. New balance: ₹${newBalance}. Visit srikrishnaadairy.in/wallet`,
+        })
+      }
+    } catch (notifyErr) {
+      console.error('[WalletUpdate] Notification failed:', notifyErr?.message)
     }
 
     return NextResponse.json({ success: true, new_balance: newBalance })

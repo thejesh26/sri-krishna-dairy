@@ -285,6 +285,14 @@ async function notifyWelcome(phone, name) {
   return sendTemplate(phone, 'welcome_customer', [name || 'there'])
 }
 
+async function notifyWalletCredited(phone, name, amount, newBalance) {
+  return sendTemplate(phone, 'wallet_credited', [name, String(amount), String(newBalance)])
+}
+
+async function notifyWalletDebited(phone, name, amount, newBalance) {
+  return sendTemplate(phone, 'wallet_debited', [name, String(amount), String(newBalance)])
+}
+
 export {
   sendWhatsAppMessage,
   sendWhatsAppToAdmin,
@@ -311,4 +319,6 @@ export {
   notifyAddonOrderConfirmed,
   notifyPointsExpiring,
   notifyWelcome,
+  notifyWalletCredited,
+  notifyWalletDebited,
 }
