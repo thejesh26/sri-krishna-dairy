@@ -342,7 +342,7 @@ export default function AdminDashboard() {
     await loadWallets()
     setStats({
       totalOrders: allOrders?.length || 0,
-      totalSubscriptions: allSubs?.length || 0,
+      totalSubscriptions: (allSubs || []).filter(s => s.is_active).length,
       totalCustomers: (allCustomers || []).filter(c => !c.is_admin).length,
       todayRevenue,
       monthlyRevenue,
@@ -816,8 +816,8 @@ export default function AdminDashboard() {
         {/* Stats Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
           {[
-            { label: "Today's Revenue", value: 'Rs.' + stats.todayRevenue, icon: '💰', color: '#f0faf4', border: '#c8e6d4' },
-            { label: 'Monthly Revenue', value: 'Rs.' + stats.monthlyRevenue, icon: '📈', color: '#fdf6e3', border: '#f0dfa0' },
+            { label: "Today's Revenue", value: '₹' + stats.todayRevenue, icon: '💰', color: '#f0faf4', border: '#c8e6d4' },
+            { label: 'Monthly Revenue', value: '₹' + stats.monthlyRevenue, icon: '📈', color: '#fdf6e3', border: '#f0dfa0' },
             { label: 'Active Subscriptions', value: stats.totalSubscriptions, icon: '📅', color: '#f0faf4', border: '#c8e6d4' },
             { label: 'Total Orders', value: stats.totalOrders, icon: '📦', color: '#fdf6e3', border: '#f0dfa0' },
             { label: 'Total Customers', value: stats.totalCustomers, icon: '👥', color: '#f0faf4', border: '#c8e6d4' },
@@ -946,7 +946,7 @@ export default function AdminDashboard() {
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0 flex flex-col gap-1">
-                      <p className="font-bold text-[#1a5c38] mb-0.5">Rs.{(sub.products?.price || 0) * sub.quantity}</p>
+                      <p className="font-bold text-[#1a5c38] mb-0.5">₹{(sub.products?.price || 0) * sub.quantity}</p>
                       <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border mb-1 inline-block ${statusCls}`}>
                         {subStatus === 'delivered' ? '✅ Delivered' : subStatus === 'out_for_delivery' ? '🚴 Out' : subStatus === 'missed' ? '⚠️ Missed' : subStatus === 'cancelled' ? '❌ Cancelled' : '🕐 Pending'}
                       </span>
@@ -1007,7 +1007,7 @@ export default function AdminDashboard() {
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0 flex flex-col gap-1">
-                      <p className="font-bold text-[#1a5c38] mb-0.5">Rs.{order.total_price}</p>
+                      <p className="font-bold text-[#1a5c38] mb-0.5">₹{order.total_price}</p>
                       <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border mb-1 inline-block ${ordCls}`}>
                         {order.status === 'delivered' ? '✅ Delivered' : order.status === 'out_for_delivery' ? '🚴 Out' : order.status === 'cancelled' ? '❌ Cancelled' : '🕐 Pending'}
                       </span>
@@ -1055,18 +1055,27 @@ export default function AdminDashboard() {
                   <p className="text-xs text-gray-400 mt-0.5">Past 7 days — subscriptions and one-time orders</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <input type="date" value={historyDateFilter} onChange={e => setHistoryDateFilter(e.target.value)}
-                    className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38]" />
+                  <div className="flex items-center gap-1">
+                    <label className="text-xs text-gray-400">From</label>
+                    <input type="date" value={historyStartDate} onChange={e => setHistoryStartDate(e.target.value)}
+                      className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38]" />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <label className="text-xs text-gray-400">To</label>
+                    <input type="date" value={historyEndDate} onChange={e => setHistoryEndDate(e.target.value)}
+                      className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38]" />
+                  </div>
                   <input type="text" placeholder="Filter by agent..." value={historyAgentFilter}
                     onChange={e => setHistoryAgentFilter(e.target.value)}
                     className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] w-36" />
-                  <button onClick={() => { setHistoryLoaded(false); loadDeliveryHistory() }}
+                  <button onClick={() => { setHistoryLoaded(false); loadDeliveryHistory(historyStartDate, historyEndDate) }}
                     className="text-xs border border-[#1a5c38] text-[#1a5c38] px-3 py-2 rounded-lg hover:bg-[#f0faf4] transition font-semibold">
                     ↻ Refresh
                   </button>
                   <button onClick={() => {
                     const filtered = deliveryHistory.filter(d => {
-                      if (historyDateFilter && d.date !== historyDateFilter) return false
+                      if (historyStartDate && d.date < historyStartDate) return false
+                      if (historyEndDate && d.date > historyEndDate) return false
                       if (historyAgentFilter && !d.deliveredBy?.toLowerCase().includes(historyAgentFilter.toLowerCase())) return false
                       return true
                     })
@@ -1090,7 +1099,8 @@ export default function AdminDashboard() {
                 <div className="px-6 py-12 text-center text-gray-400 text-sm">Loading delivery history...</div>
               ) : (() => {
                 const filtered = deliveryHistory.filter(d => {
-                  if (historyDateFilter && d.date !== historyDateFilter) return false
+                  if (historyStartDate && d.date < historyStartDate) return false
+                  if (historyEndDate && d.date > historyEndDate) return false
                   if (historyAgentFilter && !d.deliveredBy?.toLowerCase().includes(historyAgentFilter.toLowerCase())) return false
                   return true
                 })
@@ -1284,7 +1294,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="flex-shrink-0 flex flex-col items-end gap-1">
                       <p className="font-bold text-[#1a5c38] text-sm">
-                        Rs.{isSub ? (item.products?.price || 0) * item.quantity : item.total_price}
+                        ₹{isSub ? (item.products?.price || 0) * item.quantity : item.total_price}
                       </p>
                       <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${statusCls}`}>{statusLabel}</span>
                       <select
@@ -1389,9 +1399,9 @@ export default function AdminDashboard() {
                         </p>
                       </div>
                       <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
-                        <p className="font-bold text-[#1a5c38]">Rs.{(sub.products?.price || 0) * sub.quantity}/day</p>
+                        <p className="font-bold text-[#1a5c38]">₹{(sub.products?.price || 0) * sub.quantity}/day</p>
                         {sub.bottle_deposit > 0 && (
-                          <p className="text-xs text-[#d4a017]">Deposit: Rs.{sub.bottle_deposit}</p>
+                          <p className="text-xs text-[#d4a017]">Deposit: ₹{sub.bottle_deposit}</p>
                         )}
                         {deliveryAgents.length > 0 && (
                           <select
@@ -1657,7 +1667,7 @@ export default function AdminDashboard() {
                         </div>
                         <p className="text-xs text-gray-500">
                           {req.action === 'add' ? '➕ Add' : req.action === 'deduct' ? '➖ Deduct' : '⚙️ Set'}
-                          {' '}Rs.{req.amount}{' → '}
+                          {' '}₹{req.amount}{' → '}
                           <span className="font-medium">{customers.find(c => c.id === req.target_user_id)?.full_name || req.target_user_id}</span>
                         </p>
                         {req.note && <p className="text-xs text-gray-400 mt-0.5">Note: {req.note}</p>}
@@ -1970,10 +1980,10 @@ export default function AdminDashboard() {
                 </div>
               </div>
               <div className="text-right">
-                <p className="font-bold text-[#1a5c38]">Rs.{w.balance ?? 0}</p>
+                <p className="font-bold text-[#1a5c38]">₹{w.balance ?? 0}</p>
                 <p className="text-xs text-gray-400">available</p>
                 {w.deposit_balance > 0 && (
-                  <p className="text-xs text-[#d4a017] font-semibold">🍼 Deposit: Rs.{w.deposit_balance}</p>
+                  <p className="text-xs text-[#d4a017] font-semibold">🍼 Deposit: ₹{w.deposit_balance}</p>
                 )}
               </div>
             </div>
@@ -2003,18 +2013,18 @@ export default function AdminDashboard() {
                 <p className="font-semibold text-[#1c1c1c]">{selectedCustomer.full_name}</p>
                 <p className="text-sm text-gray-400">{selectedCustomer.phone}</p>
                 <p className="text-sm font-bold text-[#1a5c38]">
-                  Balance: Rs.{wallets.find(w => w.user_id === selectedCustomer.id)?.balance ?? 0}
+                  Balance: ₹{wallets.find(w => w.user_id === selectedCustomer.id)?.balance ?? 0}
                 </p>
                 {wallets.find(w => w.user_id === selectedCustomer.id)?.deposit_balance > 0 && (
                   <p className="text-xs text-[#d4a017] font-semibold">
-                    🍼 Deposit: Rs.{wallets.find(w => w.user_id === selectedCustomer.id)?.deposit_balance}
+                    🍼 Deposit: ₹{wallets.find(w => w.user_id === selectedCustomer.id)?.deposit_balance}
                   </p>
                 )}
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Amount (Rs.)</label>
+              <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Amount (₹)</label>
               <input type="number" placeholder="Enter amount"
                 value={walletAmount}
                 onChange={(e) => setWalletAmount(e.target.value)}
@@ -2058,7 +2068,7 @@ export default function AdminDashboard() {
                     await loadWallets()
                     setWalletAmount('')
                     setWalletNote('')
-                    setWalletMessage('Rs.' + walletAmount + ' added! New balance: Rs.' + result.new_balance)
+                    setWalletMessage('₹' + walletAmount + ' added! New balance: ₹' + result.new_balance)
                   }
                   setWalletLoading(false)
                 }}
@@ -2090,7 +2100,7 @@ export default function AdminDashboard() {
                     await loadWallets()
                     setWalletAmount('')
                     setWalletNote('')
-                    setWalletMessage('Rs.' + walletAmount + ' deducted! New balance: Rs.' + result.new_balance)
+                    setWalletMessage('₹' + walletAmount + ' deducted! New balance: ₹' + result.new_balance)
                   }
                   setWalletLoading(false)
                 }}
