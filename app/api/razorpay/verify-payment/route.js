@@ -28,8 +28,6 @@ export async function POST(request) {
       discount_code,
     } = await request.json()
 
-    const amountInRupees = Math.round(amount / 100)
-
     if (user.id !== userId) {
       return Response.json({ success: false, error: 'Forbidden' }, { status: 403 })
     }
@@ -56,7 +54,7 @@ export async function POST(request) {
       .maybeSingle()
 
     if (type === 'subscription') {
-      const walletAmount = amountInRupees - (deposit || 0)
+      const walletAmount = amount - (deposit || 0)
       const depositAmount = deposit || 0
 
       if (wallet) {
@@ -109,7 +107,7 @@ export async function POST(request) {
         .from('wallet_transactions')
         .insert({
           user_id: userId,
-          amount: amountInRupees,
+          amount: amount,
           type: 'credit',
           description: `Subscription payment [${razorpay_payment_id}]`
         })
@@ -151,7 +149,7 @@ export async function POST(request) {
         await supabase
           .from('wallet')
           .update({
-            balance: (wallet.balance || 0) + amountInRupees
+            balance: (wallet.balance || 0) + amount
           })
           .eq('user_id', userId)
       } else {
@@ -159,7 +157,7 @@ export async function POST(request) {
           .from('wallet')
           .insert({
             user_id: userId,
-            balance: amountInRupees,
+            balance: amount,
             deposit_balance: 0
           })
       }
@@ -174,7 +172,7 @@ export async function POST(request) {
         .from('wallet_transactions')
         .insert({
           user_id: userId,
-          amount: amountInRupees,
+          amount: amount,
           type: 'credit',
           description: `Wallet recharge [${razorpay_payment_id}]`
         })
