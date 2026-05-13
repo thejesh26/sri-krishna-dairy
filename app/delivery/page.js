@@ -230,18 +230,22 @@ export default function DeliveryDashboard() {
   // ── Photo proof delivery ────────────────────────────────────────────────────
 
   const handlePhotoConfirm = async () => {
-    if (!photoModal || !photoFile) return
+    if (!photoModal) return
     setPhotoUploading(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-      const ts = Date.now()
-      const filePath = `delivery-photos/${today}/${photoModal.subId}_${ts}.jpg`
-      const { error: uploadErr } = await supabase.storage
-        .from('delivery-agent-docs')
-        .upload(filePath, photoFile, { contentType: photoFile.type || 'image/jpeg', upsert: true })
-      if (uploadErr) { showError('Photo upload failed. Please try again.'); setPhotoUploading(false); return }
-      const { data: { publicUrl } } = supabase.storage.from('delivery-agent-docs').getPublicUrl(filePath)
+      let photoUrl = null
+      if (photoFile) {
+        const ts = Date.now()
+        const filePath = `delivery-photos/${today}/${photoModal.subId}_${ts}.jpg`
+        const { error: uploadErr } = await supabase.storage
+          .from('delivery-agent-docs')
+          .upload(filePath, photoFile, { contentType: photoFile.type || 'image/jpeg', upsert: true })
+        if (uploadErr) { showError('Photo upload failed. Please try again.'); setPhotoUploading(false); return }
+        const { data: { publicUrl } } = supabase.storage.from('delivery-agent-docs').getPublicUrl(filePath)
+        photoUrl = publicUrl
+      }
       const res = await fetch('/api/delivery/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
@@ -251,7 +255,7 @@ export default function DeliveryDashboard() {
           delivery_date: today,
           bottle_returned: bottleReturnedModal,
           not_delivered: false,
-          photo_url: publicUrl,
+          photo_url: photoUrl,
         }),
       })
       if (!res.ok) {
@@ -370,7 +374,7 @@ export default function DeliveryDashboard() {
               ) : (
                 <div>
                   <p className="text-3xl mb-1">📷</p>
-                  <p className="text-sm text-gray-500">Tap to take / upload photo</p>
+                  <p className="text-sm text-gray-500">📷 Add Photo (optional)</p>
                 </div>
               )}
               <input type="file" accept="image/*" capture="environment" className="hidden"
@@ -388,10 +392,10 @@ export default function DeliveryDashboard() {
                 className="flex-1 border border-[#e8e0d0] text-gray-500 font-bold py-3 rounded-xl text-sm">
                 Cancel
               </button>
-              <button onClick={handlePhotoConfirm} disabled={!photoFile || photoUploading}
+              <button onClick={handlePhotoConfirm} disabled={photoUploading}
                 className="flex-1 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-40 transition"
                 style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
-                {photoUploading ? 'Uploading...' : 'Confirm Delivery'}
+                {photoUploading ? 'Confirming...' : 'Confirm Delivery'}
               </button>
             </div>
           </div>

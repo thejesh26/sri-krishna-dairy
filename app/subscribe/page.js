@@ -441,6 +441,20 @@ export default function Subscribe() {
           <p className="text-gray-400 text-sm mt-1">Fresh milk delivered to your doorstep every day</p>
         </div>
 
+        {/* Trial banner — only if customer hasn't used COD yet */}
+        {profile && profile.has_used_cod === false && (
+          <div className="bg-[#fdf6e3] border-2 border-[#f0dfa0] rounded-2xl p-5 mb-5 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex-1">
+              <p className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c] text-lg mb-1">🎁 Never tried our milk before?</p>
+              <p className="text-sm text-[#8a6a00] leading-relaxed">Start with a FREE trial — no wallet needed, no deposit, delivered tomorrow.</p>
+            </div>
+            <a href="/order"
+              className="inline-block bg-[#d4a017] text-white font-bold px-6 py-3 rounded-xl text-sm hover:bg-[#b8860b] transition text-center whitespace-nowrap shadow">
+              Try Free Trial →
+            </a>
+          </div>
+        )}
+
         {/* Ordering window notice */}
         {(() => {
           const { primary, secondary } = getDateHelperText()

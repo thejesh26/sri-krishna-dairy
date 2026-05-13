@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendDepositRefundEmail } from '../../../lib/email'
-import { notifyDepositRefund } from '../../../lib/whatsapp'
+import { sendEmail } from '../../../lib/email'
+import { sendWhatsAppMessage } from '../../../lib/whatsapp'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -76,11 +76,39 @@ export async function POST(request) {
       const email = authUser?.user?.email
       const name = customerProfile?.full_name || email || 'Customer'
 
-      if (email) {
-        await sendDepositRefundEmail({ to: email, name, refundAmount: amount, goodBottles: bottles })
-      }
       if (customerProfile?.phone) {
-        await notifyDepositRefund({ phone: customerProfile.phone, name, refundAmount: amount, goodBottles: bottles })
+        await sendWhatsAppMessage(
+          customerProfile.phone,
+          `Hi ${name}! Your bottle deposit refund of ₹${amount} has been processed! 🎉\n\n` +
+          `The amount has been credited to your Sri Krishnaa Dairy wallet.\n` +
+          `New wallet balance: ₹${newBalance}\n\n` +
+          `If you paid via Razorpay and want a bank transfer instead, contact us:\n` +
+          `📞 9980166221\n\n` +
+          `Thank you for being a valued customer! 🥛\n` +
+          `— Sri Krishnaa Dairy Team`
+        )
+      }
+      if (email) {
+        await sendEmail({
+          to: email,
+          subject: `✅ Bottle Deposit Refund Processed — ₹${amount}`,
+          html: `<div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px;">
+  <h2 style="color:#1a5c38;margin-bottom:8px;">✅ Deposit Refund Processed</h2>
+  <p style="color:#555;font-size:14px;">Hi <strong>${name}</strong>,</p>
+  <p style="color:#555;font-size:14px;">Your bottle deposit refund of <strong>₹${amount}</strong> has been processed and credited to your Sri Krishnaa Dairy wallet.</p>
+  <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #f0ebe0;margin:16px 0;">
+    <tr><td style="padding:8px 0;font-size:13px;color:#4b5563;">Refund Amount</td><td style="padding:8px 0;font-size:13px;font-weight:bold;color:#1a5c38;text-align:right;">₹${amount}</td></tr>
+    <tr><td style="padding:8px 0;font-size:13px;color:#4b5563;">New Wallet Balance</td><td style="padding:8px 0;font-size:13px;font-weight:bold;color:#1a5c38;text-align:right;">₹${newBalance}</td></tr>
+    <tr><td style="padding:8px 0;font-size:13px;color:#4b5563;">Credited To</td><td style="padding:8px 0;font-size:13px;text-align:right;">Sri Krishnaa Dairy Wallet</td></tr>
+  </table>
+  <div style="background:#f0faf4;border:1px solid #c8e6d4;border-radius:8px;padding:14px 16px;margin-bottom:16px;">
+    <p style="margin:0;font-size:13px;color:#1a5c38;">Wallet credits are instant. Bank transfers (if requested) take 3-5 business days.</p>
+  </div>
+  <p style="color:#555;font-size:13px;">If you paid via Razorpay and prefer a bank transfer, please call or WhatsApp us at <strong>9980166221</strong>.</p>
+  <p style="color:#999;font-size:12px;margin-top:16px;">Thank you for being a valued customer! — Sri Krishnaa Dairy Team</p>
+</div>`,
+          text: `Hi ${name},\n\nYour bottle deposit refund of ₹${amount} has been processed.\nNew wallet balance: ₹${newBalance}\n\nWallet credits are instant. Bank transfers (if requested) take 3-5 business days.\n\nQuestions? Call 9980166221\n— Sri Krishnaa Dairy Team`,
+        })
       }
     } catch {
       // Notification failure must not block refund
