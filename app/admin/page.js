@@ -680,7 +680,7 @@ export default function AdminDashboard() {
 
   const approveWalletRequest = async (reqId, approved) => {
     const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/admin/wallet-request-action', {
+    const res = await fetch('/api/admin/wallet-request-resolve', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
       body: JSON.stringify({ request_id: reqId, approved }),
