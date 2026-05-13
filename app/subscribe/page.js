@@ -17,6 +17,18 @@ function getDeliveryCount(startDate, endDate, frequency) {
   return calendarDays
 }
 
+function getUpcomingDeliveryDates(startDate, frequency, count = 6) {
+  if (!startDate) return []
+  const dates = []
+  const step = frequency === 'alternate' ? 2 : frequency === 'weekly' ? 7 : 1
+  for (let i = 0; i < count; i++) {
+    const d = new Date(startDate)
+    d.setDate(d.getDate() + i * step)
+    dates.push(d)
+  }
+  return dates
+}
+
 function getMinDate() {
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
@@ -174,7 +186,7 @@ export default function Subscribe() {
       showError(result.error || 'Activation failed. Please try again.')
       setLoading(false)
     } else {
-      router.push('/confirmation?type=subscription')
+      router.push(`/confirmation?type=subscription&startDate=${encodeURIComponent(startDate)}`)
     }
   }
 
@@ -276,7 +288,7 @@ export default function Subscribe() {
 
         showSuccess('Subscription activated!')
         setTimeout(() => {
-          window.location.href = '/confirmation?type=subscription'
+          window.location.href = `/confirmation?type=subscription&startDate=${encodeURIComponent(startDate)}`
         }, 1500)
         return
       }
@@ -332,7 +344,7 @@ export default function Subscribe() {
           if (verifyData.success) {
             showSuccess('Subscription activated!')
             setTimeout(() => {
-              window.location.href = '/confirmation?type=subscription'
+              window.location.href = `/confirmation?type=subscription&startDate=${encodeURIComponent(startDate)}`
             }, 1500)
           } else {
             showError('Payment verification failed!')
@@ -588,6 +600,27 @@ export default function Subscribe() {
             </div>
           </div>
 
+          {/* Delivery dates preview — only for non-daily frequencies */}
+          {deliveryFrequency !== 'daily' && startDate && (() => {
+            const count = deliveryFrequency === 'weekly' ? 4 : 6
+            const dates = getUpcomingDeliveryDates(startDate, deliveryFrequency, count)
+            const label = deliveryFrequency === 'weekly' ? 'Your weekly delivery dates' : 'Your delivery dates (Every 2 Days)'
+            const suffix = deliveryFrequency === 'weekly' ? 'every 7 days' : 'every 2 days'
+            return (
+              <div className="bg-white border-2 border-[#c8e6d4] rounded-xl p-4">
+                <p className="text-xs font-bold text-[#1a5c38] mb-3">📅 {label}:</p>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {dates.map((d, i) => (
+                    <span key={i} className="bg-[#f0faf4] border border-[#c8e6d4] text-[#1a5c38] text-xs font-semibold px-3 py-1.5 rounded-full">
+                      {d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400">...and continuing {suffix}</p>
+              </div>
+            )
+          })()}
+
           {/* Bottle Delivery Mode */}
           <div className="bg-white rounded-xl p-5 shadow-sm border border-[#e8e0d0]">
             <p className="text-sm font-bold text-[#1c1c1c] mb-1 font-[family-name:var(--font-playfair)]">Bottle Delivery Mode</p>
@@ -839,6 +872,18 @@ export default function Subscribe() {
               <span>Delivery</span>
               <span>{deliverySlot === 'morning' ? '🌅 7-9AM' : '🌆 5-7PM'} · {subscriptionType === 'fixed' ? 'Fixed' : 'Ongoing'}</span>
             </div>
+            {startDate && (
+              <div className="mb-2">
+                <p className="text-xs text-green-300 mb-1.5">🥛 First 3 deliveries</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {getUpcomingDeliveryDates(startDate, deliveryFrequency, 3).map((d, i) => (
+                    <span key={i} className="bg-white bg-opacity-10 text-white text-xs px-2.5 py-1 rounded-full">
+                      {d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
             {subscriptionType === 'ongoing' && selectedProduct && (
               <div className="flex justify-between text-sm mb-2 text-green-300">
                 <span>Est. monthly</span>

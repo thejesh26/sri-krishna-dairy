@@ -8,6 +8,7 @@ function ConfirmationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const type = searchParams.get('type')
+  const startDate = searchParams.get('startDate')
   const [countdown, setCountdown] = useState(5)
 
   useEffect(() => {
@@ -72,9 +73,18 @@ function ConfirmationContent() {
           <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38] mb-3">
             {current.title}
           </h2>
-          <p className="text-gray-500 text-sm mb-8 leading-relaxed">
+          <p className="text-gray-500 text-sm leading-relaxed" style={{ marginBottom: type === 'subscription' && startDate ? '16px' : '32px' }}>
             {current.message}
           </p>
+
+          {type === 'subscription' && startDate && (
+            <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-xl px-5 py-4 mb-8 text-center">
+              <p className="text-xs text-gray-400 mb-1">First delivery</p>
+              <p className="text-lg font-bold text-[#1a5c38]">
+                🥛 {new Date(startDate).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+            </div>
+          )}
 
           {/* What happens next */}
           <div className="bg-[#f5f0e8] rounded-xl p-4 mb-6 text-left">
