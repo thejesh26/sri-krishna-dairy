@@ -101,7 +101,7 @@ export async function POST(request) {
       try {
         const { data: sub } = await supabase
           .from('subscriptions')
-          .select('start_date, delivery_slot, quantity, discount_percent, products(size, price)')
+          .select('start_date, delivery_slot, quantity, discount_percent, delivery_frequency, products(size, price)')
           .eq('id', subscriptionId)
           .single()
         const { data: profile } = await supabase.from('profiles').select('full_name, phone').eq('id', userId).single()
@@ -125,6 +125,7 @@ export async function POST(request) {
           sub?.start_date,
           sub?.delivery_slot === 'morning' ? '7AM–9AM' : '5PM–7PM',
           dailyAmount,
+          sub?.delivery_frequency,
         )
       } catch { /* non-blocking */ }
 

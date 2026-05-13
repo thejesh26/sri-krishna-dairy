@@ -211,7 +211,7 @@ export async function POST(request) {
         })
         await notifySubscriptionActivated({
           phone: profile?.phone, name, size: product.size, quantity: qty,
-          startDate: start_date, slot: delivery_slot, dailyAmount,
+          startDate: start_date, slot: delivery_slot, dailyAmount, frequency: freq,
         })
       } catch { /* non-blocking */ }
 

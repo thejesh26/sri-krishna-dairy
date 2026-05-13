@@ -97,8 +97,9 @@ async function sendOrderConfirmed(phone, name, product, date, slot, amount) {
   return sendTemplate(phone, 'order_confirmed_v2', [name, product, date, slot, String(amount)])
 }
 
-async function sendSubscriptionActivated(phone, name, product, startDate, slot, dailyAmount) {
-  return sendTemplate(phone, 'subscription_activated_v2', [name, product, startDate, slot, String(dailyAmount)])
+async function sendSubscriptionActivated(phone, name, product, startDate, slot, dailyAmount, frequency) {
+  const freqSuffix = frequency === 'alternate' ? ' • Every 2 Days' : frequency === 'weekly' ? ' • Weekly' : ''
+  return sendTemplate(phone, 'subscription_activated_v2', [name, product, startDate, slot + freqSuffix, String(dailyAmount)])
 }
 
 async function sendLowBalanceAlert(phone, name, balance) {
@@ -160,16 +161,18 @@ async function notifyOrderPlaced({ phone, name, size, quantity, deliveryDate, sl
   )
 }
 
-async function notifySubscriptionActivated({ phone, name, size, quantity, startDate, slot, dailyAmount }) {
+async function notifySubscriptionActivated({ phone, name, size, quantity, startDate, slot, dailyAmount, frequency }) {
   const product = `${size || 'Milk'} x ${quantity || 1}`
   const date = startDate
     ? new Date(startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
     : '-'
   const slotLabel = slot === 'morning' ? 'Morning 7-9AM' : 'Evening 5-7PM'
-  await sendTemplate(phone, 'subscription_activated_v2', [name, product, date, slotLabel, String(dailyAmount || 0)])
+  const freqLabel = frequency === 'alternate' ? 'Every 2 days delivery' : frequency === 'weekly' ? 'Weekly delivery' : 'Daily delivery'
+  const freqSuffix = frequency === 'alternate' ? ' • Every 2 Days' : frequency === 'weekly' ? ' • Weekly' : ''
+  await sendTemplate(phone, 'subscription_activated_v2', [name, product, date, slotLabel + freqSuffix, String(dailyAmount || 0)])
   await notifyAdmin(
     `New Subscription – ${name}`,
-    `📅 New Subscription Activated!\nCustomer: ${name}\nProduct: ${product}\nStart Date: ${date}\nSlot: ${slotLabel}\nDaily: Rs.${dailyAmount || 0}/day`,
+    `📅 New Subscription Activated!\nCustomer: ${name}\nProduct: ${product}\nStart Date: ${date}\nSlot: ${slotLabel}\nFrequency: ${freqLabel}\nDaily: Rs.${dailyAmount || 0}/day`,
   )
 }
 
