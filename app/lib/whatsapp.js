@@ -94,7 +94,7 @@ async function sendTemplate(phone, templateName, parameters) {
 // Parameters must exactly match the approved template variable order.
 
 async function sendOrderConfirmed(phone, name, product, date, slot, amount) {
-  return sendTemplate(phone, 'order_confirmed_v2', [name, product, date, slot, String(amount)])
+  return sendTemplate(phone, 'order_confirmed_', [name, product, date, slot, String(amount)])
 }
 
 async function sendSubscriptionActivated(phone, name, product, startDate, slot, dailyAmount, frequency) {
@@ -154,7 +154,7 @@ async function notifyOrderPlaced({ phone, name, size, quantity, deliveryDate, sl
     ? new Date(deliveryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
     : '-'
   const slotLabel = slot === 'morning' ? 'Morning 7-9AM' : 'Evening 5-7PM'
-  await sendTemplate(phone, 'order_confirmed_v2', [name, product, date, slotLabel, String(amount || 0)])
+  await sendTemplate(phone, 'order_confirmed_', [name, product, date, slotLabel, String(amount || 0)])
   await notifyAdmin(
     `New Order – ${name}`,
     `🛒 New Order Placed!\nCustomer: ${name}\nProduct: ${product}\nDate: ${date}\nSlot: ${slotLabel}\nAmount: Rs.${amount || 0}`,
