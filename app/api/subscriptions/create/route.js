@@ -6,6 +6,7 @@ import { notifySubscriptionActivated } from '../../../lib/whatsapp'
 const VALID_DELIVERY_SLOTS = ['morning', 'evening']
 const VALID_DELIVERY_MODES = ['keep_bottle', 'direct']
 const VALID_SUBSCRIPTION_TYPES = ['ongoing', 'fixed', 'oneday']
+const VALID_FREQUENCIES = ['daily', 'alternate', 'weekly']
 const BOTTLE_DEPOSIT_PER_UNIT = 200
 
 const DISCOUNT_CODES = {
@@ -44,6 +45,7 @@ export async function POST(request) {
       // additional_deposit: only the incremental deposit this user needs to pay
       // (full deposit minus any deposit_balance they already have)
       additional_deposit = 0,
+      delivery_frequency = 'daily',
     } = body
 
     if (!product_id || (typeof product_id !== 'string' && typeof product_id !== 'number')) {
@@ -65,6 +67,7 @@ export async function POST(request) {
     if (!VALID_DELIVERY_MODES.includes(delivery_mode)) {
       return NextResponse.json({ error: 'Invalid delivery mode.' }, { status: 400 })
     }
+    const freq = VALID_FREQUENCIES.includes(delivery_frequency) ? delivery_frequency : 'daily'
 
     const startMs = new Date(start_date).getTime()
     if ((startMs - Date.now()) / (1000 * 60 * 60) < 12) {
@@ -185,6 +188,7 @@ export async function POST(request) {
           delivery_slot,
           subscription_type,
           delivery_mode,
+          delivery_frequency: freq,
           bottle_deposit: bottleDeposit,
           discount_percent: discountPercent,
           is_active: true,
@@ -236,6 +240,7 @@ export async function POST(request) {
         delivery_slot,
         subscription_type,
         delivery_mode,
+        delivery_frequency: freq,
         bottle_deposit: bottleDeposit,
         discount_percent: discountPercent,
         is_active: false,   // ← pending; verify-payment activates this

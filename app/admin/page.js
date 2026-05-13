@@ -1,5 +1,23 @@
 'use client'
 import { useState, useEffect } from 'react'
+
+function isDeliveryDay(sub) {
+  const freq = sub.delivery_frequency || 'daily'
+  if (freq === 'daily') return true
+  const start = new Date(sub.start_date)
+  const today = new Date()
+  const daysDiff = Math.floor((today - start) / (1000 * 60 * 60 * 24))
+  if (freq === 'alternate') return daysDiff % 2 === 0
+  if (freq === 'weekly') return daysDiff % 7 === 0
+  return true
+}
+
+function FreqBadge({ freq }) {
+  if (!freq || freq === 'daily') return null
+  return freq === 'alternate'
+    ? <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">🔄 Every 2 Days</span>
+    : <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200">📅 Weekly</span>
+}
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ToastContext'
@@ -207,12 +225,13 @@ export default function AdminDashboard() {
     
     setSubscriptions(allSubs || [])
 
-    // Today's active subscription deliveries
+    // Today's active subscription deliveries (respects delivery_frequency)
     const todaySubs = (allSubs || []).filter(sub =>
       sub.is_active === true &&
       sub.start_date <= today &&
       (!sub.end_date || sub.end_date >= today) &&
-      !(sub.paused_dates || []).includes(today)
+      !(sub.paused_dates || []).includes(today) &&
+      isDeliveryDay(sub)
     )
     setTodaySubscriptions(todaySubs)
 
@@ -917,6 +936,7 @@ export default function AdminDashboard() {
                       <div className="flex items-center gap-2 flex-wrap mb-0.5">
                         <p className="font-semibold text-[#1c1c1c]">{sub.profiles?.full_name}</p>
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]">📅 Subscription</span>
+                        <FreqBadge freq={sub.delivery_frequency} />
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]">{getSubDayLabel(sub)}</span>
                       </div>
                       <p className="text-sm text-gray-400">{sub.profiles?.apartment_name}, Flat {sub.profiles?.flat_number}</p>
@@ -1245,6 +1265,7 @@ export default function AdminDashboard() {
                         }`}>
                           {item.orderType === 'subscription' ? '📅 Subscription' : item.orderType === 'trial' ? '🎁 Trial' : '🛒 Order'}
                         </span>
+                        {isSub && <FreqBadge freq={item.delivery_frequency} />}
                         {isSub && (
                           <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]">
                             {getSubDayLabel(item)}
@@ -1335,6 +1356,7 @@ export default function AdminDashboard() {
                           <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-medium px-2 py-0.5 rounded-full border border-[#f0dfa0]">
                             {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
                           </span>
+                          <FreqBadge freq={sub.delivery_frequency} />
                           <span className="bg-[#f5f0e8] text-[#1c1c1c] text-xs font-medium px-2 py-0.5 rounded-full">
                             {getSubPlanLabel(sub)}
                           </span>

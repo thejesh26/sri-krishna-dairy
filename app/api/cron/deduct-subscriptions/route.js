@@ -1,5 +1,16 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
+
+function isDeliveryDay(sub) {
+  const freq = sub.delivery_frequency || 'daily'
+  if (freq === 'daily') return true
+  const start = new Date(sub.start_date)
+  const today = new Date()
+  const daysDiff = Math.floor((today - start) / (1000 * 60 * 60 * 24))
+  if (freq === 'alternate') return daysDiff % 2 === 0
+  if (freq === 'weekly') return daysDiff % 7 === 0
+  return true
+}
 import { sendLowBalanceEmail, sendCronFailureAlert, sendSubscriptionExpiryReminderEmail, sendReferralCompletedEmail, sendPointsExpiryEmail } from '../../../lib/email'
 import { sendDeliveryStopped, sendSubscriptionExpiry, notifyReferralCompleted, notifyPointsExpiring } from '../../../lib/whatsapp'
 
@@ -42,9 +53,9 @@ async function runDeductions() {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Filter out subscriptions paused today or with missing product info
+  // Filter out subscriptions paused today, missing product, or not a delivery day for their frequency
   const eligible = (subscriptions || []).filter(sub =>
-    sub.products && !(sub.paused_dates || []).includes(today)
+    sub.products && !(sub.paused_dates || []).includes(today) && isDeliveryDay(sub)
   )
 
   const pendingMarked = []

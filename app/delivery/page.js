@@ -4,6 +4,17 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ToastContext'
 
+function isDeliveryDay(sub) {
+  const freq = sub.delivery_frequency || 'daily'
+  if (freq === 'daily') return true
+  const start = new Date(sub.start_date)
+  const today = new Date()
+  const daysDiff = Math.floor((today - start) / (1000 * 60 * 60 * 24))
+  if (freq === 'alternate') return daysDiff % 2 === 0
+  if (freq === 'weekly') return daysDiff % 7 === 0
+  return true
+}
+
 export default function DeliveryDashboard() {
   const router = useRouter()
   const [user, setUser] = useState(null)
@@ -83,7 +94,9 @@ export default function DeliveryDashboard() {
       .order('delivery_slot', { ascending: true })
     if (!prof?.is_admin) subsQuery = subsQuery.eq('assigned_to', userId)
     const { data: allSubs } = await subsQuery
-    const activeSubs = (allSubs || []).filter(sub => !(sub.paused_dates || []).includes(today))
+    const activeSubs = (allSubs || []).filter(sub =>
+      !(sub.paused_dates || []).includes(today) && isDeliveryDay(sub)
+    )
     setSubscriptions(activeSubs)
 
     const { data: allAddons } = await supabase

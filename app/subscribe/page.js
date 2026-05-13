@@ -25,6 +25,7 @@ export default function Subscribe() {
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [quantity, setQuantity] = useState(1)
   const [deliverySlot, setDeliverySlot] = useState('morning')
+  const [deliveryFrequency, setDeliveryFrequency] = useState('daily')
   const [subscriptionType, setSubscriptionType] = useState('ongoing')
   const [deliveryMode, setDeliveryMode] = useState('keep_bottle')
   const [startDate, setStartDate] = useState('')
@@ -138,6 +139,7 @@ export default function Subscribe() {
     delivery_slot: deliverySlot,
     subscription_type: subscriptionType,
     delivery_mode: deliveryMode,
+    delivery_frequency: deliveryFrequency,
     discount_code: discountCode || null,
     additional_deposit: additionalDeposit,
   })
@@ -214,6 +216,7 @@ export default function Subscribe() {
           subscription_type: subscriptionType,
           bottle_deposit: depositAmount,
           delivery_mode: deliveryMode,
+          delivery_frequency: deliveryFrequency,
           discount_percent: discount,
           paused_dates: [],
         })
@@ -541,6 +544,28 @@ export default function Subscribe() {
                 <p className="font-bold text-[#1c1c1c] text-sm">Evening</p>
                 <p className="text-xs text-gray-400">5PM - 7PM</p>
               </button>
+            </div>
+          </div>
+
+          {/* Delivery Frequency */}
+          <div className="bg-white rounded-xl p-5 shadow-sm border border-[#e8e0d0]">
+            <p className="text-sm font-bold text-[#1c1c1c] mb-4 font-[family-name:var(--font-playfair)]">Delivery Frequency</p>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { value: 'daily',     icon: '📦', label: 'Daily',        sub: 'Fresh milk every day'           },
+                { value: 'alternate', icon: '🔄', label: 'Every 2 Days', sub: 'Alternate days (~15/month)'     },
+                { value: 'weekly',    icon: '📅', label: 'Weekly',       sub: 'Once a week (7 deliveries/mo)' },
+              ].map(({ value, icon, label, sub }) => (
+                <button type="button" key={value}
+                  onClick={() => setDeliveryFrequency(value)}
+                  className={`border-2 rounded-xl p-3 text-center transition ${
+                    deliveryFrequency === value ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#1a5c38]'
+                  }`}>
+                  <div className="text-2xl mb-1">{icon}</div>
+                  <p className="font-bold text-[#1c1c1c] text-xs">{label}</p>
+                  <p className="text-xs text-gray-400">{sub}</p>
+                </button>
+              ))}
             </div>
           </div>
 
