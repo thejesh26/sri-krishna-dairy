@@ -841,7 +841,7 @@ export default function Subscribe() {
             {subscriptionType === 'ongoing' && selectedProduct && (
               <div className="flex justify-between text-sm mb-2 text-green-300">
                 <span>Est. monthly</span>
-                <span>~₹{Math.round(dailyPrice * 30)}/mo</span>
+                <span>~₹{Math.round(dailyPrice * (deliveryFrequency === 'alternate' ? 15 : deliveryFrequency === 'weekly' ? 4 : 30))}/mo</span>
               </div>
             )}
             <div className="border-t border-green-700 mt-4 pt-4">
