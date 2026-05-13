@@ -42,6 +42,13 @@ export default function Dashboard() {
   const [cancelReason, setCancelReason] = useState('')
   const [cancelLoading, setCancelLoading] = useState(false)
   const [myReview, setMyReview] = useState(null)
+  const [subCancelPopup, setSubCancelPopup] = useState(null)
+  const [subCancelReason, setSubCancelReason] = useState('')
+  const [subCancelDetails, setSubCancelDetails] = useState('')
+  const [subCancelLoading, setSubCancelLoading] = useState(false)
+  const [subCancelMsg, setSubCancelMsg] = useState('')
+  const [pausingSubId, setPausingSubId] = useState(null)
+  const [pauseMsgMap, setPauseMsgMap] = useState({})
 
   useEffect(() => { getUser() }, [])
 
@@ -74,7 +81,7 @@ export default function Dashboard() {
     setSubscriptions(subs || [])
 
     const { data: subDels } = await supabase.from('subscription_deliveries')
-      .select('delivery_date, subscriptions(quantity)')
+      .select('delivery_date, subscription_id, not_delivered, subscriptions(quantity)')
       .eq('user_id', u.id)
     setSubDeliveries(subDels || [])
 
@@ -99,6 +106,73 @@ export default function Dashboard() {
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/')
+  }
+
+  const getTomorrowIST = () => {
+    const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+    d.setDate(d.getDate() + 1)
+    return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  }
+
+  const getNextDeliveryDate = (sub) => {
+    const freq = sub.delivery_frequency || 'daily'
+    const start = new Date(sub.start_date)
+    const check = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+    check.setDate(check.getDate() + 1)
+    for (let i = 0; i < 14; i++) {
+      const daysDiff = Math.floor((check - start) / (1000 * 60 * 60 * 24))
+      const isDay = freq === 'daily' ? true : freq === 'alternate' ? daysDiff % 2 === 0 : daysDiff % 7 === 0
+      const checkStr = check.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+      if (isDay && !(sub.paused_dates || []).includes(checkStr)) {
+        return check.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
+      }
+      check.setDate(check.getDate() + 1)
+    }
+    return 'TBD'
+  }
+
+  const handlePauseTomorrow = async (sub) => {
+    const tomorrow = getTomorrowIST()
+    setPausingSubId(sub.id)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/subscriptions/pause', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ subscription_id: sub.id, pause_date: tomorrow }),
+    })
+    const result = await res.json()
+    if (res.ok) {
+      setPauseMsgMap(p => ({ ...p, [sub.id]: 'success' }))
+      setSubscriptions(prev => prev.map(s =>
+        s.id === sub.id ? { ...s, paused_dates: [...(s.paused_dates || []), tomorrow] } : s
+      ))
+    } else {
+      setPauseMsgMap(p => ({ ...p, [sub.id]: result.error || 'Could not skip.' }))
+    }
+    setPausingSubId(null)
+  }
+
+  const handleSubCancel = async () => {
+    if (!subCancelPopup || !subCancelReason) return
+    setSubCancelLoading(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/subscriptions/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ subscription_id: subCancelPopup.id, reason: subCancelReason, details: subCancelDetails }),
+    })
+    const result = await res.json()
+    setSubCancelLoading(false)
+    if (res.ok) {
+      setSubscriptions(prev => prev.map(s => s.id === subCancelPopup.id ? { ...s, is_active: false } : s))
+      setSubCancelPopup(null)
+      setSubCancelReason('')
+      setSubCancelDetails('')
+      setSubCancelMsg('✅ Subscription cancelled. We hope to see you again!')
+      setTimeout(() => setSubCancelMsg(''), 6000)
+    } else {
+      setSubCancelMsg('❌ ' + (result.error || 'Could not cancel.'))
+    }
   }
 
   const handleReactivate = async (subId) => {
@@ -390,47 +464,129 @@ export default function Dashboard() {
                     style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>Subscribe Now</a>
                 </div>
               ) : (
-                subscriptions.filter(s => s.is_active).map((sub, index) => {
-                  const activeSubs = subscriptions.filter(s => s.is_active)
-                  const fullPrice = sub.products?.price * sub.quantity
-                  const discountedPrice = sub.discount_percent > 0
-                    ? Math.round(fullPrice * (1 - sub.discount_percent / 100))
-                    : fullPrice
-                  const monthlyCost = discountedPrice * 30
-                  const isUpcoming = sub.start_date > todayIST
-                  return (
-                  <div key={sub.id}
-                    className={`px-6 py-5 flex items-center gap-5 ${index !== activeSubs.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
-                    <div className="w-16 h-16 rounded-2xl bg-[#f5f0e8] flex items-center justify-center flex-shrink-0 p-2">
-                      <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain" />
+                <>
+                  {subCancelMsg && (
+                    <div className={`mx-6 mt-4 px-4 py-3 rounded-xl text-sm font-medium ${subCancelMsg.startsWith('✅') ? 'bg-[#f0faf4] text-[#1a5c38]' : 'bg-red-50 text-red-700'}`}>
+                      {subCancelMsg}
                     </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-[#1c1c1c]">{sub.products?.size} Fresh Cow Milk</p>
-                      <p className={`text-sm mt-1 font-medium ${isUpcoming ? 'text-[#d4a017]' : 'text-[#1a5c38]'}`}>
-                        {isUpcoming ? 'Starting' : 'Active since'} {new Date(sub.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </p>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        <span className={`text-xs font-medium px-3 py-1 rounded-full border ${isUpcoming ? 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]' : 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'}`}>
-                          {isUpcoming ? 'Starting ' + new Date(sub.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'Active'}
-                        </span>
-                        <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-medium px-3 py-1 rounded-full border border-[#f0dfa0]">
-                          {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
-                        </span>
-                        {sub.discount_percent > 0 && (
-                          <span className="bg-green-50 text-green-700 text-xs font-medium px-3 py-1 rounded-full border border-green-200">
-                            {sub.discount_percent}% off
-                          </span>
+                  )}
+                  {subscriptions.filter(s => s.is_active).map((sub, index) => {
+                    const activeSubs = subscriptions.filter(s => s.is_active)
+                    const dailyAmount = Math.round(sub.products?.price * sub.quantity * (1 - (sub.discount_percent || 0) / 100))
+                    const isUpcoming = sub.start_date > todayIST
+                    const freq = sub.delivery_frequency || 'daily'
+                    const freqLabel = freq === 'alternate' ? 'Every 2 Days' : freq === 'weekly' ? 'Weekly' : 'Daily'
+                    const daysCompleted = subDeliveries.filter(d => d.subscription_id === sub.id && !d.not_delivered).length
+                    const daysLeft = sub.end_date
+                      ? Math.max(0, Math.ceil((new Date(sub.end_date) - new Date(todayIST)) / (1000 * 60 * 60 * 24)))
+                      : null
+                    const walletDaysLeft = dailyAmount > 0 ? Math.floor(walletBalance / dailyAmount) : 0
+                    const tomorrow = getTomorrowIST()
+                    const tomorrowPaused = (sub.paused_dates || []).includes(tomorrow)
+                    const pauseResult = pauseMsgMap[sub.id]
+
+                    return (
+                      <div key={sub.id} className={`px-6 py-6 ${index !== activeSubs.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+
+                        {/* Top row: product + price */}
+                        <div className="flex items-start gap-4 mb-4">
+                          <div className="w-14 h-14 rounded-2xl bg-[#f5f0e8] flex items-center justify-center flex-shrink-0 p-2">
+                            <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-bold text-[#1c1c1c] text-base">{sub.products?.size} Fresh Cow Milk × {sub.quantity}</p>
+                            <p className={`text-sm mt-0.5 font-medium ${isUpcoming ? 'text-[#d4a017]' : 'text-[#1a5c38]'}`}>
+                              {isUpcoming ? 'Starting' : 'Active since'} {new Date(sub.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </p>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              <span className={`text-xs font-medium px-3 py-1 rounded-full border ${isUpcoming ? 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]' : 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'}`}>
+                                {isUpcoming ? '⏳ Upcoming' : '✅ Active'}
+                              </span>
+                              <span className="bg-[#f5f0e8] text-[#8a6a00] text-xs font-medium px-3 py-1 rounded-full border border-[#e8dfc0]">
+                                📅 {freqLabel}
+                              </span>
+                              <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-medium px-3 py-1 rounded-full border border-[#f0dfa0]">
+                                {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
+                              </span>
+                              {sub.discount_percent > 0 && (
+                                <span className="bg-green-50 text-green-700 text-xs font-medium px-3 py-1 rounded-full border border-green-200">
+                                  {sub.discount_percent}% off
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">₹{dailyAmount}</p>
+                            <p className="text-xs text-gray-400">/delivery</p>
+                          </div>
+                        </div>
+
+                        {/* Stats grid */}
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                          <div className="bg-[#f5f0e8] rounded-xl px-4 py-3">
+                            <p className="text-xs text-gray-400 mb-0.5">Days Completed</p>
+                            <p className="font-bold text-[#1c1c1c] text-lg">{daysCompleted}</p>
+                          </div>
+                          <div className="bg-[#f5f0e8] rounded-xl px-4 py-3">
+                            <p className="text-xs text-gray-400 mb-0.5">Days Remaining</p>
+                            <p className="font-bold text-[#1c1c1c] text-lg">{daysLeft !== null ? daysLeft : <span className="text-sm font-semibold text-[#1a5c38]">Ongoing</span>}</p>
+                          </div>
+                          <div className="bg-[#f0faf4] rounded-xl px-4 py-3">
+                            <p className="text-xs text-gray-400 mb-0.5">Next Delivery</p>
+                            <p className="font-semibold text-[#1a5c38] text-sm">{isUpcoming ? new Date(sub.start_date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }) : getNextDeliveryDate(sub)}</p>
+                          </div>
+                          <div className="bg-[#f0faf4] rounded-xl px-4 py-3">
+                            <p className="text-xs text-gray-400 mb-0.5">Wallet Runway</p>
+                            <p className="font-semibold text-[#1a5c38] text-sm">~{walletDaysLeft} days</p>
+                          </div>
+                        </div>
+
+                        {/* Wallet balance + top up */}
+                        <div className="flex items-center justify-between bg-[#f5f0e8] rounded-xl px-4 py-3 mb-4">
+                          <div>
+                            <p className="text-xs text-gray-400">Wallet Balance</p>
+                            <p className="font-bold text-[#1c1c1c] text-base">₹{walletBalance.toFixed(2)}</p>
+                          </div>
+                          <a href="/wallet" className="text-xs font-bold text-white bg-[#1a5c38] px-4 py-2 rounded-lg hover:bg-[#0d3320] transition">
+                            Top Up
+                          </a>
+                        </div>
+
+                        {/* Skip tomorrow button */}
+                        {!isUpcoming && (
+                          <div className="mb-3">
+                            {tomorrowPaused || pauseResult === 'success' ? (
+                              <div className="w-full text-center py-2.5 rounded-xl text-sm font-semibold bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]">
+                                ✅ Tomorrow Skipped — No charge
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handlePauseTomorrow(sub)}
+                                disabled={pausingSubId === sub.id}
+                                className="w-full py-2.5 rounded-xl text-sm font-semibold border border-[#e8e0d0] text-gray-600 hover:border-[#d4a017] hover:text-[#d4a017] transition disabled:opacity-50"
+                              >
+                                {pausingSubId === sub.id ? 'Skipping...' : '⏸ Skip Tomorrow\'s Delivery'}
+                              </button>
+                            )}
+                            {pauseResult && pauseResult !== 'success' && (
+                              <p className="text-xs text-red-500 mt-1.5 text-center">{pauseResult}</p>
+                            )}
+                          </div>
                         )}
+
+                        {/* Cancel link */}
+                        <div className="text-center">
+                          <button
+                            onClick={() => { setSubCancelPopup(sub); setSubCancelReason(''); setSubCancelDetails(''); setSubCancelMsg('') }}
+                            className="text-xs text-red-400 hover:text-red-600 transition underline"
+                          >
+                            Cancel Subscription
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">₹{discountedPrice}</p>
-                      <p className="text-xs text-gray-400 mb-0.5">/day</p>
-                      <p className="text-xs text-gray-400 mb-2">~₹{monthlyCost}/mo</p>
-                      <a href="/pause" className="text-xs text-[#d4a017] font-semibold border border-[#f0dfa0] px-3 py-1 rounded-full hover:bg-[#fdf6e3] transition">Manage</a>
-                    </div>
-                  </div>
-                )})
+                    )
+                  })}
+                </>
               )}
             </div>
 
@@ -1050,6 +1206,54 @@ export default function Dashboard() {
 
       <DisclaimerPopup />
       <PushNotificationPrompt />
+
+      {/* Cancel Subscription Modal */}
+      {subCancelPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <h3 className="font-bold text-lg text-[#1c1c1c] mb-1">Cancel Subscription?</h3>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+              <p className="text-sm text-amber-800">Your wallet balance of <strong>₹{walletBalance.toFixed(2)}</strong> will remain and can be used when you resubscribe.</p>
+            </div>
+            <div className="mb-3">
+              <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Reason for cancelling <span className="text-red-400">*</span></label>
+              <select value={subCancelReason} onChange={e => setSubCancelReason(e.target.value)}
+                className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]">
+                <option value="">Select a reason</option>
+                <option value="Too expensive">Too expensive</option>
+                <option value="Travelling">Travelling</option>
+                <option value="Quality issue">Quality issue</option>
+                <option value="Switching provider">Switching provider</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div className="mb-4">
+              <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Tell us more <span className="text-gray-400 font-normal">(optional)</span></label>
+              <textarea value={subCancelDetails} onChange={e => setSubCancelDetails(e.target.value)}
+                placeholder="Any feedback helps us improve..."
+                rows={2}
+                maxLength={300}
+                className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] resize-none"
+              />
+            </div>
+            {subCancelMsg && (
+              <p className="text-sm text-red-600 mb-3">{subCancelMsg}</p>
+            )}
+            <div className="flex gap-3">
+              <button onClick={() => setSubCancelPopup(null)}
+                className="flex-1 border border-[#e8e0d0] text-gray-600 font-semibold py-3 rounded-xl text-sm hover:bg-gray-50 transition">
+                Keep Subscription
+              </button>
+              <button
+                disabled={subCancelLoading || !subCancelReason}
+                onClick={handleSubCancel}
+                className="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl text-sm hover:bg-red-600 transition disabled:opacity-50">
+                {subCancelLoading ? 'Cancelling...' : 'Yes, Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cancel Order Confirmation Modal */}
       {cancelPopup && (
