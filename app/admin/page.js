@@ -298,7 +298,11 @@ export default function AdminDashboard() {
     // Load wallet requests (agent-submitted top-up/deduct requests)
     const { data: walletReqs } = await supabase
       .from('wallet_requests')
-      .select('*, profiles(*)')
+      .select(`
+        *,
+        requester:profiles!wallet_requests_requested_by_fkey(full_name, phone),
+        target:profiles!wallet_requests_target_user_id_fkey(full_name, phone)
+      `)
       .order('created_at', { ascending: false })
     setWalletRequests(walletReqs || [])
 
@@ -1655,8 +1659,8 @@ export default function AdminDashboard() {
                     <div key={req.id} className={`px-6 py-4 flex items-start gap-4 ${index !== arr.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <p className="font-semibold text-[#1c1c1c] text-sm">{req.profiles?.full_name}</p>
-                          <span className="text-xs text-gray-400">({req.profiles?.phone})</span>
+                          <p className="font-semibold text-[#1c1c1c] text-sm">{req.requester?.full_name}</p>
+                          <span className="text-xs text-gray-400">({req.requester?.phone})</span>
                           <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
                             req.status === 'approved' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
                             : req.status === 'rejected' ? 'bg-red-50 text-red-500 border-red-200'
@@ -1668,7 +1672,7 @@ export default function AdminDashboard() {
                         <p className="text-xs text-gray-500">
                           {req.action === 'add' ? '➕ Add' : req.action === 'deduct' ? '➖ Deduct' : '⚙️ Set'}
                           {' '}₹{req.amount}{' → '}
-                          <span className="font-medium">{customers.find(c => c.id === req.target_user_id)?.full_name || req.target_user_id}</span>
+                          <span className="font-medium">{req.target?.full_name || req.target_user_id}</span>
                         </p>
                         {req.note && <p className="text-xs text-gray-400 mt-0.5">Note: {req.note}</p>}
                         <p className="text-xs text-gray-400 mt-0.5">{new Date(req.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
