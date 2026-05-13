@@ -27,13 +27,17 @@ export async function POST(request) {
       .from('profiles')
       .select('phone, full_name')
       .eq('is_admin', false)
+      .eq('is_delivery', false)
       .not('phone', 'is', null)
 
     let sent = 0
     for (const customer of customers || []) {
       if (customer.phone) {
-        await sendWhatsAppMessage(customer.phone, message)
+        const firstName = customer.full_name?.split(' ')[0] || 'there'
+        const personalised = message.replace('{Name}', firstName)
+        await sendWhatsAppMessage(customer.phone, personalised)
         sent++
+        await new Promise(resolve => setTimeout(resolve, 200))
       }
     }
 
