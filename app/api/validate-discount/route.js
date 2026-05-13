@@ -72,6 +72,7 @@ export async function POST(request) {
     // --- Input validation ---
     const body = await request.json()
     const code = typeof body?.code === 'string' ? body.code.trim().toUpperCase() : ''
+    const { subscription_type, duration_days } = body
 
     if (!code) {
       return NextResponse.json(
@@ -83,12 +84,32 @@ export async function POST(request) {
     // --- Lookup: check DB first, then fall back to env-var codes ---
     const { data: dbCode } = await supabase
       .from('discount_codes')
-      .select('percent, description')
+      .select('id, percent, description, one_time_per_customer, applies_to')
       .eq('code', code)
       .eq('is_active', true)
       .maybeSingle()
 
     if (dbCode) {
+      // One-time per customer check
+      if (dbCode.one_time_per_customer) {
+        const { data: existing } = await supabase
+          .from('discount_code_usage')
+          .select('id')
+          .eq('code_id', dbCode.id)
+          .eq('user_id', user.id)
+          .maybeSingle()
+        if (existing) {
+          return NextResponse.json({ valid: false, message: 'This code has already been used.' })
+        }
+      }
+
+      // Subscription restriction check
+      if (dbCode.applies_to === 'subscription_1month') {
+        if (subscription_type !== 'fixed' || duration_days !== 30) {
+          return NextResponse.json({ valid: false, message: 'This code is only valid for 1-month subscriptions.' })
+        }
+      }
+
       return NextResponse.json({
         valid: true,
         percent: dbCode.percent,

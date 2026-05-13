@@ -102,7 +102,7 @@ export default function Subscribe() {
       const res = await fetch('/api/validate-discount', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ code: discountCode }),
+        body: JSON.stringify({ code: discountCode, subscription_type: subscriptionType, duration_days: fixedPreset || null }),
       })
       const result = await res.json()
       setDiscount(result.valid ? result.percent : 0)
@@ -324,7 +324,8 @@ export default function Subscribe() {
               subscriptionId: subscription.id,
               userId: userId,
               amount: amountToPay,
-              deposit: additionalDeposit
+              deposit: additionalDeposit,
+              discount_code: discountCode || null,
             })
           })
           const verifyData = await verifyRes.json()

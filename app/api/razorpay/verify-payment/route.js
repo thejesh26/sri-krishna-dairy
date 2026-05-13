@@ -24,7 +24,8 @@ export async function POST(request) {
       subscriptionId,
       userId,
       amount,
-      deposit
+      deposit,
+      discount_code,
     } = await request.json()
 
     const amountInRupees = Math.round(amount / 100)
@@ -86,6 +87,22 @@ export async function POST(request) {
         .from('subscriptions')
         .update({ is_active: true })
         .eq('id', subscriptionId)
+
+      // Record one-time discount code usage
+      if (discount_code && typeof discount_code === 'string') {
+        const { data: usedCode } = await supabase
+          .from('discount_codes')
+          .select('id, one_time_per_customer')
+          .eq('code', discount_code.trim().toUpperCase())
+          .eq('is_active', true)
+          .maybeSingle()
+        if (usedCode?.one_time_per_customer) {
+          await supabase.from('discount_code_usage').upsert(
+            { code_id: usedCode.id, user_id: userId },
+            { onConflict: 'code_id,user_id' }
+          ).catch(() => {})
+        }
+      }
 
       // Add wallet transaction
       await supabase

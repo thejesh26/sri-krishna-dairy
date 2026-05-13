@@ -103,16 +103,18 @@ export async function POST(request) {
 
     // ── 4. Validate discount code ────────────────────────────────────────────
     let discountPercent = 0
+    let usedDbCode = null
     if (discount_code && typeof discount_code === 'string') {
       const code = discount_code.trim().toUpperCase()
       const { data: dbCode } = await supabase
         .from('discount_codes')
-        .select('percent')
+        .select('id, percent, one_time_per_customer')
         .eq('code', code)
         .eq('is_active', true)
         .maybeSingle()
       if (dbCode) {
         discountPercent = dbCode.percent
+        usedDbCode = dbCode
       } else {
         discountPercent = DISCOUNT_CODES[code] ?? 0
       }
@@ -205,6 +207,14 @@ export async function POST(request) {
 
       if (insertError) {
         return NextResponse.json({ error: insertError.message }, { status: 500 })
+      }
+
+      // Record one-time discount code usage
+      if (usedDbCode?.one_time_per_customer) {
+        await supabase.from('discount_code_usage').upsert(
+          { code_id: usedDbCode.id, user_id: user.id },
+          { onConflict: 'code_id,user_id' }
+        ).catch(() => {})
       }
 
       // Notifications (non-blocking)

@@ -70,7 +70,7 @@ export default function AdminDashboard() {
   const [refundProcessing, setRefundProcessing] = useState(false)
   const [failedDeductions, setFailedDeductions] = useState([])
   const [discountCodes, setDiscountCodes] = useState([])
-  const [newCode, setNewCode] = useState({ code: '', percent: '', description: '' })
+  const [newCode, setNewCode] = useState({ code: '', percent: '', description: '', one_time_per_customer: true, applies_to: 'all' })
   const [discountSaving, setDiscountSaving] = useState(false)
   const [stats, setStats] = useState({
     totalOrders: 0,
@@ -3203,6 +3203,27 @@ export default function AdminDashboard() {
                 className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
             </div>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">Applies To</label>
+              <select value={newCode.applies_to}
+                onChange={e => setNewCode(c => ({ ...c, applies_to: e.target.value }))}
+                className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38] bg-white">
+                <option value="all">All subscriptions</option>
+                <option value="subscription_1month">1-Month subscription only</option>
+                <option value="trial">Trial orders only</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-3 pt-5">
+              <input type="checkbox" id="one_time_toggle"
+                checked={newCode.one_time_per_customer}
+                onChange={e => setNewCode(c => ({ ...c, one_time_per_customer: e.target.checked }))}
+                className="w-4 h-4 accent-[#1a5c38] cursor-pointer" />
+              <label htmlFor="one_time_toggle" className="text-sm text-gray-600 cursor-pointer">
+                Each customer can use this code only once
+              </label>
+            </div>
+          </div>
           <button
             disabled={discountSaving || !newCode.code.trim() || !newCode.percent}
             onClick={async () => {
@@ -3211,12 +3232,12 @@ export default function AdminDashboard() {
               const res = await fetch('/api/admin/discount-codes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-                body: JSON.stringify({ code: newCode.code.trim(), percent: parseInt(newCode.percent), description: newCode.description.trim() }),
+                body: JSON.stringify({ code: newCode.code.trim(), percent: parseInt(newCode.percent), description: newCode.description.trim(), one_time_per_customer: newCode.one_time_per_customer, applies_to: newCode.applies_to }),
               })
               if (res.ok) {
                 const { data } = await res.json()
                 setDiscountCodes(prev => [data, ...prev])
-                setNewCode({ code: '', percent: '', description: '' })
+                setNewCode({ code: '', percent: '', description: '', one_time_per_customer: true, applies_to: 'all' })
               }
               setDiscountSaving(false)
             }}
@@ -3230,11 +3251,17 @@ export default function AdminDashboard() {
               {discountCodes.map((dc) => (
                 <div key={dc.id} className="flex items-center gap-4 bg-[#f5f0e8] rounded-xl px-4 py-3">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono font-bold text-[#1a5c38]">{dc.code}</span>
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${dc.is_active ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-gray-100 text-gray-400'}`}>
                         {dc.is_active ? 'Active' : 'Inactive'}
                       </span>
+                      {dc.one_time_per_customer && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200">🔒 One-time</span>
+                      )}
+                      {dc.applies_to === 'subscription_1month' && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">📅 1-Month only</span>
+                      )}
                     </div>
                     <p className="text-sm text-[#d4a017] font-bold mt-0.5">{dc.percent}% off{dc.description ? ` · ${dc.description}` : ''}</p>
                   </div>
