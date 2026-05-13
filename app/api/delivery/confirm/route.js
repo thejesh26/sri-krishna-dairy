@@ -90,6 +90,17 @@ export async function POST(request) {
         console.error('[DeliveryConfirm] Notification failed:', notifyErr?.message)
       }
 
+      // Schedule review request (non-blocking)
+      try {
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+        await supabase.from('review_requests').upsert({
+          user_id: orderRow.user_id,
+          delivery_date: today,
+          send_after: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          sent: false,
+        }, { onConflict: 'user_id,delivery_date', ignoreDuplicates: true })
+      } catch { /* non-blocking */ }
+
       return NextResponse.json({ success: true })
     }
 
@@ -313,6 +324,16 @@ export async function POST(request) {
           }
         } catch { /* non-blocking */ }
       }
+
+      // Schedule review request (non-blocking)
+      try {
+        await supabase.from('review_requests').upsert({
+          user_id: sub.user_id,
+          delivery_date,
+          send_after: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          sent: false,
+        }, { onConflict: 'user_id,delivery_date', ignoreDuplicates: true })
+      } catch { /* non-blocking */ }
 
       return NextResponse.json({ success: true })
     }
