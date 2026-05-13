@@ -26,7 +26,7 @@ export async function GET(request, { params }) {
   // Fetch order
   const { data: order, error: orderError } = await supabaseAdmin
     .from('orders')
-    .select('*, products(name, price, unit)')
+    .select('*, products(name, size, price)')
     .eq('id', orderId)
     .single()
 
@@ -137,8 +137,8 @@ export async function GET(request, { params }) {
     </thead>
     <tbody>
       <tr>
-        <td>${order.products?.name || 'Milk'}</td>
-        <td>₹${unitPrice}/${order.products?.unit || 'L'}</td>
+        <td>${order.products?.name || order.products?.size || 'Fresh Cow Milk'}</td>
+        <td>₹${unitPrice}/bottle</td>
         <td>${qty}</td>
         <td style="text-align:right">₹${subtotal}</td>
       </tr>
