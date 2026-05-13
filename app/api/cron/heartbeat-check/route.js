@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendWhatsAppToAdmin } from '../../../lib/whatsapp'
+import { notifyAdmin } from '../../../lib/whatsapp'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -37,8 +37,9 @@ export async function GET(request) {
 
   if (!todayRun || todayRun.length === 0) {
     // Cron did not run today — alert admin
-    await sendWhatsAppToAdmin(
-      `⚠️ *CRON ALERT*\nThe daily subscription deduction cron did NOT run on ${today}.\n\nPlease check Vercel logs and trigger manually if needed:\nhttps://srikrishnaadairy.in/api/cron/deduct-subscriptions`
+    await notifyAdmin(
+      '⚠️ Cron Alert — Deduction Did Not Run',
+      `The daily subscription deduction cron did NOT run on ${today}.\n\nPlease check Vercel logs and trigger manually if needed:\nhttps://srikrishnaadairy.in/api/cron/deduct-subscriptions`
     )
 
     return NextResponse.json({
