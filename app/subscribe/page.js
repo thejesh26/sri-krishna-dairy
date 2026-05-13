@@ -7,6 +7,16 @@ import { useToast } from '../components/ToastContext'
 import { SkeletonProductCard } from '../components/Skeleton'
 import Footer from '../components/Footer'
 
+function getDeliveryCount(startDate, endDate, frequency) {
+  if (!startDate || !endDate) return 30
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  const calendarDays = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1
+  if (frequency === 'alternate') return Math.floor(calendarDays / 2) + (calendarDays % 2 === 1 ? 1 : 0)
+  if (frequency === 'weekly') return Math.floor(calendarDays / 7) + 1
+  return calendarDays
+}
+
 function getMinDate() {
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
@@ -115,14 +125,22 @@ export default function Subscribe() {
 
   const bottleDeposit = deliveryMode === 'keep_bottle' ? BOTTLE_DEPOSIT * quantity : 0
 
-  const totalDays = subscriptionType === 'fixed' && endDate
-    ? Math.max(1, Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1)
-    : 30
+  const deliveryCount = (() => {
+    if (subscriptionType !== 'fixed' || !endDate) {
+      if (deliveryFrequency === 'alternate') return 15
+      if (deliveryFrequency === 'weekly') return 5
+      return 30
+    }
+    const calendarDays = Math.max(1, Math.round((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1)
+    if (deliveryFrequency === 'alternate') return Math.floor(calendarDays / 2) + (calendarDays % 2 === 1 ? 1 : 0)
+    if (deliveryFrequency === 'weekly') return Math.floor(calendarDays / 7) + 1
+    return calendarDays
+  })()
 
   // Additional deposit = only what's needed on top of existing deposit_balance
   const additionalDeposit = Math.max(0, bottleDeposit - depositBalance)
   // Total the customer needs to have covered (milk buffer + any extra deposit)
-  const totalNeeded = dailyPrice * totalDays + additionalDeposit
+  const totalNeeded = dailyPrice * deliveryCount + additionalDeposit
   // How much wallet can cover
   const walletUsed = Math.min(walletBalance, totalNeeded)
   // How much still needs to go through Razorpay
@@ -711,9 +729,9 @@ export default function Subscribe() {
               {/* Total needed */}
               <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
                 <span className="text-sm text-gray-600">
-                  Milk buffer ({totalDays === 1 ? '1 day' : totalDays === 30 ? '~1 month' : `${totalDays} days`})
+                  Milk buffer ({deliveryCount} {deliveryFrequency === 'daily' ? (deliveryCount === 30 ? '~1 month' : 'days') : 'deliveries'})
                 </span>
-                <span className="font-semibold text-sm text-[#1c1c1c]">₹{dailyPrice * totalDays}</span>
+                <span className="font-semibold text-sm text-[#1c1c1c]">₹{dailyPrice * deliveryCount}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
                 <span className="text-sm font-semibold text-[#1c1c1c]">Total needed</span>
@@ -755,6 +773,38 @@ export default function Subscribe() {
                   Your wallet covers ₹{walletUsed} · Pay ₹{razorpayNeeded} more to activate
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Delivery count info box */}
+          {selectedProduct && (
+            <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-xl p-4">
+              {(() => {
+                const freqLabel = deliveryFrequency === 'alternate' ? 'Every 2 Days' : deliveryFrequency === 'weekly' ? 'Weekly' : 'Daily'
+                const durationLabel = subscriptionType === 'ongoing' ? 'Ongoing'
+                  : fixedPreset === 7 ? '1 Week' : fixedPreset === 14 ? '2 Weeks'
+                  : fixedPreset === 30 ? '1 Month' : fixedPreset === 90 ? '3 Months'
+                  : endDate ? new Date(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '-'
+                return (
+                  <>
+                    <p className="text-xs font-bold text-[#1a5c38] mb-2">
+                      📅 {freqLabel} · {durationLabel}
+                    </p>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Deliveries</span>
+                      <span className="font-bold text-[#1c1c1c]">{deliveryCount}</span>
+                    </div>
+                    <div className="flex justify-between text-sm mt-1">
+                      <span className="text-gray-600">Total milk cost</span>
+                      <span className="font-bold text-[#1c1c1c]">₹{dailyPrice} × {deliveryCount} = ₹{dailyPrice * deliveryCount}</span>
+                    </div>
+                    <div className="flex justify-between text-sm mt-1 pt-1 border-t border-[#c8e6d4]">
+                      <span className="font-semibold text-[#1a5c38]">Wallet required</span>
+                      <span className="font-bold text-[#1a5c38]">₹{totalNeeded}</span>
+                    </div>
+                  </>
+                )
+              })()}
             </div>
           )}
 

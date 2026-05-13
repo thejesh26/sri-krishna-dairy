@@ -140,13 +140,19 @@ export async function POST(request) {
     // Customer has enough wallet balance — no Razorpay needed.
     if (wallet_only) {
       const dailyAmount = Math.round(product.price * qty * (1 - discountPercent / 100))
-      const totalDays = subscription_type === 'oneday' ? 1
+      const calendarDays = subscription_type === 'oneday' ? 1
         : subscription_type === 'fixed' && resolvedEndDate
-          ? Math.max(1, Math.ceil((new Date(resolvedEndDate) - new Date(start_date)) / (1000 * 60 * 60 * 24)) + 1)
+          ? Math.max(1, Math.round((new Date(resolvedEndDate) - new Date(start_date)) / (1000 * 60 * 60 * 24)) + 1)
           : 30
 
-      // Wallet must cover: milk buffer for totalDays + additional deposit
-      const totalNeeded = dailyAmount * totalDays + addlDeposit
+      const deliveryCount = (() => {
+        if (freq === 'alternate') return Math.floor(calendarDays / 2) + (calendarDays % 2 === 1 ? 1 : 0)
+        if (freq === 'weekly') return Math.floor(calendarDays / 7) + 1
+        return calendarDays
+      })()
+
+      // Wallet must cover: milk buffer for deliveryCount deliveries + additional deposit
+      const totalNeeded = dailyAmount * deliveryCount + addlDeposit
 
       const { data: wallet } = await supabase
         .from('wallet')
