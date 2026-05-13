@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/check-undelivered",
       "schedule": "30 4 * * *"
+    },
+    {
+      "path": "/api/cron/low-balance-warning",
+      "schedule": "0 15 * * *"
     }
   ]
 }
