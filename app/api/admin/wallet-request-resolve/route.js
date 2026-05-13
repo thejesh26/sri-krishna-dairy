@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
+import { createClient } from '@supabase/supabase-js'
 import { sendWhatsAppMessage } from '../../../lib/whatsapp'
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+)
 
 export async function POST(request) {
   try {
@@ -15,7 +21,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: adminProfile } = await supabase
+    const { data: adminProfile } = await supabaseAdmin
       .from('profiles').select('is_admin').eq('id', user.id).single()
     if (!adminProfile?.is_admin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -26,7 +32,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'request_id and approved are required' }, { status: 400 })
     }
 
-    const { data: walletReq, error: fetchError } = await supabase
+    const { data: walletReq, error: fetchError } = await supabaseAdmin
       .from('wallet_requests')
       .select('target_user_id, action, amount, status, requested_by')
       .eq('id', request_id)
@@ -42,7 +48,7 @@ export async function POST(request) {
     const resolvedAt = new Date().toISOString()
 
     if (!approved) {
-      await supabase.from('wallet_requests').update({
+      await supabaseAdmin.from('wallet_requests').update({
         status: 'rejected',
         resolved_by: user.id,
         resolved_at: resolvedAt,
@@ -51,7 +57,7 @@ export async function POST(request) {
     }
 
     // approved === true — apply wallet change
-    const { data: wallet } = await supabase
+    const { data: wallet } = await supabaseAdmin
       .from('wallet')
       .select('id, balance')
       .eq('user_id', walletReq.target_user_id)
@@ -67,16 +73,16 @@ export async function POST(request) {
       ? balance + walletReq.amount
       : balance - walletReq.amount
 
-    await supabase.from('wallet').update({ balance: newBalance }).eq('user_id', walletReq.target_user_id)
+    await supabaseAdmin.from('wallet').update({ balance: newBalance }).eq('user_id', walletReq.target_user_id)
 
-    await supabase.from('wallet_transactions').insert({
+    await supabaseAdmin.from('wallet_transactions').insert({
       user_id: walletReq.target_user_id,
       amount: walletReq.amount,
       type: walletReq.action === 'add' ? 'credit' : 'debit',
       description: 'Wallet update approved by admin',
     })
 
-    await supabase.from('wallet_requests').update({
+    await supabaseAdmin.from('wallet_requests').update({
       status: 'approved',
       resolved_by: user.id,
       resolved_at: resolvedAt,
@@ -84,7 +90,7 @@ export async function POST(request) {
 
     // Notify the agent who raised the request
     try {
-      const { data: agentProfile } = await supabase
+      const { data: agentProfile } = await supabaseAdmin
         .from('profiles').select('full_name, phone').eq('id', walletReq.requested_by).single()
       if (agentProfile?.phone) {
         await sendWhatsAppMessage(
