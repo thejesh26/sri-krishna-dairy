@@ -2865,6 +2865,33 @@ export default function AdminDashboard() {
     {activeTab === 'settings' && (
       <div className="flex flex-col gap-6">
 
+        {/* WhatsApp template cleanup warning */}
+        {process.env.NEXT_PUBLIC_WHATSAPP_CLEANUP_DONE !== 'true' && (
+          <div className="bg-white rounded-2xl border-2 border-amber-300 p-6 shadow-sm">
+            <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-3">📱 WhatsApp Templates</h3>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+              <p className="text-sm font-bold text-amber-800 mb-1">⚠️ Action Required</p>
+              <p className="text-sm text-amber-700">You have old Marketing category templates in Meta that should be deleted once you confirm the v2 Utility templates are working correctly.</p>
+            </div>
+            <p className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2">Templates to delete from Meta Business Manager:</p>
+            <ul className="text-sm text-gray-600 space-y-1 mb-4">
+              {[
+                ['order_confirmed', 'order_confirmed_v2'],
+                ['subscription_activated', 'subscription_activated_v2'],
+                ['delivery_confirmed', 'delivery_confirmed_v2'],
+                ['delivery_stopped', 'delivery_stopped_v2'],
+                ['low_balance_alert', 'low_balance_alert_v2'],
+              ].map(([old, replacement]) => (
+                <li key={old} className="flex items-start gap-2">
+                  <span className="text-amber-500 mt-0.5">•</span>
+                  <span><span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">{old}</span> <span className="text-gray-400">→ replaced by</span> <span className="font-mono text-xs bg-[#f0faf4] text-[#1a5c38] px-1.5 py-0.5 rounded">{replacement}</span></span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-gray-400">Once deleted, set <span className="font-mono bg-gray-100 px-1 py-0.5 rounded">NEXT_PUBLIC_WHATSAPP_CLEANUP_DONE=true</span> in your Vercel environment variables to dismiss this card.</p>
+          </div>
+        )}
+
         {/* A. Business Controls */}
         <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
           <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-5">⚙️ Business Controls</h3>
