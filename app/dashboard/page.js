@@ -49,6 +49,10 @@ export default function Dashboard() {
   const [subCancelMsg, setSubCancelMsg] = useState('')
   const [pausingSubId, setPausingSubId] = useState(null)
   const [pauseMsgMap, setPauseMsgMap] = useState({})
+  const [reportModal, setReportModal] = useState(null) // { orderId }
+  const [reportType, setReportType] = useState('missed')
+  const [reportDescription, setReportDescription] = useState('')
+  const [reportSubmitting, setReportSubmitting] = useState(false)
 
   useEffect(() => { getUser() }, [])
 
@@ -685,20 +689,8 @@ export default function Dashboard() {
                         Invoice
                       </button>
                       {order.status === 'delivered' && !reportedOrders.has(order.id) && (
-                        <button onClick={async () => {
-                          console.log('[Dashboard] Report Issue clicked for order:', order.id)
-                          const { data: { session } } = await supabase.auth.getSession()
-                          const res = await fetch('/api/missed-delivery', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-                            body: JSON.stringify({ order_id: order.id, description: 'Missed delivery - not received' }),
-                          })
-                          if (res.ok) {
-                            setReportedOrders(prev => new Set([...prev, order.id]))
-                          } else {
-                            console.error('[Dashboard] Report failed:', await res.text())
-                          }
-                        }} className="text-[10px] text-red-500 underline underline-offset-2 hover:text-red-700">
+                        <button onClick={() => { setReportModal({ orderId: order.id }); setReportType('missed'); setReportDescription('') }}
+                          className="text-[10px] text-red-500 underline underline-offset-2 hover:text-red-700">
                           Report Issue
                         </button>
                       )}
@@ -1079,20 +1071,8 @@ export default function Dashboard() {
                         ) : null
                       })()}
                       {order.status === 'delivered' && !reportedOrders.has(order.id) && (
-                        <button onClick={async () => {
-                          console.log('[Dashboard] Report Issue clicked for order:', order.id)
-                          const { data: { session } } = await supabase.auth.getSession()
-                          const res = await fetch('/api/missed-delivery', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-                            body: JSON.stringify({ order_id: order.id, description: 'Missed delivery - not received' }),
-                          })
-                          if (res.ok) {
-                            setReportedOrders(prev => new Set([...prev, order.id]))
-                          } else {
-                            console.error('[Dashboard] Report failed:', await res.text())
-                          }
-                        }} className="text-[10px] text-red-500 underline underline-offset-2 hover:text-red-700">
+                        <button onClick={() => { setReportModal({ orderId: order.id }); setReportType('missed'); setReportDescription('') }}
+                          className="text-[10px] text-red-500 underline underline-offset-2 hover:text-red-700">
                           Report Issue
                         </button>
                       )}
@@ -1249,6 +1229,68 @@ export default function Dashboard() {
                 onClick={handleSubCancel}
                 className="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl text-sm hover:bg-red-600 transition disabled:opacity-50">
                 {subCancelLoading ? 'Cancelling...' : 'Yes, Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report Issue Modal */}
+      {reportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <h3 className="font-bold text-lg text-[#1c1c1c] mb-4">Report an Issue</h3>
+            <div className="flex flex-col gap-3 mb-4">
+              {[
+                { value: 'missed', label: '📭 Delivery not received' },
+                { value: 'quality', label: '👎 Quality issue with milk' },
+                { value: 'suggestion', label: '💡 Suggestion or feedback' },
+              ].map(({ value, label }) => (
+                <button key={value} onClick={() => setReportType(value)}
+                  className={`text-left px-4 py-3 rounded-xl border-2 text-sm font-medium transition ${reportType === value ? 'border-[#1a5c38] bg-[#f0faf4] text-[#1a5c38]' : 'border-[#e8e0d0] text-gray-600'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <textarea value={reportDescription} onChange={e => setReportDescription(e.target.value)}
+              placeholder={reportType === 'missed' ? 'Any additional details...' : reportType === 'quality' ? 'Describe the quality issue...' : 'Share your suggestion...'}
+              rows={3} className="w-full border border-[#e8e0d0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38] resize-none mb-4" />
+            <div className="flex gap-3">
+              <button onClick={() => setReportModal(null)}
+                className="flex-1 border border-[#e8e0d0] text-gray-600 font-semibold py-2.5 rounded-xl text-sm hover:bg-gray-50 transition">
+                Cancel
+              </button>
+              <button disabled={reportSubmitting}
+                onClick={async () => {
+                  setReportSubmitting(true)
+                  const { data: { session } } = await supabase.auth.getSession()
+                  let endpoint, body
+                  if (reportType === 'missed') {
+                    endpoint = '/api/missed-delivery'
+                    body = { order_id: reportModal.orderId, description: reportDescription || 'Delivery not received' }
+                  } else if (reportType === 'quality') {
+                    endpoint = '/api/quality-feedback'
+                    body = { order_id: reportModal.orderId, issue: reportDescription || 'Quality issue reported' }
+                  } else {
+                    endpoint = '/api/customer-suggestions'
+                    body = { message: reportDescription, type: 'suggestion' }
+                  }
+                  const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                    body: JSON.stringify(body),
+                  })
+                  if (res.ok) {
+                    setReportedOrders(prev => new Set([...prev, reportModal.orderId]))
+                    setReportModal(null)
+                    showSuccess('Report submitted. We will look into this!')
+                  } else {
+                    showError('Failed to submit report. Please try again.')
+                  }
+                  setReportSubmitting(false)
+                }}
+                className="flex-1 bg-[#1a5c38] text-white font-bold py-2.5 rounded-xl text-sm hover:bg-[#14472c] transition disabled:opacity-50">
+                {reportSubmitting ? 'Submitting...' : 'Submit'}
               </button>
             </div>
           </div>
