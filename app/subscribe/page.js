@@ -304,6 +304,12 @@ export default function Subscribe() {
       })
       const orderData = await orderRes.json()
 
+      if (orderData.orderId) {
+        await supabase.from('subscriptions')
+          .update({ razorpay_order_id: orderData.orderId })
+          .eq('id', subscription.id)
+      }
+
       if (!orderData.orderId) {
         showError('Failed to create payment order')
         setPaymentLoading(false)
