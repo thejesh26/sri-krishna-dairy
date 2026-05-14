@@ -144,6 +144,18 @@ export default function AdminDashboard() {
   const [assignAreaFilter, setAssignAreaFilter] = useState('all')
   const [assignDateFilter, setAssignDateFilter] = useState('')
   const [assignSlotFilter, setAssignSlotFilter] = useState('all')
+  const [addOrderType, setAddOrderType] = useState('trial')
+  const [addOrderCustomer, setAddOrderCustomer] = useState(null)
+  const [addOrderSearch, setAddOrderSearch] = useState('')
+  const [addOrderSearchResults, setAddOrderSearchResults] = useState([])
+  const [addOrderProduct, setAddOrderProduct] = useState(null)
+  const [addOrderQuantity, setAddOrderQuantity] = useState(1)
+  const [addOrderSlot, setAddOrderSlot] = useState('morning')
+  const [addOrderDate, setAddOrderDate] = useState('')
+  const [addOrderFrequency, setAddOrderFrequency] = useState('daily')
+  const [addOrderSubType, setAddOrderSubType] = useState('ongoing')
+  const [addOrderEndDate, setAddOrderEndDate] = useState('')
+  const [addOrderLoading, setAddOrderLoading] = useState(false)
 
   useEffect(() => { checkAdmin() }, [])
 
@@ -847,6 +859,7 @@ export default function AdminDashboard() {
     { id: 'delivery', label: 'Delivery Agents', icon: '🚴' },
     { id: 'reviews', label: 'Reviews', icon: '⭐' },
     { id: 'reports', label: 'Issue Reports', icon: '⚠️' },
+    { id: 'add_order', label: 'Add Order', icon: '➕' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ].map(({ id, label, icon }) => (
             <button key={id} onClick={() => handleAdminTabChange(id)}
@@ -3366,6 +3379,260 @@ export default function AdminDashboard() {
 
       </div>
     )}
+
+    {/* ── Add Order Tab ── */}
+    {activeTab === 'add_order' && (() => {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      const tomorrowStr = tomorrow.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+
+      const handleAddOrderSearch = (val) => {
+        setAddOrderSearch(val)
+        if (!val.trim()) { setAddOrderSearchResults([]); return }
+        const q = val.toLowerCase()
+        setAddOrderSearchResults(
+          customers.filter(c =>
+            c.full_name?.toLowerCase().includes(q) || c.phone?.includes(q)
+          ).slice(0, 5)
+        )
+      }
+
+      const handleAddOrderSubmit = async () => {
+        if (!addOrderCustomer || !addOrderProduct) return
+        setAddOrderLoading(true)
+        const { data: { session } } = await supabase.auth.getSession()
+        try {
+          if (addOrderType === 'trial') {
+            const res = await fetch('/api/admin/place-order', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+              body: JSON.stringify({
+                target_user_id: addOrderCustomer.id,
+                product_id: addOrderProduct,
+                quantity: addOrderQuantity,
+                delivery_date: addOrderDate,
+                delivery_slot: addOrderSlot,
+              }),
+            })
+            const data = await res.json()
+            if (!res.ok) { showError(data.error || 'Failed to place order'); return }
+            showSuccess(`Trial order placed for ${addOrderCustomer.full_name}!`)
+            setAddOrderCustomer(null); setAddOrderProduct(null); setAddOrderDate('')
+          } else {
+            const res = await fetch('/api/admin/place-subscription', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+              body: JSON.stringify({
+                target_user_id: addOrderCustomer.id,
+                product_id: addOrderProduct,
+                quantity: addOrderQuantity,
+                delivery_slot: addOrderSlot,
+                delivery_frequency: addOrderFrequency,
+                subscription_type: addOrderSubType,
+                start_date: addOrderDate,
+                end_date: addOrderSubType === 'fixed' ? addOrderEndDate : null,
+              }),
+            })
+            const data = await res.json()
+            if (!res.ok) { showError(data.error || 'Failed to place subscription'); return }
+            showSuccess(`Subscription activated for ${addOrderCustomer.full_name}!`)
+            setAddOrderCustomer(null); setAddOrderProduct(null); setAddOrderDate(''); setAddOrderEndDate('')
+          }
+        } finally {
+          setAddOrderLoading(false)
+        }
+      }
+
+      const walletBalance = wallets.find(w => w.user_id === addOrderCustomer?.id)?.balance ?? null
+
+      return (
+        <div className="flex flex-col gap-5 max-w-2xl mx-auto">
+          <div className="bg-white rounded-2xl border border-[#e8e0d0] shadow-sm overflow-hidden">
+            <div className="px-6 py-5 border-b border-[#f5f0e8]">
+              <h2 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c]">➕ Place Order for Customer</h2>
+              <p className="text-sm text-gray-500 mt-1">Admin override — bypasses COD restrictions and wallet checks</p>
+            </div>
+
+            {/* Section 1 — Customer search */}
+            <div className="px-6 py-5 border-b border-[#f5f0e8]">
+              <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-2 block">Customer</label>
+              {addOrderCustomer ? (
+                <div className="flex items-center justify-between bg-[#f0faf4] border border-[#c8e6d4] rounded-xl px-4 py-3">
+                  <div>
+                    <p className="font-semibold text-[#1c1c1c] text-sm">{addOrderCustomer.full_name}</p>
+                    <p className="text-xs text-gray-500">{addOrderCustomer.phone} · {addOrderCustomer.area}</p>
+                    {walletBalance !== null && (
+                      <p className="text-xs text-[#1a5c38] font-semibold mt-0.5">Wallet: ₹{walletBalance}</p>
+                    )}
+                  </div>
+                  <button onClick={() => { setAddOrderCustomer(null); setAddOrderSearch('') }}
+                    className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={addOrderSearch}
+                    onChange={e => handleAddOrderSearch(e.target.value)}
+                    placeholder="Search by name or phone..."
+                    className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]"
+                  />
+                  {addOrderSearchResults.length > 0 && (
+                    <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-[#e8e0d0] rounded-xl shadow-lg overflow-hidden">
+                      {addOrderSearchResults.map(c => (
+                        <button key={c.id} onClick={() => { setAddOrderCustomer(c); setAddOrderSearch(''); setAddOrderSearchResults([]) }}
+                          className="w-full text-left px-4 py-3 hover:bg-[#f0faf4] transition border-b border-[#f5f0e8] last:border-0">
+                          <p className="text-sm font-semibold text-[#1c1c1c]">{c.full_name}</p>
+                          <p className="text-xs text-gray-400">{c.phone} · {c.area}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Section 2 — Order type */}
+            <div className="px-6 py-5 border-b border-[#f5f0e8]">
+              <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-3 block">Order Type</label>
+              <div className="flex gap-3">
+                {[{ id: 'trial', label: '🎁 Trial Order' }, { id: 'subscription', label: '📅 Subscription' }].map(({ id, label }) => (
+                  <button key={id} onClick={() => setAddOrderType(id)}
+                    className={`flex-1 py-3 rounded-xl font-semibold text-sm transition border ${
+                      addOrderType === id
+                        ? 'bg-[#1a5c38] text-white border-[#1a5c38]'
+                        : 'bg-white text-gray-600 border-[#e8e0d0] hover:border-[#1a5c38] hover:text-[#1a5c38]'
+                    }`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Section 3 — Order details */}
+            <div className="px-6 py-5 flex flex-col gap-4 border-b border-[#f5f0e8]">
+              {/* Product */}
+              <div>
+                <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Product</label>
+                <select value={addOrderProduct || ''} onChange={e => setAddOrderProduct(e.target.value)}
+                  className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-white">
+                  <option value="">Select product...</option>
+                  {products.filter(p => p.is_available).map(p => (
+                    <option key={p.id} value={p.id}>{p.name || p.size} — ₹{p.price}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Quantity + Slot */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Quantity</label>
+                  <input type="number" min="1" max="20" value={addOrderQuantity} onChange={e => setAddOrderQuantity(Number(e.target.value))}
+                    className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Delivery Slot</label>
+                  <select value={addOrderSlot} onChange={e => setAddOrderSlot(e.target.value)}
+                    className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-white">
+                    <option value="morning">Morning (7–9 AM)</option>
+                    <option value="evening">Evening (5–7 PM)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Trial-specific */}
+              {addOrderType === 'trial' && (
+                <div>
+                  <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Delivery Date</label>
+                  <input type="date" min={tomorrowStr} value={addOrderDate} onChange={e => setAddOrderDate(e.target.value)}
+                    className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]" />
+                </div>
+              )}
+
+              {/* Subscription-specific */}
+              {addOrderType === 'subscription' && (
+                <>
+                  <div>
+                    <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Frequency</label>
+                    <div className="flex gap-2">
+                      {[{ id: 'daily', label: 'Daily' }, { id: 'alternate', label: 'Every 2 Days' }, { id: 'weekly', label: 'Weekly' }].map(({ id, label }) => (
+                        <button key={id} onClick={() => setAddOrderFrequency(id)}
+                          className={`flex-1 py-2 rounded-lg text-xs font-semibold transition border ${
+                            addOrderFrequency === id ? 'bg-[#1a5c38] text-white border-[#1a5c38]' : 'bg-white text-gray-600 border-[#e8e0d0] hover:border-[#1a5c38]'
+                          }`}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Subscription Type</label>
+                    <div className="flex gap-2">
+                      {[{ id: 'ongoing', label: 'Ongoing' }, { id: 'fixed', label: 'Fixed Duration' }].map(({ id, label }) => (
+                        <button key={id} onClick={() => setAddOrderSubType(id)}
+                          className={`flex-1 py-2 rounded-lg text-xs font-semibold transition border ${
+                            addOrderSubType === id ? 'bg-[#1a5c38] text-white border-[#1a5c38]' : 'bg-white text-gray-600 border-[#e8e0d0] hover:border-[#1a5c38]'
+                          }`}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {addOrderSubType === 'fixed' && (
+                    <div>
+                      <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-2 block">Duration</label>
+                      <div className="flex gap-2 flex-wrap mb-2">
+                        {[{ label: '1 Week', days: 7 }, { label: '2 Weeks', days: 14 }, { label: '1 Month', days: 30 }, { label: '3 Months', days: 90 }].map(({ label, days }) => {
+                          const start = addOrderDate || tomorrowStr
+                          const end = new Date(start)
+                          end.setDate(end.getDate() + days - 1)
+                          const endStr = end.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+                          return (
+                            <button key={label} onClick={() => setAddOrderEndDate(endStr)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                                addOrderEndDate === endStr ? 'bg-[#1a5c38] text-white border-[#1a5c38]' : 'bg-white text-gray-600 border-[#e8e0d0] hover:border-[#1a5c38]'
+                              }`}>
+                              {label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <input type="date" value={addOrderEndDate} onChange={e => setAddOrderEndDate(e.target.value)}
+                        className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]" />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Start Date</label>
+                    <input type="date" min={tomorrowStr} value={addOrderDate} onChange={e => setAddOrderDate(e.target.value)}
+                      className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]" />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Section 4 — Submit */}
+            <div className="px-6 py-5">
+              <button
+                disabled={
+                  addOrderLoading || !addOrderCustomer || !addOrderProduct || !addOrderDate ||
+                  (addOrderType === 'subscription' && addOrderSubType === 'fixed' && !addOrderEndDate)
+                }
+                onClick={handleAddOrderSubmit}
+                className="w-full bg-[#1a5c38] text-white font-bold py-3.5 rounded-xl hover:bg-[#14472c] transition disabled:opacity-40 text-sm">
+                {addOrderLoading
+                  ? 'Placing...'
+                  : addOrderCustomer
+                    ? `Place ${addOrderType === 'trial' ? 'Trial Order' : 'Subscription'} for ${addOrderCustomer.full_name}`
+                    : 'Select a customer first'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    })()}
 
     {/* ── Stop Subscription Modal ── */}
     {stopSubPopup && (
