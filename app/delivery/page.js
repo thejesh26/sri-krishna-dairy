@@ -581,7 +581,12 @@ export default function DeliveryDashboard() {
                       <span className="bg-[#f0faf4] text-[#1a5c38] text-xs font-bold px-3 py-1.5 rounded-lg border border-[#c8e6d4] text-center">✅ Done</span>
                     ) : (
                       <button onClick={async () => {
-                        await supabase.from('addon_orders').update({ status: 'delivered' }).eq('id', addon.id)
+                        const { data: { session } } = await supabase.auth.getSession()
+                        await fetch('/api/delivery/confirm', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                          body: JSON.stringify({ type: 'addon', addon_id: addon.id }),
+                        })
                         setDeliveredAddons(prev => new Set([...prev, addon.id]))
                       }}
                         className="bg-[#d4a017] text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-[#b8860b] transition">

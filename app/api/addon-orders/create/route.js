@@ -61,20 +61,6 @@ export async function POST(request) {
     }
 
     const pricePerDay = Math.round(product.price * qty)
-    const totalAmount = pricePerDay * dates.length
-
-    // Check wallet balance
-    const { data: wallet } = await supabase
-      .from('wallet')
-      .select('id, balance')
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (!wallet || (wallet.balance || 0) < totalAmount) {
-      return NextResponse.json({
-        error: `Insufficient wallet balance. Required: ₹${totalAmount}, Available: ₹${wallet?.balance || 0}`,
-      }, { status: 400 })
-    }
 
     // Create addon_orders for each date
     const insertRows = dates.map(d => ({
@@ -97,29 +83,6 @@ export async function POST(request) {
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
-    // Deduct total from wallet
-    const { error: walletError } = await supabase
-      .from('wallet')
-      .update({ balance: (wallet.balance || 0) - totalAmount })
-      .eq('user_id', user.id)
-
-    if (walletError) {
-      // Rollback: delete the just-created orders
-      await supabase.from('addon_orders').delete().in('id', addonOrders.map(o => o.id))
-      return NextResponse.json({ error: 'Payment deduction failed. Please try again.' }, { status: 500 })
-    }
-
-    // Record wallet transaction
-    const dateRange = dates.length === 1
-      ? dates[0]
-      : `${dates[0]} to ${dates[dates.length - 1]}`
-    await supabase.from('wallet_transactions').insert({
-      user_id: user.id,
-      amount: totalAmount,
-      type: 'debit',
-      description: `Add-on order: ${product.size} x${qty} for ${dateRange} (${dates.length} day${dates.length !== 1 ? 's' : ''})`,
-    })
-
     // Send notifications — non-blocking
     try {
       const { data: profile } = await supabase
@@ -129,14 +92,22 @@ export async function POST(request) {
       const name = profile?.full_name || email || 'Customer'
 
       if (email) {
-        await sendAddonOrderEmail({ to: email, name, dates, product: product.size, quantity: qty, totalAmount })
+        await sendAddonOrderEmail({ to: email, name, dates, product: product.size, quantity: qty, totalAmount: pricePerDay * dates.length })
       }
       if (profile?.phone) {
-        await notifyAddonOrderConfirmed({ phone: profile.phone, name, dates, product: product.size, quantity: qty, totalAmount })
+        await notifyAddonOrderConfirmed({
+          phone: profile.phone,
+          name,
+          dates,
+          product: product.size,
+          quantity: qty,
+          totalAmount: pricePerDay * dates.length,
+          message: 'Payment will be deducted on delivery.',
+        })
       }
     } catch { /* non-blocking */ }
 
-    return NextResponse.json({ success: true, order_count: addonOrders.length, total_amount: totalAmount })
+    return NextResponse.json({ success: true, order_count: addonOrders.length })
   } catch (err) {
     return NextResponse.json({ error: err.message || 'Server error.' }, { status: 500 })
   }

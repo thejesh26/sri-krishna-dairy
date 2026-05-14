@@ -28,7 +28,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { type, order_id, subscription_id, delivery_date, bottle_returned, not_delivered, photo_url } = await request.json()
+    const { type, order_id, subscription_id, delivery_date, bottle_returned, not_delivered, photo_url, addon_id } = await request.json()
     const deliveredAt = new Date().toISOString()
     const deliveredBy = callerProfile.full_name || user.id
 
@@ -334,6 +334,35 @@ export async function POST(request) {
           sent: false,
         }, { onConflict: 'user_id,delivery_date', ignoreDuplicates: true })
       } catch { /* non-blocking */ }
+
+      return NextResponse.json({ success: true })
+    }
+
+    if (type === 'addon' && addon_id) {
+      const { data: addonOrder } = await supabase
+        .from('addon_orders')
+        .update({ status: 'delivered', delivered_at: deliveredAt, delivered_by: deliveredBy })
+        .eq('id', addon_id)
+        .select('user_id, total_price, product_id, quantity, delivery_date')
+        .single()
+
+      if (!addonOrder) return NextResponse.json({ error: 'Addon order not found' }, { status: 404 })
+
+      const { data: wallet } = await supabase
+        .from('wallet').select('id, balance').eq('user_id', addonOrder.user_id).maybeSingle()
+
+      const balance = wallet?.balance || 0
+      const amount = addonOrder.total_price || 0
+
+      if (wallet && balance >= amount) {
+        await supabase.from('wallet').update({ balance: balance - amount }).eq('user_id', addonOrder.user_id)
+        await supabase.from('wallet_transactions').insert({
+          user_id: addonOrder.user_id,
+          amount,
+          type: 'debit',
+          description: `Add-on delivery [${addonOrder.delivery_date}]`,
+        })
+      }
 
       return NextResponse.json({ success: true })
     }
