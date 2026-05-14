@@ -276,6 +276,12 @@ export async function POST(request) {
             amount: dailyAmount,
             reason: 'Insufficient balance — deactivated on delivery confirm',
           }).catch(() => {})
+          await supabase.from('wallet_transactions').insert({
+            user_id: sub.user_id,
+            amount: 0,
+            type: 'debit',
+            description: `Subscription stopped - insufficient balance [${delivery_date}]. Required: ₹${dailyAmount}, Available: ₹${balance}`,
+          })
           // Notify customer their delivery has been stopped
           try {
             const { data: stoppedProfile } = await supabase

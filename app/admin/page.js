@@ -144,6 +144,17 @@ export default function AdminDashboard() {
   const [assignAreaFilter, setAssignAreaFilter] = useState('all')
   const [assignDateFilter, setAssignDateFilter] = useState('')
   const [assignSlotFilter, setAssignSlotFilter] = useState('all')
+  const [transactions, setTransactions] = useState([])
+  const [transactionsLoading, setTransactionsLoading] = useState(false)
+  const [transactionsLoaded, setTransactionsLoaded] = useState(false)
+  const [txStartDate, setTxStartDate] = useState(() => {
+    const d = new Date(); d.setDate(1)
+    return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  })
+  const [txEndDate, setTxEndDate] = useState(
+    new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  )
+  const [txTypeFilter, setTxTypeFilter] = useState('all')
   const [addOrderType, setAddOrderType] = useState('trial')
   const [addOrderCustomer, setAddOrderCustomer] = useState(null)
   const [addOrderSearch, setAddOrderSearch] = useState('')
@@ -409,6 +420,7 @@ export default function AdminDashboard() {
     setActiveTab(id)
     if (id === 'customers') await loadWallets()
     if (id === 'delivery_history' && !historyLoaded) loadDeliveryHistory()
+    if (id === 'financials' && !transactionsLoaded) loadTransactions(txStartDate, txEndDate)
   }
 
   const loadDeliveryHistory = async (startDate, endDate) => {
@@ -469,6 +481,19 @@ export default function AdminDashboard() {
     setDeliveryHistory(combined)
     setHistoryLoaded(true)
     setHistoryLoading(false)
+  }
+
+  const loadTransactions = async (startDate, endDate) => {
+    setTransactionsLoading(true)
+    const { data } = await supabase
+      .from('wallet_transactions')
+      .select('*, profiles!wallet_transactions_user_id_fkey(full_name, phone)')
+      .gte('created_at', startDate + 'T00:00:00')
+      .lte('created_at', endDate + 'T23:59:59')
+      .order('created_at', { ascending: false })
+    setTransactions(data || [])
+    setTransactionsLoaded(true)
+    setTransactionsLoading(false)
   }
 
   const saveProductPrice = async (productId, newPrice, newAvailable) => {
@@ -860,6 +885,7 @@ export default function AdminDashboard() {
     { id: 'reviews', label: 'Reviews', icon: '⭐' },
     { id: 'reports', label: 'Issue Reports', icon: '⚠️' },
     { id: 'add_order', label: 'Add Order', icon: '➕' },
+    { id: 'financials', label: 'Financials', icon: '📊' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ].map(({ id, label, icon }) => (
             <button key={id} onClick={() => handleAdminTabChange(id)}
@@ -3629,6 +3655,143 @@ export default function AdminDashboard() {
                     : 'Select a customer first'}
               </button>
             </div>
+          </div>
+        </div>
+      )
+    })()}
+
+    {/* ── Financials Tab ── */}
+    {activeTab === 'financials' && (() => {
+      const filtered = transactions.filter(tx =>
+        txTypeFilter === 'all' || tx.type === txTypeFilter
+      )
+      const totalCredits = filtered.filter(tx => tx.type === 'credit').reduce((s, tx) => s + (tx.amount || 0), 0)
+      const totalDebits = filtered.filter(tx => tx.type === 'debit').reduce((s, tx) => s + (tx.amount || 0), 0)
+
+      const exportCsv = () => {
+        const headers = ['Date/Time', 'Customer Name', 'Phone', 'Type', 'Amount', 'Description']
+        const rows = filtered.map(tx => [
+          new Date(tx.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          tx.profiles?.full_name || '-',
+          tx.profiles?.phone || '-',
+          tx.type,
+          tx.type === 'credit' ? tx.amount : -tx.amount,
+          tx.description || '',
+        ])
+        const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+        const blob = new Blob([csv], { type: 'text/csv' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a'); a.href = url; a.download = `transactions-${txStartDate}-${txEndDate}.csv`; a.click()
+        URL.revokeObjectURL(url)
+      }
+
+      return (
+        <div className="flex flex-col gap-5">
+          {/* Summary cards */}
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {[
+              { label: 'Total Credits', value: `₹${totalCredits.toLocaleString('en-IN')}`, color: 'text-[#1a5c38]', bg: 'bg-[#f0faf4] border-[#c8e6d4]' },
+              { label: 'Total Debits', value: `₹${totalDebits.toLocaleString('en-IN')}`, color: 'text-red-600', bg: 'bg-red-50 border-red-200' },
+              { label: 'Net', value: `₹${(totalCredits - totalDebits).toLocaleString('en-IN')}`, color: (totalCredits - totalDebits) >= 0 ? 'text-[#1a5c38]' : 'text-red-600', bg: 'bg-white border-[#e8e0d0]' },
+              { label: 'Transactions', value: filtered.length, color: 'text-[#1c1c1c]', bg: 'bg-white border-[#e8e0d0]' },
+            ].map(({ label, value, color, bg }) => (
+              <div key={label} className={`rounded-2xl border p-4 ${bg}`}>
+                <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">{label}</p>
+                <p className={`text-xl font-bold ${color}`}>{value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Filters */}
+          <div className="bg-white rounded-2xl border border-[#e8e0d0] p-5 shadow-sm">
+            <div className="flex flex-wrap gap-3 items-end">
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1 block">From</label>
+                <input type="date" value={txStartDate} onChange={e => setTxStartDate(e.target.value)}
+                  className="border border-[#e8e0d0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#1a5c38]" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1 block">To</label>
+                <input type="date" value={txEndDate} onChange={e => setTxEndDate(e.target.value)}
+                  className="border border-[#e8e0d0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#1a5c38]" />
+              </div>
+              <button onClick={() => { setTransactionsLoaded(false); loadTransactions(txStartDate, txEndDate) }}
+                disabled={transactionsLoading}
+                className="bg-[#1a5c38] text-white font-semibold px-4 py-2 rounded-lg text-sm hover:bg-[#14472c] transition disabled:opacity-50">
+                {transactionsLoading ? 'Loading...' : 'Load'}
+              </button>
+              <div className="flex gap-2 ml-auto">
+                {[{ id: 'all', label: 'All' }, { id: 'credit', label: 'Credits' }, { id: 'debit', label: 'Debits' }].map(({ id, label }) => (
+                  <button key={id} onClick={() => setTxTypeFilter(id)}
+                    className={`px-3 py-2 rounded-lg text-sm font-semibold border transition ${
+                      txTypeFilter === id ? 'bg-[#1a5c38] text-white border-[#1a5c38]' : 'bg-white text-gray-600 border-[#e8e0d0] hover:border-[#1a5c38]'
+                    }`}>
+                    {label}
+                  </button>
+                ))}
+                <button onClick={exportCsv}
+                  className="px-3 py-2 rounded-lg text-sm font-semibold border border-[#e8e0d0] text-gray-600 hover:border-[#1a5c38] hover:text-[#1a5c38] transition">
+                  ⬇ CSV
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Transactions table */}
+          <div className="bg-white rounded-2xl border border-[#e8e0d0] shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-[#f5f0e8] flex items-center justify-between">
+              <h3 className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c]">Transactions</h3>
+              <span className="text-xs text-gray-400">{filtered.length} records</span>
+            </div>
+            {transactionsLoading ? (
+              <div className="px-6 py-12 text-center text-gray-400 text-sm">Loading...</div>
+            ) : filtered.length === 0 ? (
+              <div className="px-6 py-12 text-center text-gray-400 text-sm">No transactions found for this period.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-[#f5f0e8] text-left">
+                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest whitespace-nowrap">Date / Time</th>
+                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Customer</th>
+                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Type</th>
+                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest text-right">Amount</th>
+                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((tx, i, arr) => (
+                      <tr key={tx.id} className={`${i !== arr.length - 1 ? 'border-b border-[#f5f0e8]' : ''} hover:bg-[#fafaf8]`}>
+                        <td className="px-4 py-3 whitespace-nowrap text-gray-500 text-xs">
+                          {new Date(tx.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          <br />
+                          <span className="text-gray-400">{new Date(tx.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-semibold text-[#1c1c1c] text-sm">{tx.profiles?.full_name || '—'}</p>
+                          <p className="text-xs text-gray-400">{tx.profiles?.phone || ''}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
+                            tx.type === 'credit'
+                              ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
+                              : 'bg-red-50 text-red-600 border-red-200'
+                          }`}>
+                            {tx.type === 'credit' ? '↑ Credit' : '↓ Debit'}
+                          </span>
+                        </td>
+                        <td className={`px-4 py-3 text-right font-bold whitespace-nowrap ${tx.type === 'credit' ? 'text-[#1a5c38]' : 'text-red-600'}`}>
+                          {tx.type === 'credit' ? '+' : '-'}₹{tx.amount}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-500 max-w-xs">
+                          {(tx.description || '').slice(0, 60)}{(tx.description || '').length > 60 ? '…' : ''}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )

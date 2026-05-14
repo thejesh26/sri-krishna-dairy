@@ -124,6 +124,12 @@ async function runDeductions() {
         amount: dailyAmount,
         reason: 'Insufficient balance — subscription deactivated',
       }).catch(() => {})
+      await supabase.from('wallet_transactions').insert({
+        user_id: sub.user_id,
+        amount: 0,
+        type: 'debit',
+        description: `Subscription stopped - insufficient balance [${today}]. Required: ₹${dailyAmount}, Available: ₹${balance}`,
+      })
       continue
     }
 
