@@ -365,6 +365,22 @@ export default function AdminDashboard() {
       setSubDeliveryCounts(counts)
     }
 
+    // Load today's subscription delivery statuses from DB
+    if (todaySubs.length > 0) {
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+      const { data: todayDeliveries } = await supabase
+        .from('subscription_deliveries')
+        .select('subscription_id, not_delivered')
+        .in('subscription_id', todaySubs.map(s => s.id))
+        .eq('delivery_date', today)
+
+      const statusMap = {}
+      ;(todayDeliveries || []).forEach(d => {
+        statusMap[d.subscription_id] = d.not_delivered ? 'missed' : 'delivered'
+      })
+      setSubDeliveryStatuses(statusMap)
+    }
+
     // Load all wallets via service-role API (bypasses RLS)
     await loadWallets()
     setStats({
