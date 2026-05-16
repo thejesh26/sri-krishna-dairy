@@ -139,7 +139,7 @@ export async function POST(request) {
       if (!sub.products) return NextResponse.json({ error: 'Subscription product not found.' }, { status: 404 })
 
       // Record delivery log
-      await supabaseAdmin.from('subscription_deliveries').upsert({
+      const { error: upsertError } = await supabaseAdmin.from('subscription_deliveries').upsert({
         subscription_id,
         user_id: sub.user_id,
         delivery_date,
@@ -149,6 +149,12 @@ export async function POST(request) {
         bottle_returned: bottle_returned !== false,
         ...(photo_url ? { photo_url } : {}),
       }, { onConflict: 'subscription_id,delivery_date' })
+
+      if (upsertError) {
+        console.error('[DeliveryConfirm] upsert failed:', upsertError.message, upsertError.code)
+      } else {
+        console.log('[DeliveryConfirm] upsert SUCCESS sub:', subscription_id, 'date:', delivery_date)
+      }
 
       // ── Send delivery WhatsApp confirmation — always, regardless of wallet state ─
       try {
