@@ -683,24 +683,29 @@ export default function AdminDashboard() {
     showSuccess(`${name}'s subscription extended by ${days} days`)
   }
 
-  const handleSubStatusChange = async (subId, newStatus) => {
-    setSubDeliveryStatuses(prev => ({ ...prev, [subId]: newStatus }))
-    if (newStatus === 'delivered' || newStatus === 'missed') {
-      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-      const { data: { session } } = await supabase.auth.getSession()
-      await fetch('/api/delivery/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({
-          type: 'subscription',
-          subscription_id: subId,
-          delivery_date: today,
-          bottle_returned: newStatus === 'delivered',
-          not_delivered: newStatus === 'missed',
-        }),
-      })
+ const handleSubStatusChange = async (subId, newStatus) => {
+  setSubDeliveryStatuses(prev => ({ ...prev, [subId]: newStatus }))
+  if (newStatus === 'delivered' || newStatus === 'missed') {
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/delivery/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({
+        type: 'subscription',
+        subscription_id: subId,
+        delivery_date: today,
+        bottle_returned: newStatus === 'delivered',
+        not_delivered: newStatus === 'missed',
+      }),
+    })
+    const result = await res.json()
+    console.log('[DeliveryConfirm] Status:', res.status, 'Response:', result)
+    if (!res.ok) {
+      showError('Failed to save delivery status: ' + (result.error || res.status))
     }
   }
+}
 
   const getSubDayLabel = (sub) => {
     const count = subDeliveryCounts[sub.id] || 0
