@@ -36,7 +36,7 @@ export async function POST(request) {
 
     const { type, order_id, subscription_id, delivery_date, bottle_returned, not_delivered, photo_url, addon_id } = await request.json()
     const deliveredAt = new Date().toISOString()
-    const deliveredBy = callerProfile.full_name || user.id
+    const deliveredBy = user.id
 
     if (type === 'order' && order_id) {
       console.log('[DeliveryConfirm] Confirming delivery for order:', order_id)
