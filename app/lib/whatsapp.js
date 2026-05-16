@@ -1,6 +1,6 @@
 import { sendEmail } from './email'
 
-const WA_API_URL = `https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`
+const WA_API_URL = `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`
 const ADMIN_PHONE = '918553666002'
 const ADMIN_EMAIL = 'hello@srikrishnaadairy.in'
 
