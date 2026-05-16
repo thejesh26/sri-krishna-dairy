@@ -98,6 +98,9 @@ export default function AdminDashboard() {
   const [newProduct, setNewProduct] = useState({ name: '', size: '', price: '', is_available: true })
   const [productAddLoading, setProductAddLoading] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
+  const [expandedCustomer, setExpandedCustomer] = useState(null)
+  const [customerDetails, setCustomerDetails] = useState({})
+  const [customerDetailsLoading, setCustomerDetailsLoading] = useState({})
   const [settingsCustomers, setSettingsCustomers] = useState([])
   const [extendDaysMap, setExtendDaysMap] = useState({})
   const [pauseDateMap, setPauseDateMap] = useState({})
@@ -497,6 +500,26 @@ export default function AdminDashboard() {
     setDeliveryHistory(combined)
     setHistoryLoaded(true)
     setHistoryLoading(false)
+  }
+
+  const loadCustomerDetails = async (userId) => {
+    if (customerDetails[userId]) return
+    setCustomerDetailsLoading(prev => ({ ...prev, [userId]: true }))
+    const [
+      { data: transactions },
+      { data: deliveries },
+      { data: orders },
+      { data: wallet },
+      { data: subscription },
+    ] = await Promise.all([
+      supabase.from('wallet_transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(20),
+      supabase.from('subscription_deliveries').select('*, subscriptions(products(size))').eq('user_id', userId).order('delivery_date', { ascending: false }).limit(10),
+      supabase.from('orders').select('*, products(size)').eq('user_id', userId).order('created_at', { ascending: false }).limit(10),
+      supabase.from('wallet').select('balance, deposit_balance').eq('user_id', userId).maybeSingle(),
+      supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', userId).eq('is_active', true).maybeSingle(),
+    ])
+    setCustomerDetails(prev => ({ ...prev, [userId]: { transactions: transactions || [], deliveries: deliveries || [], orders: orders || [], wallet, subscription } }))
+    setCustomerDetailsLoading(prev => ({ ...prev, [userId]: false }))
   }
 
   const loadTransactions = async (startDate, endDate) => {
@@ -1893,7 +1916,128 @@ export default function AdminDashboard() {
                             </button>
                           </div>
                         </div>
-                      </div>
+                      <button
+                        onClick={() => {
+                          if (expandedCustomer === customer.id) {
+                            setExpandedCustomer(null)
+                          } else {
+                            setExpandedCustomer(customer.id)
+                            loadCustomerDetails(customer.id)
+                          }
+                        }}
+                        className="text-xs text-[#1a5c38] font-semibold underline underline-offset-2 mt-2">
+                        {expandedCustomer === customer.id ? '▲ Hide Details' : '▼ View Details'}
+                      </button>
+                      {expandedCustomer === customer.id && (
+                        <div className="mt-3 border-t border-[#e8e0d0] pt-3 space-y-4">
+                          {customerDetailsLoading[customer.id] ? (
+                            <p className="text-xs text-gray-400 text-center py-4">Loading...</p>
+                          ) : (() => {
+                            const d = customerDetails[customer.id]
+                            if (!d) return null
+                            return (
+                              <>
+                                {/* Wallet Summary */}
+                                <div>
+                                  <p className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2">💰 Wallet</p>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="bg-[#f0faf4] rounded-xl p-3 text-center">
+                                      <p className="text-xs text-gray-500">Balance</p>
+                                      <p className="font-bold text-[#1a5c38] text-lg">₹{d.wallet?.balance ?? 0}</p>
+                                    </div>
+                                    <div className="bg-[#fdf6e3] rounded-xl p-3 text-center">
+                                      <p className="text-xs text-gray-500">Deposit</p>
+                                      <p className="font-bold text-[#92400e] text-lg">₹{d.wallet?.deposit_balance ?? 0}</p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Active Subscription */}
+                                {d.subscription && (
+                                  <div>
+                                    <p className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2">📅 Active Subscription</p>
+                                    <div className="bg-white border border-[#e8e0d0] rounded-xl p-3 text-sm">
+                                      <p><span className="text-gray-500">Product:</span> <span className="font-semibold">{d.subscription.products?.size} × {d.subscription.quantity}</span></p>
+                                      <p><span className="text-gray-500">Slot:</span> <span className="font-semibold">{d.subscription.delivery_slot === 'morning' ? '7AM–9AM' : '5PM–7PM'}</span></p>
+                                      <p><span className="text-gray-500">Start:</span> <span className="font-semibold">{d.subscription.start_date}</span></p>
+                                      <p><span className="text-gray-500">Daily:</span> <span className="font-semibold">₹{Math.round((d.subscription.products?.price || 0) * d.subscription.quantity * (1 - (d.subscription.discount_percent || 0) / 100))}</span></p>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Recent Transactions */}
+                                <div>
+                                  <p className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2">💳 Recent Transactions</p>
+                                  {d.transactions.length === 0 ? (
+                                    <p className="text-xs text-gray-400">No transactions yet</p>
+                                  ) : (
+                                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                      {d.transactions.map(tx => (
+                                        <div key={tx.id} className="flex items-center justify-between bg-white border border-[#e8e0d0] rounded-lg px-3 py-2">
+                                          <div>
+                                            <p className="text-xs font-medium text-[#1c1c1c] truncate max-w-[180px]">{tx.description}</p>
+                                            <p className="text-[10px] text-gray-400">{new Date(tx.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                                          </div>
+                                          <span className={`text-xs font-bold ${tx.type === 'credit' ? 'text-[#1a5c38]' : 'text-red-500'}`}>
+                                            {tx.type === 'credit' ? '+' : '-'}₹{tx.amount}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Recent Deliveries */}
+                                <div>
+                                  <p className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2">🚚 Recent Deliveries</p>
+                                  {d.deliveries.length === 0 ? (
+                                    <p className="text-xs text-gray-400">No deliveries yet</p>
+                                  ) : (
+                                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                                      {d.deliveries.map(del => (
+                                        <div key={del.id} className="flex items-center justify-between bg-white border border-[#e8e0d0] rounded-lg px-3 py-2">
+                                          <div>
+                                            <p className="text-xs font-medium text-[#1c1c1c]">{del.delivery_date}</p>
+                                            <p className="text-[10px] text-gray-400">{del.subscriptions?.products?.size || 'Milk'}</p>
+                                          </div>
+                                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${del.not_delivered ? 'bg-red-100 text-red-600' : 'bg-[#f0faf4] text-[#1a5c38]'}`}>
+                                            {del.not_delivered ? 'Missed' : 'Delivered'}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Recent Orders */}
+                                <div>
+                                  <p className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2">📦 Recent Orders</p>
+                                  {d.orders.length === 0 ? (
+                                    <p className="text-xs text-gray-400">No orders yet</p>
+                                  ) : (
+                                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                                      {d.orders.map(order => (
+                                        <div key={order.id} className="flex items-center justify-between bg-white border border-[#e8e0d0] rounded-lg px-3 py-2">
+                                          <div>
+                                            <p className="text-xs font-medium text-[#1c1c1c]">{order.products?.size} × {order.quantity}</p>
+                                            <p className="text-[10px] text-gray-400">{order.delivery_date}</p>
+                                          </div>
+                                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                            order.status === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38]' :
+                                            order.status === 'cancelled' ? 'bg-red-100 text-red-600' :
+                                            'bg-[#fdf6e3] text-[#92400e]'
+                                          }`}>{order.status}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </>
+                            )
+                          })()}
+                        </div>
+                      )}
+                    </div>
                     )
                   })}
                 </div>
