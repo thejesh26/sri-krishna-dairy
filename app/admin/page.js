@@ -1028,9 +1028,12 @@ export default function AdminDashboard() {
                           value={sub.assigned_to || ''}
                           onChange={async (e) => {
                             const agentId = e.target.value
-                            await supabase.from('subscriptions')
-                              .update({ assigned_to: agentId || null })
-                              .eq('id', sub.id)
+                            const { data: { session } } = await supabase.auth.getSession()
+                            await fetch('/api/admin/assign-agent', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                              body: JSON.stringify({ type: 'subscription', id: sub.id, agent_id: agentId || null }),
+                            })
                             setTodaySubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, assigned_to: agentId } : s))
                           }}
                           className="text-xs border border-[#e8e0d0] rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]">
@@ -1089,9 +1092,12 @@ export default function AdminDashboard() {
                           value={order.assigned_to || ''}
                           onChange={async (e) => {
                             const agentId = e.target.value
-                            await supabase.from('orders')
-                              .update({ assigned_to: agentId || null })
-                              .eq('id', order.id)
+                            const { data: { session } } = await supabase.auth.getSession()
+                            await fetch('/api/admin/assign-agent', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                              body: JSON.stringify({ type: 'order', id: order.id, agent_id: agentId || null }),
+                            })
                             setTodayOrders(prev => prev.map(o => o.id === order.id ? { ...o, assigned_to: agentId } : o))
                           }}
                           className="text-xs border border-[#e8e0d0] rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]">
