@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+)
 import { sendDeliveryConfirmed, notifyCodUpsell, sendLowBalanceAlert, sendWhatsAppMessage, sendWhatsAppToAdmin, notifySubscriptionStopped, notifyAdmin } from '../../../lib/whatsapp'
 import { sendLowBalanceEmail, sendOrderConfirmationEmail, sendEmail } from '../../../lib/email'
 
@@ -57,7 +63,7 @@ export async function POST(request) {
           .select('full_name, phone')
           .eq('id', orderRow.user_id)
           .single()
-        const { data: authUser } = await supabase.auth.admin.getUserById(orderRow.user_id)
+        const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(orderRow.user_id)
         const customerEmail = authUser?.user?.email
         const customerName = customerProfile?.full_name || 'Customer'
 
@@ -93,7 +99,7 @@ export async function POST(request) {
       // Schedule review request (non-blocking)
       try {
         const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-        await supabase.from('review_requests').upsert({
+        await supabaseAdmin.from('review_requests').upsert({
           user_id: orderRow.user_id,
           delivery_date: today,
           send_after: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
@@ -108,11 +114,11 @@ export async function POST(request) {
       console.log('[Delivery] Confirming subscription delivery:', subscription_id, 'date:', delivery_date)
       // ── Not-delivered path: clear pending without charging ───────────────────
       if (not_delivered) {
-        await supabase.from('subscriptions').update({ pending_delivery: false }).eq('id', subscription_id)
+        await supabaseAdmin.from('subscriptions').update({ pending_delivery: false }).eq('id', subscription_id)
         try {
-          const { data: sub } = await supabase.from('subscriptions').select('user_id').eq('id', subscription_id).single()
+          const { data: sub } = await supabaseAdmin.from('subscriptions').select('user_id').eq('id', subscription_id).single()
           const { data: profile } = sub?.user_id
-            ? await supabase.from('profiles').select('full_name, apartment_name, flat_number, area').eq('id', sub.user_id).single()
+            ? await supabaseAdmin.from('profiles').select('full_name, apartment_name, flat_number, area').eq('id', sub.user_id).single()
             : { data: null }
           await sendWhatsAppToAdmin(
             `❌ Not Delivered [${delivery_date}]\nCustomer: ${profile?.full_name || sub?.user_id}\n` +
@@ -133,7 +139,7 @@ export async function POST(request) {
       if (!sub.products) return NextResponse.json({ error: 'Subscription product not found.' }, { status: 404 })
 
       // Record delivery log
-      await supabase.from('subscription_deliveries').upsert({
+      await supabaseAdmin.from('subscription_deliveries').upsert({
         subscription_id,
         user_id: sub.user_id,
         delivery_date,
@@ -183,8 +189,8 @@ export async function POST(request) {
 
         if (wallet && balance >= dailyAmount) {
           const newBalance = balance - dailyAmount
-          await supabase.from('wallet').update({ balance: newBalance }).eq('user_id', sub.user_id)
-          await supabase.from('wallet_transactions').insert({
+          await supabaseAdmin.from('wallet').update({ balance: newBalance }).eq('user_id', sub.user_id)
+          await supabaseAdmin.from('wallet_transactions').insert({
             user_id: sub.user_id,
             amount: dailyAmount,
             type: 'debit',
@@ -220,7 +226,7 @@ export async function POST(request) {
                 exp.setMonth(exp.getMonth() + 6)
                 expiryDate = exp.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
               }
-              await supabase.from('profiles').update({
+              await supabaseAdmin.from('profiles').update({
                 loyalty_points: newPoints,
                 streak_count: newStreak,
                 last_delivery_date: today,
@@ -232,7 +238,7 @@ export async function POST(request) {
 
           // Send delivery confirmation email
           try {
-            const { data: deliveryAuthUser } = await supabase.auth.admin.getUserById(sub.user_id)
+            const { data: deliveryAuthUser } = await supabaseAdmin.auth.admin.getUserById(sub.user_id)
             const deliveryEmail = deliveryAuthUser?.user?.email
             if (deliveryEmail) {
               const { data: deliveryProfile } = await supabase
@@ -259,7 +265,7 @@ export async function POST(request) {
             try {
               const { data: userProfile } = await supabase
                 .from('profiles').select('full_name, phone, email').eq('id', sub.user_id).single()
-              const { data: authUser } = await supabase.auth.admin.getUserById(sub.user_id)
+              const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(sub.user_id)
               const email = authUser?.user?.email || userProfile?.email
               const name = userProfile?.full_name || email
               if (email) await sendLowBalanceEmail({ to: email, name, balance: newBalance })
@@ -268,15 +274,15 @@ export async function POST(request) {
           }
         } else if (wallet && balance < dailyAmount) {
           // Insufficient balance — deactivate subscription
-          await supabase.from('subscriptions').update({ is_active: false, pending_delivery: false }).eq('id', subscription_id)
+          await supabaseAdmin.from('subscriptions').update({ is_active: false, pending_delivery: false }).eq('id', subscription_id)
           // Record in failed_deductions so admin dashboard count is accurate
-          await supabase.from('failed_deductions').insert({
+          await supabaseAdmin.from('failed_deductions').insert({
             user_id: sub.user_id,
             subscription_id,
             amount: dailyAmount,
             reason: 'Insufficient balance — deactivated on delivery confirm',
           }).catch(() => {})
-          await supabase.from('wallet_transactions').insert({
+          await supabaseAdmin.from('wallet_transactions').insert({
             user_id: sub.user_id,
             amount: 0,
             type: 'debit',
@@ -294,7 +300,7 @@ export async function POST(request) {
       }
 
       // Clear pending_delivery flag
-      await supabase.from('subscriptions').update({ pending_delivery: false }).eq('id', subscription_id)
+      await supabaseAdmin.from('subscriptions').update({ pending_delivery: false }).eq('id', subscription_id)
 
       // ── Bottle return tracking ──────────────────────────────────────────────
       if (bottle_returned === false) {
@@ -304,7 +310,7 @@ export async function POST(request) {
             .select('full_name, phone, apartment_name, flat_number, area, unreturned_bottles')
             .eq('id', sub.user_id).single()
           const newCount = (profileData?.unreturned_bottles || 0) + 1
-          await supabase.from('profiles').update({ unreturned_bottles: newCount }).eq('id', sub.user_id)
+          await supabaseAdmin.from('profiles').update({ unreturned_bottles: newCount }).eq('id', sub.user_id)
 
           // Admin alert — WhatsApp + email
           const bottleName = profileData?.full_name || sub.user_id
@@ -316,7 +322,7 @@ export async function POST(request) {
 
           // Auto-pause subscription when 3+ bottles unreturned
           if (newCount >= 3) {
-            await supabase.from('subscriptions').update({ is_active: false }).eq('id', subscription_id)
+            await supabaseAdmin.from('subscriptions').update({ is_active: false }).eq('id', subscription_id)
             if (profileData?.phone) {
               await sendWhatsAppMessage(
                 profileData.phone,
@@ -333,7 +339,7 @@ export async function POST(request) {
 
       // Schedule review request (non-blocking)
       try {
-        await supabase.from('review_requests').upsert({
+        await supabaseAdmin.from('review_requests').upsert({
           user_id: sub.user_id,
           delivery_date,
           send_after: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
@@ -361,8 +367,8 @@ export async function POST(request) {
       const amount = addonOrder.total_price || 0
 
       if (wallet && balance >= amount) {
-        await supabase.from('wallet').update({ balance: balance - amount }).eq('user_id', addonOrder.user_id)
-        await supabase.from('wallet_transactions').insert({
+        await supabaseAdmin.from('wallet').update({ balance: balance - amount }).eq('user_id', addonOrder.user_id)
+        await supabaseAdmin.from('wallet_transactions').insert({
           user_id: addonOrder.user_id,
           amount,
           type: 'debit',
