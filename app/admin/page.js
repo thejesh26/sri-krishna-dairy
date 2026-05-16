@@ -1869,6 +1869,22 @@ export default function AdminDashboard() {
                                 Send WA
                               </button>
                             </div>
+                            <button onClick={async () => {
+                              const { data: { session } } = await supabase.auth.getSession()
+                              const res = await fetch('/api/admin/generate-login-link', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                                body: JSON.stringify({ user_id: customer.id }),
+                              })
+                              if (res.ok) {
+                                showSuccess(`Login link sent to ${customer.full_name}'s WhatsApp!`)
+                              } else {
+                                const j = await res.json()
+                                showError(j.error || 'Failed to send login link.')
+                              }
+                            }} className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2.5 py-1 rounded-lg font-semibold hover:bg-blue-100 transition w-full text-center">
+                              🔗 Send Login Link
+                            </button>
                           </div>
                         </div>
                       </div>
