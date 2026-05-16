@@ -145,8 +145,10 @@ export async function POST(request) {
         delivery_date,
         delivered_at: deliveredAt,
         delivered_by: deliveredBy,
+        not_delivered: false,
+        bottle_returned: bottle_returned !== false,
         ...(photo_url ? { photo_url } : {}),
-      }, { onConflict: 'subscription_id,delivery_date' }).select()
+      }, { onConflict: 'subscription_id,delivery_date' })
 
       // ── Send delivery WhatsApp confirmation — always, regardless of wallet state ─
       try {
