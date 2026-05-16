@@ -29,7 +29,20 @@ export async function POST(request) {
     }
 
     // ── 2. Parse & validate input ────────────────────────────────────────────
+    // Parse body early to get delivery_slot for the slot check below
     const body = await request.json()
+    const delivery_slot_check = body.delivery_slot
+    // Check delivery slot is enabled
+    const slotKey = delivery_slot_check === 'morning' ? 'morning_slot_enabled' : 'evening_slot_enabled'
+    const { data: slotSetting } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', slotKey)
+      .maybeSingle()
+    if (slotSetting?.value === 'false') {
+      return NextResponse.json({ error: `${delivery_slot_check} slot is currently unavailable.` }, { status: 403 })
+    }
+
     const {
       items,
       start_date,

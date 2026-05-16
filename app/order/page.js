@@ -39,13 +39,33 @@ export default function Order() {
   const [deliverySlot, setDeliverySlot] = useState('morning')
   const [loading, setLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [morningEnabled, setMorningEnabled] = useState(true)
+  const [eveningEnabled, setEveningEnabled] = useState(true)
+  const [trialEnabled, setTrialEnabled] = useState(true)
   const { showSuccess, showError, showInfo } = useToast()
 
   useEffect(() => {
     getUser()
     getProducts()
     setDeliveryDate(getMinDate())
+    loadSettings()
   }, [])
+
+  const loadSettings = async () => {
+    const { data } = await supabase
+      .from('app_settings')
+      .select('key, value')
+      .in('key', ['morning_slot_enabled', 'evening_slot_enabled', 'trial_order_enabled'])
+    if (data) {
+      const map = {}
+      data.forEach(r => { map[r.key] = r.value })
+      setMorningEnabled(map['morning_slot_enabled'] !== 'false')
+      setEveningEnabled(map['evening_slot_enabled'] !== 'false')
+      setTrialEnabled(map['trial_order_enabled'] !== 'false')
+      if (map['morning_slot_enabled'] === 'false' && map['evening_slot_enabled'] !== 'false') setDeliverySlot('evening')
+      if (map['morning_slot_enabled'] !== 'false' && map['evening_slot_enabled'] === 'false') setDeliverySlot('morning')
+    }
+  }
 
   const getUser = async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -195,7 +215,13 @@ export default function Order() {
           </div>
         )}
 
-        <form onSubmit={handleOrder} className="flex flex-col gap-5">
+        {!trialEnabled && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-5 text-center">
+            <p className="font-bold text-red-700">Trial orders are currently unavailable.</p>
+            <p className="text-sm text-red-500 mt-1">Please check back later or contact us at 9980166221.</p>
+          </div>
+        )}
+        {trialEnabled && <form onSubmit={handleOrder} className="flex flex-col gap-5">
 
           {/* Product Selection */}
           <div className="bg-white rounded-lg p-5 shadow-sm border border-[#e8e0d0]">
@@ -231,22 +257,31 @@ export default function Order() {
           <div className="bg-white rounded-lg p-5 shadow-sm border border-[#e8e0d0]">
             <p className="text-sm font-bold text-[#1c1c1c] mb-3">Delivery Slot</p>
             <div className="grid grid-cols-2 gap-3">
-              <button type="button" onClick={() => setDeliverySlot('morning')}
-                className={`border-2 rounded-lg p-4 text-center transition ${
-                  deliverySlot === 'morning' ? 'border-[#d4a017] bg-[#fdf6e3]' : 'border-[#e8e0d0] hover:border-[#d4a017]'
-                }`}>
-                <div className="text-3xl mb-1">🌅</div>
-                <p className="font-bold text-[#1c1c1c] text-sm">Morning</p>
-                <p className="text-xs text-gray-400">7AM – 9AM</p>
-              </button>
-              <button type="button" onClick={() => setDeliverySlot('evening')}
-                className={`border-2 rounded-lg p-4 text-center transition ${
-                  deliverySlot === 'evening' ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#1a5c38]'
-                }`}>
-                <div className="text-3xl mb-1">🌆</div>
-                <p className="font-bold text-[#1c1c1c] text-sm">Evening</p>
-                <p className="text-xs text-gray-400">5PM – 7PM</p>
-              </button>
+              {morningEnabled && (
+                <button type="button" onClick={() => setDeliverySlot('morning')}
+                  className={`border-2 rounded-lg p-4 text-center transition ${
+                    deliverySlot === 'morning' ? 'border-[#d4a017] bg-[#fdf6e3]' : 'border-[#e8e0d0] hover:border-[#d4a017]'
+                  }`}>
+                  <div className="text-3xl mb-1">🌅</div>
+                  <p className="font-bold text-[#1c1c1c] text-sm">Morning</p>
+                  <p className="text-xs text-gray-400">7AM – 9AM</p>
+                </button>
+              )}
+              {eveningEnabled && (
+                <button type="button" onClick={() => setDeliverySlot('evening')}
+                  className={`border-2 rounded-lg p-4 text-center transition ${
+                    deliverySlot === 'evening' ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#1a5c38]'
+                  }`}>
+                  <div className="text-3xl mb-1">🌆</div>
+                  <p className="font-bold text-[#1c1c1c] text-sm">Evening</p>
+                  <p className="text-xs text-gray-400">5PM – 7PM</p>
+                </button>
+              )}
+              {!morningEnabled && !eveningEnabled && (
+                <div className="col-span-2 text-center py-4 text-gray-400 text-sm">
+                  No delivery slots available at the moment. Please check back later.
+                </div>
+              )}
             </div>
           </div>
 
@@ -334,8 +369,9 @@ export default function Order() {
             {loading ? 'Placing Order...' : '🥛 Place Order (COD)'}
           </button>
 
-        </form>
+        </form>}
         </>}
+
       </div>
 
       <Footer variant="app" />

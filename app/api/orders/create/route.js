@@ -53,6 +53,27 @@ export async function POST(request) {
     const body = await request.json()
     const { items, delivery_date, delivery_slot, delivery_mode, discount_code } = body
 
+    // Check if trial orders are enabled
+    const { data: trialSetting } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'trial_order_enabled')
+      .maybeSingle()
+    if (trialSetting?.value === 'false') {
+      return NextResponse.json({ error: 'Trial orders are currently disabled.' }, { status: 403 })
+    }
+
+    // Check delivery slot is enabled
+    const slotKey = delivery_slot === 'morning' ? 'morning_slot_enabled' : 'evening_slot_enabled'
+    const { data: slotSetting } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', slotKey)
+      .maybeSingle()
+    if (slotSetting?.value === 'false') {
+      return NextResponse.json({ error: `${delivery_slot} slot is currently unavailable.` }, { status: 403 })
+    }
+
     // Support both multi-item array and single-item (backward compat)
     const rawItems = items && Array.isArray(items)
       ? items

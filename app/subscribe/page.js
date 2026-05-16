@@ -60,6 +60,9 @@ export default function Subscribe() {
   const [walletBalance, setWalletBalance] = useState(0)
   const [depositBalance, setDepositBalance] = useState(0)
   const [subscriberLimitReached, setSubscriberLimitReached] = useState(false)
+  const [morningEnabled, setMorningEnabled] = useState(true)
+  const [eveningEnabled, setEveningEnabled] = useState(true)
+  const [trialEnabled, setTrialEnabled] = useState(true)
   const { showSuccess, showError } = useToast()
 
   const BOTTLE_DEPOSIT = 200
@@ -69,7 +72,24 @@ export default function Subscribe() {
     getProducts()
     setStartDate(getMinDate())
     checkSubscriberLimit()
+    loadSettings()
   }, [])
+
+  const loadSettings = async () => {
+    const { data } = await supabase
+      .from('app_settings')
+      .select('key, value')
+      .in('key', ['morning_slot_enabled', 'evening_slot_enabled', 'trial_order_enabled'])
+    if (data) {
+      const map = {}
+      data.forEach(r => { map[r.key] = r.value })
+      setMorningEnabled(map['morning_slot_enabled'] !== 'false')
+      setEveningEnabled(map['evening_slot_enabled'] !== 'false')
+      setTrialEnabled(map['trial_order_enabled'] !== 'false')
+      if (map['morning_slot_enabled'] === 'false' && map['evening_slot_enabled'] !== 'false') setDeliverySlot('evening')
+      if (map['morning_slot_enabled'] !== 'false' && map['evening_slot_enabled'] === 'false') setDeliverySlot('morning')
+    }
+  }
 
   const checkSubscriberLimit = async () => {
     const { data: settings } = await supabase
@@ -563,22 +583,31 @@ export default function Subscribe() {
           <div className="bg-white rounded-xl p-5 shadow-sm border border-[#e8e0d0]">
             <p className="text-sm font-bold text-[#1c1c1c] mb-4 font-[family-name:var(--font-playfair)]">Delivery Slot</p>
             <div className="grid grid-cols-2 gap-3">
-              <button type="button" onClick={() => setDeliverySlot('morning')}
-                className={`border-2 rounded-xl p-4 text-center transition ${
-                  deliverySlot === 'morning' ? 'border-[#d4a017] bg-[#fdf6e3]' : 'border-[#e8e0d0] hover:border-[#d4a017]'
-                }`}>
-                <div className="text-3xl mb-1">🌅</div>
-                <p className="font-bold text-[#1c1c1c] text-sm">Morning</p>
-                <p className="text-xs text-gray-400">7AM - 9AM</p>
-              </button>
-              <button type="button" onClick={() => setDeliverySlot('evening')}
-                className={`border-2 rounded-xl p-4 text-center transition ${
-                  deliverySlot === 'evening' ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#1a5c38]'
-                }`}>
-                <div className="text-3xl mb-1">🌆</div>
-                <p className="font-bold text-[#1c1c1c] text-sm">Evening</p>
-                <p className="text-xs text-gray-400">5PM - 7PM</p>
-              </button>
+              {morningEnabled && (
+                <button type="button" onClick={() => setDeliverySlot('morning')}
+                  className={`border-2 rounded-xl p-4 text-center transition ${
+                    deliverySlot === 'morning' ? 'border-[#d4a017] bg-[#fdf6e3]' : 'border-[#e8e0d0] hover:border-[#d4a017]'
+                  }`}>
+                  <div className="text-3xl mb-1">🌅</div>
+                  <p className="font-bold text-[#1c1c1c] text-sm">Morning</p>
+                  <p className="text-xs text-gray-400">7AM - 9AM</p>
+                </button>
+              )}
+              {eveningEnabled && (
+                <button type="button" onClick={() => setDeliverySlot('evening')}
+                  className={`border-2 rounded-xl p-4 text-center transition ${
+                    deliverySlot === 'evening' ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#1a5c38]'
+                  }`}>
+                  <div className="text-3xl mb-1">🌆</div>
+                  <p className="font-bold text-[#1c1c1c] text-sm">Evening</p>
+                  <p className="text-xs text-gray-400">5PM - 7PM</p>
+                </button>
+              )}
+              {!morningEnabled && !eveningEnabled && (
+                <div className="col-span-2 text-center py-4 text-gray-400 text-sm">
+                  No delivery slots available at the moment. Please check back later.
+                </div>
+              )}
             </div>
           </div>
 
