@@ -41,11 +41,10 @@ function getDateHelperText() {
 
 export default function Subscribe() {
   const router = useRouter()
-  const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [products, setProducts] = useState([])
-  const [selectedProduct, setSelectedProduct] = useState(null)
-  const [quantity, setQuantity] = useState(1)
+  const [selectedProducts, setSelectedProducts] = useState({})
+  // selectedProducts = { [product_id]: quantity }
   const [deliverySlot, setDeliverySlot] = useState('morning')
   const [deliveryFrequency, setDeliveryFrequency] = useState('daily')
   const [subscriptionType, setSubscriptionType] = useState('ongoing')
@@ -61,7 +60,7 @@ export default function Subscribe() {
   const [walletBalance, setWalletBalance] = useState(0)
   const [depositBalance, setDepositBalance] = useState(0)
   const [subscriberLimitReached, setSubscriberLimitReached] = useState(false)
-  const { showSuccess, showError, showInfo } = useToast()
+  const { showSuccess, showError } = useToast()
 
   const BOTTLE_DEPOSIT = 200
 
@@ -92,7 +91,6 @@ export default function Subscribe() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
     const u = session.user
-    setUser(u)
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
     setProfile(prof)
     // Fetch wallet balance and existing deposit balance
@@ -104,7 +102,7 @@ export default function Subscribe() {
   const getProducts = async () => {
     const { data } = await supabase.from('products').select('*').eq('is_available', true)
     setProducts(data || [])
-    if (data && data.length > 0) setSelectedProduct(data[0])
+    // no default selection — user picks per product
   }
 
   const applyDiscount = async () => {
@@ -131,11 +129,13 @@ export default function Subscribe() {
   }
 
   // ── Derived pricing values ───────────────────────────────────────────────
-  const dailyPrice = selectedProduct
-    ? Math.round(selectedProduct.price * quantity * (1 - discount / 100))
-    : 0
+  const selectedProductList = products.filter(p => selectedProducts[p.id])
 
-  const bottleDeposit = deliveryMode === 'keep_bottle' ? BOTTLE_DEPOSIT * quantity : 0
+  const dailyPrice = selectedProductList.reduce((sum, p) =>
+    sum + Math.round(p.price * selectedProducts[p.id] * (1 - discount / 100)), 0)
+
+  const totalQuantity = Object.values(selectedProducts).reduce((s, q) => s + q, 0)
+  const bottleDeposit = deliveryMode === 'keep_bottle' ? BOTTLE_DEPOSIT * totalQuantity : 0
 
   const deliveryCount = (() => {
     if (subscriptionType !== 'fixed' || !endDate) {
@@ -162,8 +162,10 @@ export default function Subscribe() {
 
   // ── Subscription activation payload (shared between both paths) ──────────
   const subscriptionPayload = () => ({
-    product_id: selectedProduct.id,
-    quantity,
+    items: selectedProductList.map(p => ({
+      product_id: p.id,
+      quantity: selectedProducts[p.id],
+    })),
     start_date: startDate,
     end_date: endDate || null,
     delivery_slot: deliverySlot,
@@ -212,7 +214,7 @@ export default function Subscribe() {
       const phone = digits.length === 10 ? '+91' + digits : ''
 
       // Calculate amounts
-      const depositAmount = deliveryMode === 'keep_bottle' ? quantity * 200 : 0
+      const depositAmount = deliveryMode === 'keep_bottle' ? totalQuantity * 200 : 0
       const subscriptionAmount = totalNeeded
       const totalAmount = subscriptionAmount
 
@@ -232,28 +234,29 @@ export default function Subscribe() {
       // Calculate payment needed
       const paymentNeeded = Math.max(0, totalAmount - existingBalance - existingDeposit)
 
-      // First create subscription in DB (inactive)
-      const { data: subscription, error: subError } = await supabase
-        .from('subscriptions')
-        .insert({
-          user_id: userId,
-          product_id: selectedProduct.id,
-          quantity: quantity,
-          is_active: false,
-          start_date: startDate,
-          end_date: endDate || null,
-          delivery_slot: deliverySlot,
-          subscription_type: subscriptionType,
-          bottle_deposit: depositAmount,
-          delivery_mode: deliveryMode,
-          delivery_frequency: deliveryFrequency,
-          discount_percent: discount,
-          paused_dates: [],
-        })
-        .select()
-        .single()
+      // Create one subscription per selected product (inactive)
+      const insertRows = selectedProductList.map(p => ({
+        user_id: userId,
+        product_id: p.id,
+        quantity: selectedProducts[p.id],
+        is_active: false,
+        start_date: startDate,
+        end_date: endDate || null,
+        delivery_slot: deliverySlot,
+        subscription_type: subscriptionType,
+        bottle_deposit: deliveryMode === 'keep_bottle' ? 200 * selectedProducts[p.id] : 0,
+        delivery_mode: deliveryMode,
+        delivery_frequency: deliveryFrequency,
+        discount_percent: discount,
+        paused_dates: [],
+      }))
 
-      if (subError) {
+      const { data: createdSubs, error: subError } = await supabase
+        .from('subscriptions')
+        .insert(insertRows)
+        .select('id')
+
+      if (subError || !createdSubs?.length) {
         showError('Failed to create subscription')
         setPaymentLoading(false)
         return
@@ -261,30 +264,21 @@ export default function Subscribe() {
 
       // If existing wallet balance is enough
       if (existingBalance >= totalAmount) {
-        // Deduct from wallet directly
-        await supabase
-          .from('wallet')
-          .update({
-            balance: existingBalance - subscriptionAmount,
-            deposit_balance: existingDeposit + additionalDeposit
-          })
-          .eq('user_id', userId)
+        await supabase.from('wallet').update({
+          balance: existingBalance - subscriptionAmount,
+          deposit_balance: existingDeposit + additionalDeposit,
+        }).eq('user_id', userId)
 
-        // Activate subscription
-        await supabase
-          .from('subscriptions')
+        await supabase.from('subscriptions')
           .update({ is_active: true })
-          .eq('id', subscription.id)
+          .in('id', createdSubs.map(s => s.id))
 
-        // Add transaction
-        await supabase
-          .from('wallet_transactions')
-          .insert({
-            user_id: userId,
-            amount: totalAmount,
-            type: 'debit',
-            description: 'Subscription activated using wallet balance'
-          })
+        await supabase.from('wallet_transactions').insert({
+          user_id: userId,
+          amount: totalAmount,
+          type: 'debit',
+          description: 'Subscription activated using wallet balance',
+        })
 
         showSuccess('Subscription activated!')
         setTimeout(() => {
@@ -307,7 +301,7 @@ export default function Subscribe() {
       if (orderData.orderId) {
         await supabase.from('subscriptions')
           .update({ razorpay_order_id: orderData.orderId })
-          .eq('id', subscription.id)
+          .in('id', createdSubs.map(s => s.id))
       }
 
       if (!orderData.orderId) {
@@ -339,7 +333,8 @@ export default function Subscribe() {
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
               type: 'subscription',
-              subscriptionId: subscription.id,
+              subscriptionId: createdSubs[0]?.id,
+              subscriptionIds: createdSubs.map(s => s.id),
               userId: userId,
               amount: amountToPay,
               deposit: additionalDeposit,
@@ -396,19 +391,6 @@ export default function Subscribe() {
     }
 
     const { data: { session } } = await supabase.auth.getSession()
-
-    // Check no existing active subscription
-    const { data: existingSub } = await supabase
-      .from('subscriptions')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .maybeSingle()
-    if (existingSub) {
-      showInfo('You already have an active subscription! Please manage your existing plan first.')
-      setLoading(false)
-      return
-    }
 
     // Activate using wallet balance
     if (walletCovers) {
@@ -545,33 +527,35 @@ export default function Subscribe() {
               {products.length === 0 && [1,2].map(i => <SkeletonProductCard key={i} />)}
               {products.map((product) => (
                 <button type="button" key={product.id}
-                  onClick={() => setSelectedProduct(product)}
+                  onClick={() => {
+                    setSelectedProducts(prev => {
+                      if (prev[product.id]) {
+                        const next = { ...prev }
+                        delete next[product.id]
+                        return next
+                      }
+                      return { ...prev, [product.id]: 1 }
+                    })
+                  }}
                   className={`border-2 rounded-xl p-4 text-center transition ${
-                    selectedProduct?.id === product.id ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#1a5c38]'
+                    selectedProducts[product.id] ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#1a5c38]'
                   }`}>
                   <div className="flex justify-center mb-2"><img src="/bottle.png" alt="Milk" className="h-14 object-contain drop-shadow-md" /></div>
                   <p className="font-bold text-[#1c1c1c] text-sm">{product.size}</p>
                   <p className="text-[#1a5c38] font-extrabold">₹{product.price}/day</p>
+                  {selectedProducts[product.id] && (
+                    <div className="flex items-center justify-center gap-3 mt-2" onClick={e => e.stopPropagation()}>
+                      <button type="button" onClick={() => setSelectedProducts(prev => ({
+                        ...prev, [product.id]: Math.max(1, (prev[product.id] || 1) - 1)
+                      }))} className="w-7 h-7 rounded-full border border-[#1a5c38] text-[#1a5c38] font-bold text-sm">-</button>
+                      <span className="font-bold text-[#1c1c1c]">{selectedProducts[product.id]}</span>
+                      <button type="button" onClick={() => setSelectedProducts(prev => ({
+                        ...prev, [product.id]: (prev[product.id] || 1) + 1
+                      }))} className="w-7 h-7 rounded-full border border-[#1a5c38] text-[#1a5c38] font-bold text-sm">+</button>
+                    </div>
+                  )}
                 </button>
               ))}
-            </div>
-          </div>
-
-          {/* Quantity */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-[#e8e0d0]">
-            <p className="text-sm font-bold text-[#1c1c1c] mb-4 font-[family-name:var(--font-playfair)]">Quantity (Bottles per day)</p>
-            <div className="flex items-center justify-center gap-6">
-              <button type="button"
-                onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                className="w-10 h-10 rounded-full border-2 border-[#e8e0d0] text-[#1a5c38] font-bold text-xl hover:border-[#1a5c38] hover:bg-[#f0faf4] transition">
-                -
-              </button>
-              <span className="font-[family-name:var(--font-playfair)] text-4xl font-bold text-[#1c1c1c]">{quantity}</span>
-              <button type="button"
-                onClick={() => setQuantity(q => q + 1)}
-                className="w-10 h-10 rounded-full border-2 border-[#e8e0d0] text-[#1a5c38] font-bold text-xl hover:border-[#1a5c38] hover:bg-[#f0faf4] transition">
-                +
-              </button>
             </div>
           </div>
 
@@ -746,7 +730,7 @@ export default function Subscribe() {
           </div>
 
           {/* ── Wallet Balance & Deposit Info ─────────────────────────────────── */}
-          {selectedProduct && (
+          {selectedProductList.length > 0 && (
             <div className="bg-white rounded-xl border border-[#e8e0d0] p-5 shadow-sm">
               <p className="text-sm font-bold text-[#1c1c1c] mb-3 font-[family-name:var(--font-playfair)]">💰 Wallet & Deposit</p>
 
@@ -831,7 +815,7 @@ export default function Subscribe() {
           )}
 
           {/* Delivery count info box */}
-          {selectedProduct && (
+          {selectedProductList.length > 0 && (
             <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-xl p-4">
               {(() => {
                 const freqLabel = deliveryFrequency === 'alternate' ? 'Every 2 Days' : deliveryFrequency === 'weekly' ? 'Weekly' : 'Daily'
@@ -866,14 +850,16 @@ export default function Subscribe() {
           <div className="rounded-xl p-6 text-white shadow-lg"
             style={{background:'linear-gradient(135deg, #0d3320 0%, #1a5c38 100%)'}}>
             <p className="text-xs font-semibold text-green-200 uppercase tracking-widest mb-4">Subscription Summary</p>
-            <div className="flex justify-between text-sm mb-2">
-              <span className="text-green-200">{selectedProduct?.size} × {quantity}/day</span>
-              <span>₹{selectedProduct?.price * quantity}/day</span>
-            </div>
+            {selectedProductList.map(p => (
+              <div key={p.id} className="flex justify-between text-sm mb-2">
+                <span className="text-green-200">{p.size} × {selectedProducts[p.id]}/day</span>
+                <span>₹{p.price * selectedProducts[p.id]}/day</span>
+              </div>
+            ))}
             {discount > 0 && (
               <div className="flex justify-between text-sm mb-2 text-[#d4a017]">
                 <span>Discount ({discount}%)</span>
-                <span>− ₹{(selectedProduct?.price * quantity * discount / 100).toFixed(1).replace(/\.0$/, '')}/day</span>
+                <span>− ₹{(dailyPrice * discount / (100 - discount)).toFixed(1).replace(/\.0$/, '')}/day</span>
               </div>
             )}
             {additionalDeposit > 0 && (
@@ -904,7 +890,7 @@ export default function Subscribe() {
                 </div>
               </div>
             )}
-            {subscriptionType === 'ongoing' && selectedProduct && (
+            {subscriptionType === 'ongoing' && selectedProductList.length > 0 && (
               <div className="flex justify-between text-sm mb-2 text-green-300">
                 <span>Est. monthly</span>
                 <span>~₹{Math.round(dailyPrice * (deliveryFrequency === 'alternate' ? 15 : deliveryFrequency === 'weekly' ? 4 : 30))}/mo</span>
@@ -963,7 +949,7 @@ export default function Subscribe() {
           <button
             type="button"
             onClick={handlePayment}
-            disabled={paymentLoading || !selectedProduct || !agreedToTerms || totalNeeded === 0}
+            disabled={paymentLoading || Object.keys(selectedProducts).length === 0 || !agreedToTerms || totalNeeded === 0}
             className="w-full text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition shadow-lg disabled:opacity-50"
             style={{background: 'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
             {paymentLoading ? 'Processing...' : `Pay ₹${totalNeeded} & Subscribe`}

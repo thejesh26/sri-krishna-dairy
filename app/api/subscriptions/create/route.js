@@ -31,30 +31,30 @@ export async function POST(request) {
     // ── 2. Parse & validate input ────────────────────────────────────────────
     const body = await request.json()
     const {
-      product_id,
-      quantity,
+      items,
       start_date,
       end_date,
       delivery_slot,
       subscription_type,
       delivery_mode,
       discount_code,
-      // wallet_only: true  → activate immediately from wallet, no Razorpay
-      // wallet_only: false → create pending subscription, Razorpay will activate
       wallet_only = false,
-      // additional_deposit: only the incremental deposit this user needs to pay
-      // (full deposit minus any deposit_balance they already have)
       additional_deposit = 0,
       delivery_frequency = 'daily',
     } = body
 
-    if (!product_id || (typeof product_id !== 'string' && typeof product_id !== 'number')) {
-      return NextResponse.json({ error: 'Invalid product.' }, { status: 400 })
+    if (!Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: 'At least one product item is required.' }, { status: 400 })
     }
-    const qty = parseInt(quantity, 10)
-    if (!Number.isInteger(qty) || qty < 1 || qty > 20) {
-      return NextResponse.json({ error: 'Quantity must be between 1 and 20.' }, { status: 400 })
+
+    for (const item of items) {
+      if (!item.product_id) return NextResponse.json({ error: 'Each item requires a product_id.' }, { status: 400 })
+      const qty = parseInt(item.quantity, 10)
+      if (!Number.isInteger(qty) || qty < 1 || qty > 20) {
+        return NextResponse.json({ error: 'Each item quantity must be between 1 and 20.' }, { status: 400 })
+      }
     }
+
     if (!start_date || !/^\d{4}-\d{2}-\d{2}$/.test(start_date)) {
       return NextResponse.json({ error: 'Invalid start date.' }, { status: 400 })
     }
@@ -87,18 +87,23 @@ export async function POST(request) {
       resolvedEndDate = end_date
     }
 
-    // ── 3. Verify product ────────────────────────────────────────────────────
-    const { data: product, error: productError } = await supabase
+    // ── 3. Verify all products ───────────────────────────────────────────────
+    const productIds = items.map(i => i.product_id)
+    const { data: products, error: productError } = await supabase
       .from('products')
       .select('id, price, size, is_available')
-      .eq('id', product_id)
-      .single()
+      .in('id', productIds)
 
-    if (productError || !product) {
-      return NextResponse.json({ error: 'Product not found.' }, { status: 404 })
+    if (productError || !products?.length) {
+      return NextResponse.json({ error: 'Products not found.' }, { status: 404 })
     }
-    if (!product.is_available) {
-      return NextResponse.json({ error: 'Product is currently unavailable.' }, { status: 400 })
+
+    const productMap = Object.fromEntries(products.map(p => [p.id, p]))
+
+    for (const item of items) {
+      const p = productMap[item.product_id]
+      if (!p) return NextResponse.json({ error: `Product ${item.product_id} not found.` }, { status: 404 })
+      if (!p.is_available) return NextResponse.json({ error: `Product ${p.size} is currently unavailable.` }, { status: 400 })
     }
 
     // ── 4. Validate discount code ────────────────────────────────────────────
@@ -120,28 +125,22 @@ export async function POST(request) {
       }
     }
 
-    // ── 5. Compute bottle deposit ────────────────────────────────────────────
-    // Full deposit for this subscription (used for record-keeping on the row)
-    const bottleDeposit = delivery_mode === 'keep_bottle' ? BOTTLE_DEPOSIT_PER_UNIT * qty : 0
-    // Incremental deposit: validated server-side — must not exceed full bottleDeposit
+    // ── 5. Compute totals ────────────────────────────────────────────────────
+    const parsedItems = items.map(item => ({
+      ...item,
+      quantity: parseInt(item.quantity, 10),
+      product: productMap[item.product_id],
+    }))
+
+    const totalQty = parsedItems.reduce((s, i) => s + i.quantity, 0)
+    const bottleDeposit = delivery_mode === 'keep_bottle' ? BOTTLE_DEPOSIT_PER_UNIT * totalQty : 0
     const addlDeposit = Math.min(Math.max(0, Number(additional_deposit) || 0), bottleDeposit)
 
-    // ── 6. Check for existing active subscription ────────────────────────────
-    const { data: existingSub } = await supabase
-      .from('subscriptions')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .maybeSingle()
+    const dailyAmount = parsedItems.reduce((sum, i) =>
+      sum + Math.round(i.product.price * i.quantity * (1 - discountPercent / 100)), 0)
 
-    if (existingSub) {
-      return NextResponse.json({ error: 'You already have an active subscription.' }, { status: 409 })
-    }
-
-    // ── 7a. WALLET-ONLY PATH ─────────────────────────────────────────────────
-    // Customer has enough wallet balance — no Razorpay needed.
+    // ── 6. WALLET-ONLY PATH ──────────────────────────────────────────────────
     if (wallet_only) {
-      const dailyAmount = Math.round(product.price * qty * (1 - discountPercent / 100))
       const calendarDays = subscription_type === 'oneday' ? 1
         : subscription_type === 'fixed' && resolvedEndDate
           ? Math.max(1, Math.round((new Date(resolvedEndDate) - new Date(start_date)) / (1000 * 60 * 60 * 24)) + 1)
@@ -153,7 +152,6 @@ export async function POST(request) {
         return calendarDays
       })()
 
-      // Wallet must cover: milk buffer for deliveryCount deliveries + additional deposit
       const totalNeeded = dailyAmount * deliveryCount + addlDeposit
 
       const { data: wallet } = await supabase
@@ -171,7 +169,6 @@ export async function POST(request) {
         )
       }
 
-      // Transfer additional deposit from spendable balance → deposit_balance
       if (addlDeposit > 0 && wallet) {
         await supabase.from('wallet').update({
           deposit_balance: (wallet.deposit_balance || 0) + addlDeposit,
@@ -184,32 +181,31 @@ export async function POST(request) {
         })
       }
 
-      // Create subscription — active immediately
-      const { data: sub, error: insertError } = await supabase
+      const insertRows = parsedItems.map(item => ({
+        user_id: user.id,
+        product_id: item.product_id,
+        quantity: item.quantity,
+        start_date,
+        end_date: resolvedEndDate,
+        delivery_slot,
+        subscription_type,
+        delivery_mode,
+        delivery_frequency: freq,
+        bottle_deposit: delivery_mode === 'keep_bottle' ? BOTTLE_DEPOSIT_PER_UNIT * item.quantity : 0,
+        discount_percent: discountPercent,
+        is_active: true,
+        paused_dates: [],
+      }))
+
+      const { data: subs, error: insertError } = await supabase
         .from('subscriptions')
-        .insert({
-          user_id: user.id,
-          product_id: product.id,
-          quantity: qty,
-          start_date,
-          end_date: resolvedEndDate,
-          delivery_slot,
-          subscription_type,
-          delivery_mode,
-          delivery_frequency: freq,
-          bottle_deposit: bottleDeposit,
-          discount_percent: discountPercent,
-          is_active: true,
-          paused_dates: [],
-        })
+        .insert(insertRows)
         .select('id')
-        .single()
 
       if (insertError) {
         return NextResponse.json({ error: insertError.message }, { status: 500 })
       }
 
-      // Record one-time discount code usage
       if (usedDbCode?.one_time_per_customer) {
         await supabase.from('discount_code_usage').upsert(
           { code_id: usedDbCode.id, user_id: user.id },
@@ -221,57 +217,53 @@ export async function POST(request) {
       try {
         const { data: profile } = await supabase.from('profiles').select('full_name, phone').eq('id', user.id).single()
         const name = profile?.full_name || user.email
+        const firstItem = parsedItems[0]
         await sendSubscriptionConfirmationEmail({
-          to: user.email, name, product: product.size, quantity: qty,
+          to: user.email, name, product: firstItem.product.size, quantity: firstItem.quantity,
           startDate: start_date, deliverySlot: delivery_slot, dailyAmount,
         })
         await notifySubscriptionActivated({
-          phone: profile?.phone, name, size: product.size, quantity: qty,
+          phone: profile?.phone, name, size: firstItem.product.size, quantity: firstItem.quantity,
           startDate: start_date, slot: delivery_slot, dailyAmount, frequency: freq,
         })
       } catch { /* non-blocking */ }
 
-      return NextResponse.json({ success: true, subscription_id: sub.id })
+      return NextResponse.json({ success: true, subscription_ids: subs.map(s => s.id) })
     }
 
-    // ── 7b. RAZORPAY PATH — create pending subscription ──────────────────────
-    // Payment hasn't happened yet. Create with is_active = false.
-    // verify-payment will set is_active = true after payment succeeds.
-
-    // Clean up stale pending subscriptions for this user (idempotency / cleanup)
+    // ── 7. RAZORPAY PATH — create pending subscriptions ──────────────────────
     await supabase
       .from('subscriptions')
       .delete()
       .eq('user_id', user.id)
       .eq('is_active', false)
 
-    const { data: sub, error: insertError } = await supabase
+    const insertRows = parsedItems.map(item => ({
+      user_id: user.id,
+      product_id: item.product_id,
+      quantity: item.quantity,
+      start_date,
+      end_date: resolvedEndDate,
+      delivery_slot,
+      subscription_type,
+      delivery_mode,
+      delivery_frequency: freq,
+      bottle_deposit: delivery_mode === 'keep_bottle' ? BOTTLE_DEPOSIT_PER_UNIT * item.quantity : 0,
+      discount_percent: discountPercent,
+      is_active: false,
+      paused_dates: [],
+    }))
+
+    const { data: subs, error: insertError } = await supabase
       .from('subscriptions')
-      .insert({
-        user_id: user.id,
-        product_id: product.id,
-        quantity: qty,
-        start_date,
-        end_date: resolvedEndDate,
-        delivery_slot,
-        subscription_type,
-        delivery_mode,
-        delivery_frequency: freq,
-        bottle_deposit: bottleDeposit,
-        discount_percent: discountPercent,
-        is_active: false,   // ← pending; verify-payment activates this
-        paused_dates: [],
-      })
+      .insert(insertRows)
       .select('id')
-      .single()
 
     if (insertError) {
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
-    // Notifications are sent after activation (in verify-payment path)
-    // We return the subscription_id so the client can pass it to verify-payment
-    return NextResponse.json({ success: true, subscription_id: sub.id })
+    return NextResponse.json({ success: true, subscription_ids: subs.map(s => s.id) })
 
   } catch {
     return NextResponse.json({ error: 'Server error.' }, { status: 500 })
