@@ -52,7 +52,7 @@ export async function POST(request) {
         delivery_slot: delivery_slot || 'morning',
         payment_method: 'COD',
         status: 'pending',
-        total_amount: totalAmount,
+        total_price: totalAmount,
       })
       .select('id')
       .single()
