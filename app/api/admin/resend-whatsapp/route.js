@@ -64,7 +64,7 @@ export async function POST(request) {
         to: '918553666002',
         type: 'template',
         template: {
-          name: 'order_confirmed',
+          name: 'order_confirmed_',
           language: { code: 'en' },
           components: [{
             type: 'body',
@@ -157,7 +157,7 @@ export async function POST(request) {
         to: phone,
         type: 'template',
         template: {
-          name: 'order_confirmed',
+          name: 'order_confirmed_',
           language: { code: 'en' },
           components: [{ type: 'body', parameters: params.map(text => ({ type: 'text', text })) }],
         },
