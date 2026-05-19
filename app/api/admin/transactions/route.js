@@ -33,7 +33,11 @@ export async function GET(request) {
       .lte('created_at', end + 'T23:59:59')
       .order('created_at', { ascending: false })
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) {
+  console.error('[Transactions] Query error:', error.message, error.code, JSON.stringify(error))
+  return NextResponse.json({ error: error.message }, { status: 500 })
+}
+console.log('[Transactions] Found:', transactions?.length, 'transactions')
 
     return NextResponse.json({ transactions: transactions || [] })
   } catch (err) {
