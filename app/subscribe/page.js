@@ -22,7 +22,7 @@ function getUpcomingDeliveryDates(startDate, frequency, count = 6) {
   const dates = []
   const step = frequency === 'alternate' ? 2 : frequency === 'weekly' ? 7 : 1
   for (let i = 0; i < count; i++) {
-    const d = new Date(startDate)
+    const d = new Date(startDate + 'T00:00:00')
     d.setDate(d.getDate() + i * step)
     dates.push(d)
   }
@@ -35,9 +35,6 @@ function getMinDate() {
   return tomorrow.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 }
 
-function getDateHelperText() {
-  return { primary: "Delivery starts from tomorrow", secondary: null }
-}
 
 export default function Subscribe() {
   const router = useRouter()
@@ -466,18 +463,16 @@ export default function Subscribe() {
         )}
 
         {/* Ordering window notice */}
-        {(() => {
-          const { primary, secondary } = getDateHelperText()
-          return (
-            <div className="bg-[#fdf6e3] border border-[#f0dfa0] rounded-xl p-4 mb-4 flex items-center gap-3">
-              <span className="text-2xl">⏰</span>
-              <div>
-                <p className="text-[#d4a017] text-sm font-semibold">{primary}</p>
-                {secondary && <p className="text-yellow-600 text-xs mt-0.5">{secondary}</p>}
-              </div>
-            </div>
-          )
-        })()}
+        <div className="bg-[#fdf6e3] border border-[#f0dfa0] rounded-xl p-4 mb-4 flex items-center gap-3">
+          <span className="text-2xl">⏰</span>
+          <div>
+            <p className="text-[#d4a017] text-sm font-semibold">
+              {startDate
+                ? `First delivery: ${new Date(startDate + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}`
+                : 'Select a start date below'}
+            </p>
+          </div>
+        </div>
 
         {/* Wallet transparency note */}
         {!subscriberLimitReached && (
@@ -698,14 +693,11 @@ export default function Subscribe() {
               onChange={(e) => { setStartDate(e.target.value); setFixedPreset(null); setEndDate('') }}
               min={getMinDate()}
               className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
-            {(() => {
-              const { primary, secondary } = getDateHelperText()
-              return (
-                <p className="text-xs text-gray-500 mt-2">
-                  ⏰ {primary}{secondary && <><br /><span className="text-gray-400">{secondary}</span></>}
-                </p>
-              )
-            })()}
+            {startDate && (
+              <p className="text-xs text-[#1a5c38] font-semibold mt-2">
+                ⏰ First delivery: {new Date(startDate + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+            )}
             {subscriptionType === 'fixed' && (
               <>
                 <p className="text-sm font-bold text-[#1c1c1c] mb-3 mt-4 font-[family-name:var(--font-playfair)]">Duration</p>
@@ -718,9 +710,12 @@ export default function Subscribe() {
                   ].map(({ label, days }) => {
                     const calcEnd = () => {
                       if (!startDate) return ''
-                      const d = new Date(startDate)
+                      const d = new Date(startDate + 'T00:00:00')
                       d.setDate(d.getDate() + days - 1)
-                      return d.toISOString().split('T')[0]
+                      const y = d.getFullYear()
+                      const m = String(d.getMonth() + 1).padStart(2, '0')
+                      const day = String(d.getDate()).padStart(2, '0')
+                      return `${y}-${m}-${day}`
                     }
                     return (
                       <button type="button" key={days}
@@ -736,7 +731,7 @@ export default function Subscribe() {
                 </div>
                 {fixedPreset && endDate && (
                   <p className="text-xs text-[#1a5c38] font-semibold mt-3 bg-[#f0faf4] rounded-lg p-2 text-center">
-                    📅 Ends on {new Date(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    📅 Ends on {new Date(endDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </p>
                 )}
                 {!fixedPreset && (
@@ -800,7 +795,7 @@ export default function Subscribe() {
                 const durationLabel = subscriptionType === 'ongoing' ? 'Ongoing'
                   : fixedPreset === 7 ? '1 Week' : fixedPreset === 14 ? '2 Weeks'
                   : fixedPreset === 30 ? '1 Month' : fixedPreset === 90 ? '3 Months'
-                  : endDate ? new Date(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '-'
+                  : endDate ? new Date(endDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '-'
                 return (
                   <>
                     <p className="text-xs font-bold text-[#1a5c38] mb-2">
