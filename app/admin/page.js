@@ -524,13 +524,12 @@ export default function AdminDashboard() {
 
   const loadTransactions = async (startDate, endDate) => {
     setTransactionsLoading(true)
-    const { data } = await supabase
-      .from('wallet_transactions')
-      .select('*, profiles!wallet_transactions_user_id_fkey(full_name, phone)')
-      .gte('created_at', startDate + 'T00:00:00')
-      .lte('created_at', endDate + 'T23:59:59')
-      .order('created_at', { ascending: false })
-    setTransactions(data || [])
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(`/api/admin/transactions?start=${startDate}&end=${endDate}`, {
+      headers: { Authorization: `Bearer ${session?.access_token}` }
+    })
+    const result = await res.json()
+    setTransactions(result.transactions || [])
     setTransactionsLoaded(true)
     setTransactionsLoading(false)
   }
