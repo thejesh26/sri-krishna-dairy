@@ -15,7 +15,7 @@ export async function GET(request) {
 
   const { data: subscriptions, error } = await supabase
     .from('subscriptions')
-    .select('user_id, quantity, discount_percent, delivery_frequency, products(price)')
+    .select('user_id, quantity, discount_percent, subscription_type, products(price)')
     .eq('is_active', true)
     .lte('start_date', today)
     .or(`end_date.is.null,end_date.gte.${today}`)
@@ -27,11 +27,14 @@ export async function GET(request) {
 
   for (const sub of subscriptions || []) {
     if (!sub.products?.price) { skipped++; continue }
+    if (sub.subscription_type === 'fixed') { skipped++; continue }
 
     const dailyAmount = Math.round(
       sub.products.price * sub.quantity * (1 - (sub.discount_percent || 0) / 100)
     )
     if (dailyAmount <= 0) { skipped++; continue }
+
+    const threshold = dailyAmount * 7
 
     const { data: wallet } = await supabase
       .from('wallet')
@@ -39,17 +42,7 @@ export async function GET(request) {
       .eq('user_id', sub.user_id)
       .maybeSingle()
 
-    const balance = wallet?.balance ?? 0
-    const freq = sub.delivery_frequency || 'daily'
-
-    // Days until balance runs out, accounting for delivery frequency
-    const deliveriesRemaining = Math.floor(balance / dailyAmount)
-    let daysLeft
-    if (freq === 'alternate') daysLeft = deliveriesRemaining * 2
-    else if (freq === 'weekly') daysLeft = deliveriesRemaining * 7
-    else daysLeft = deliveriesRemaining
-
-    if (daysLeft > 3 || daysLeft <= 0) { skipped++; continue }
+    if (!wallet || wallet.balance <= 0 || wallet.balance >= threshold) { skipped++; continue }
 
     try {
       const { data: prof } = await supabase
@@ -62,10 +55,10 @@ export async function GET(request) {
       const email = authUser?.user?.email
       const name = prof?.full_name || 'Customer'
 
-      if (prof?.phone) await sendLowBalanceAlert(prof.phone, name, balance)
-      if (email) await sendLowBalanceEmail({ to: email, name, balance })
+      if (prof?.phone) await sendLowBalanceAlert(prof.phone, name, wallet.balance)
+      if (email) await sendLowBalanceEmail({ to: email, name, balance: wallet.balance })
 
-      console.log(`[LowBalanceWarning] Warned ${name} — balance ₹${balance}, days left: ${daysLeft}`)
+      console.log(`[LowBalanceWarning] Warned ${name} — balance ₹${wallet.balance}, threshold ₹${threshold}`)
       warned++
     } catch (err) {
       console.error('[LowBalanceWarning] Notify failed for user', sub.user_id, err?.message)

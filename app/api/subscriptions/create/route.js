@@ -154,18 +154,12 @@ export async function POST(request) {
 
     // ── 6. WALLET-ONLY PATH ──────────────────────────────────────────────────
     if (wallet_only) {
-      const calendarDays = subscription_type === 'oneday' ? 1
-        : subscription_type === 'fixed' && resolvedEndDate
-          ? Math.max(1, Math.round((new Date(resolvedEndDate) - new Date(start_date)) / (1000 * 60 * 60 * 24)) + 1)
-          : 30
+      const depositAmount = delivery_mode === 'keep_bottle' ? BOTTLE_DEPOSIT_PER_UNIT * totalQty : 0
+      const daysToCheck = subscription_type === 'fixed' && resolvedEndDate
+        ? Math.ceil((new Date(resolvedEndDate) - new Date(start_date)) / (1000 * 60 * 60 * 24))
+        : 30
 
-      const deliveryCount = (() => {
-        if (freq === 'alternate') return Math.floor(calendarDays / 2) + (calendarDays % 2 === 1 ? 1 : 0)
-        if (freq === 'weekly') return Math.floor(calendarDays / 7) + 1
-        return calendarDays
-      })()
-
-      const totalNeeded = dailyAmount * deliveryCount + addlDeposit
+      const requiredWalletAmount = (dailyAmount * daysToCheck) + depositAmount
 
       const { data: wallet } = await supabase
         .from('wallet')
@@ -173,25 +167,12 @@ export async function POST(request) {
         .eq('user_id', user.id)
         .maybeSingle()
 
-      const walletBalance = wallet?.balance || 0
+      const currentBalance = wallet?.balance || 0
 
-      if (walletBalance < totalNeeded) {
-        return NextResponse.json(
-          { error: `Insufficient wallet balance. Need ₹${totalNeeded}, have ₹${walletBalance}.` },
-          { status: 400 }
-        )
-      }
-
-      if (addlDeposit > 0 && wallet) {
-        await supabase.from('wallet').update({
-          deposit_balance: (wallet.deposit_balance || 0) + addlDeposit,
-        }).eq('user_id', user.id)
-        await supabase.from('wallet_transactions').insert({
-          user_id: user.id,
-          amount: addlDeposit,
-          type: 'debit',
-          description: 'Bottle deposit for subscription activation',
-        })
+      if (currentBalance < requiredWalletAmount) {
+        return NextResponse.json({
+          error: `Insufficient wallet balance. Required: ₹${requiredWalletAmount} (${daysToCheck} days × ₹${dailyAmount} + ₹${depositAmount} deposit). Available: ₹${currentBalance}. Please recharge ₹${requiredWalletAmount - currentBalance} more.`
+        }, { status: 400 })
       }
 
       const insertRows = parsedItems.map(item => ({
@@ -217,6 +198,20 @@ export async function POST(request) {
 
       if (insertError) {
         return NextResponse.json({ error: insertError.message }, { status: 500 })
+      }
+
+      if (depositAmount > 0) {
+        await supabase.from('wallet').update({
+          balance: currentBalance - depositAmount,
+          deposit_balance: (wallet?.deposit_balance || 0) + depositAmount
+        }).eq('user_id', user.id)
+
+        await supabase.from('wallet_transactions').insert({
+          user_id: user.id,
+          amount: depositAmount,
+          type: 'debit',
+          description: `Bottle deposit for subscription [${subs[0].id}]`
+        })
       }
 
       if (usedDbCode?.one_time_per_customer) {

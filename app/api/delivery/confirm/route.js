@@ -268,8 +268,8 @@ export async function POST(request) {
             console.error('[Delivery] Email notification failed:', notifyErr?.message)
           }
 
-          // Low balance alert if dropped below Rs.300
-          if (newBalance < 300) {
+          const lowBalanceThreshold = dailyAmount * 7
+          if (newBalance < lowBalanceThreshold) {
             try {
               const { data: userProfile } = await supabase
                 .from('profiles').select('full_name, phone, email').eq('id', sub.user_id).single()

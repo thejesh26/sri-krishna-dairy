@@ -171,14 +171,16 @@ export default function Subscribe() {
 
   // Additional deposit = only what's needed on top of existing deposit_balance
   const additionalDeposit = Math.max(0, bottleDeposit - depositBalance)
-  // Total the customer needs to have covered (milk buffer + any extra deposit)
-  const totalNeeded = dailyPrice * deliveryCount + additionalDeposit
-  // How much wallet can cover
+  const depositAmount = deliveryMode === 'keep_bottle' ? BOTTLE_DEPOSIT * totalQuantity : 0
+  const daysToCheck = subscriptionType === 'fixed'
+    ? Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24))
+    : 30
+  const requiredWalletAmount = (dailyPrice * daysToCheck) + depositAmount
+  const shortfall = Math.max(0, requiredWalletAmount - walletBalance)
+  const totalNeeded = requiredWalletAmount
   const walletUsed = Math.min(walletBalance, totalNeeded)
-  // How much still needs to go through Razorpay
-  const razorpayNeeded = Math.max(0, totalNeeded - walletBalance)
-  // True when wallet covers everything — no Razorpay
-  const walletCovers = walletBalance >= totalNeeded && totalNeeded > 0
+  const razorpayNeeded = shortfall
+  const walletCovers = shortfall === 0 && totalNeeded > 0
 
   // ── Subscription activation payload (shared between both paths) ──────────
   const subscriptionPayload = () => ({
@@ -762,83 +764,30 @@ export default function Subscribe() {
           {selectedProductList.length > 0 && (
             <div className="bg-white rounded-xl border border-[#e8e0d0] p-5 shadow-sm">
               <p className="text-sm font-bold text-[#1c1c1c] mb-3 font-[family-name:var(--font-playfair)]">💰 Wallet & Deposit</p>
-
-              {/* Wallet balance row */}
               <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
-                <span className="text-sm text-gray-600">Your wallet balance</span>
-                <span className={`font-bold text-sm ${walletBalance > 0 ? 'text-[#1a5c38]' : 'text-gray-400'}`}>
-                  ₹{walletBalance}
-                </span>
-              </div>
-
-              {/* Deposit rows */}
-              {deliveryMode === 'keep_bottle' && (
-                <>
-                  <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
-                    <span className="text-sm text-gray-600">Bottle deposit required</span>
-                    <span className="font-semibold text-sm text-[#1c1c1c]">₹{bottleDeposit}</span>
-                  </div>
-                  {depositBalance > 0 && (
-                    <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
-                      <span className="text-sm text-[#1a5c38]">✅ Deposit already paid</span>
-                      <span className="font-semibold text-sm text-[#1a5c38]">− ₹{Math.min(depositBalance, bottleDeposit)}</span>
-                    </div>
-                  )}
-                  {additionalDeposit > 0 && (
-                    <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
-                      <span className="text-sm text-orange-600 font-medium">Additional deposit needed</span>
-                      <span className="font-bold text-sm text-orange-600">₹{additionalDeposit}</span>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* Total needed */}
-              <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
-                <span className="text-sm text-gray-600">
-                  Milk buffer ({deliveryCount} {deliveryFrequency === 'daily' ? (deliveryCount === 30 ? '~1 month' : 'days') : 'deliveries'})
-                </span>
-                <span className="font-semibold text-sm text-[#1c1c1c]">₹{dailyPrice * deliveryCount}</span>
+                <span className="text-sm text-gray-600">Bottle deposit (upfront)</span>
+                <span className="font-semibold text-sm text-[#1c1c1c]">₹{depositAmount}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
-                <span className="text-sm font-semibold text-[#1c1c1c]">Total needed</span>
-                <span className="font-bold text-sm text-[#1c1c1c]">₹{totalNeeded}</span>
+                <span className="text-sm text-gray-600">Milk buffer ({daysToCheck} days)</span>
+                <span className="font-semibold text-sm text-[#1c1c1c]">₹{dailyPrice * daysToCheck}</span>
               </div>
-
-              {/* Payment breakdown */}
-              {walletBalance > 0 && (
-                <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
-                  <span className="text-sm text-[#1a5c38]">Covered by wallet</span>
-                  <span className="font-semibold text-sm text-[#1a5c38]">− ₹{walletUsed}</span>
+              <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
+                <span className="text-sm font-semibold text-[#1c1c1c]">Total required</span>
+                <span className="font-bold text-sm text-[#1c1c1c]">₹{requiredWalletAmount}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
+                <span className="text-sm text-gray-600">Your wallet</span>
+                <span className={`font-bold text-sm ${walletBalance > 0 ? 'text-[#1a5c38]' : 'text-gray-400'}`}>₹{walletBalance}</span>
+              </div>
+              {shortfall > 0 ? (
+                <div className="mt-3 text-red-500 font-semibold text-sm text-center">
+                  Please recharge ₹{shortfall} more to subscribe.
                 </div>
-              )}
-
-              {/* Result */}
-              <div className={`flex justify-between items-center pt-3 mt-1 rounded-lg px-3 py-2 ${
-                walletCovers ? 'bg-[#f0faf4]' : razorpayNeeded > 0 ? 'bg-orange-50' : 'bg-[#f5f0e8]'
-              }`}>
-                {walletCovers ? (
-                  <>
-                    <span className="text-sm font-bold text-[#1a5c38]">✅ No payment needed!</span>
-                    <span className="text-sm font-bold text-[#1a5c38]">Activate with wallet</span>
-                  </>
-                ) : razorpayNeeded > 0 && walletBalance > 0 ? (
-                  <>
-                    <span className="text-sm font-bold text-orange-700">Pay via Razorpay</span>
-                    <span className="text-xl font-[family-name:var(--font-playfair)] font-bold text-orange-700">₹{razorpayNeeded}</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-sm font-bold text-[#1c1c1c]">Pay via Razorpay</span>
-                    <span className="text-xl font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c]">₹{totalNeeded}</span>
-                  </>
-                )}
-              </div>
-
-              {walletBalance > 0 && !walletCovers && (
-                <p className="text-xs text-gray-400 mt-2 text-center">
-                  Your wallet covers ₹{walletUsed} · Pay ₹{razorpayNeeded} more to activate
-                </p>
+              ) : totalNeeded > 0 && (
+                <div className="mt-3 text-[#1a5c38] font-semibold text-sm text-center bg-[#f0faf4] rounded-lg p-2">
+                  ✅ Wallet balance is sufficient — activate instantly
+                </div>
               )}
             </div>
           )}
@@ -977,11 +926,11 @@ export default function Subscribe() {
 
           <button
             type="button"
-            onClick={handlePayment}
-            disabled={paymentLoading || Object.keys(selectedProducts).length === 0 || !agreedToTerms || totalNeeded === 0}
+            onClick={handleSubscribe}
+            disabled={shortfall > 0 || !agreedToTerms}
             className="w-full text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition shadow-lg disabled:opacity-50"
             style={{background: 'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
-            {paymentLoading ? 'Processing...' : `Pay ₹${totalNeeded} & Subscribe`}
+            {loading ? 'Processing...' : shortfall > 0 ? `Recharge ₹${shortfall} to Subscribe` : 'Activate Subscription'}
           </button>
 
         </form>}
