@@ -170,9 +170,13 @@ export default function Subscribe() {
   const additionalDeposit = Math.max(0, bottleDeposit - depositBalance)
   const depositAmount = deliveryMode === 'keep_bottle' ? BOTTLE_DEPOSIT * totalQuantity : 0
   const daysToCheck = subscriptionType === 'fixed'
-    ? Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24))
+    ? (startDate && endDate
+      ? Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24))
+      : 0)
     : 30
-  const requiredWalletAmount = (dailyPrice * daysToCheck) + depositAmount
+  const requiredWalletAmount = daysToCheck > 0
+    ? (dailyPrice * daysToCheck) + depositAmount
+    : depositAmount
   const shortfall = Math.max(0, requiredWalletAmount - walletBalance)
   const totalNeeded = requiredWalletAmount
   const walletUsed = Math.min(walletBalance, totalNeeded)
@@ -764,12 +768,12 @@ export default function Subscribe() {
                 <span className="font-semibold text-sm text-[#1c1c1c]">₹{depositAmount}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
-                <span className="text-sm text-gray-600">Milk buffer ({daysToCheck} days)</span>
-                <span className="font-semibold text-sm text-[#1c1c1c]">₹{dailyPrice * daysToCheck}</span>
+                <span className="text-sm text-gray-600">Milk buffer ({daysToCheck > 0 ? `${daysToCheck} days` : '—'})</span>
+                <span className="font-semibold text-sm text-[#1c1c1c]">{daysToCheck > 0 ? `₹${dailyPrice * daysToCheck}` : '—'}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
                 <span className="text-sm font-semibold text-[#1c1c1c]">Total required</span>
-                <span className="font-bold text-sm text-[#1c1c1c]">₹{requiredWalletAmount}</span>
+                <span className="font-bold text-sm text-[#1c1c1c]">{isNaN(requiredWalletAmount) ? '—' : `₹${requiredWalletAmount}`}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
                 <span className="text-sm text-gray-600">Your wallet</span>
@@ -777,7 +781,7 @@ export default function Subscribe() {
               </div>
               {shortfall > 0 ? (
                 <div className="mt-3 text-red-500 font-semibold text-sm text-center">
-                  Please recharge ₹{shortfall} more to subscribe.
+                  Please recharge {isNaN(shortfall) ? '—' : `₹${shortfall}`} more to subscribe.
                 </div>
               ) : totalNeeded > 0 && (
                 <div className="mt-3 text-[#1a5c38] font-semibold text-sm text-center bg-[#f0faf4] rounded-lg p-2">
@@ -879,17 +883,17 @@ export default function Subscribe() {
                 <>
                   <div className="flex justify-between text-sm text-green-300 mb-1">
                     <span>Wallet covers</span>
-                    <span>₹{walletUsed}</span>
+                    <span>{isNaN(walletUsed) ? '—' : `₹${walletUsed}`}</span>
                   </div>
                   <div className="flex justify-between font-bold text-lg">
                     <span>Pay via Razorpay</span>
-                    <span>₹{razorpayNeeded}</span>
+                    <span>{isNaN(razorpayNeeded) ? '—' : `₹${razorpayNeeded}`}</span>
                   </div>
                 </>
               ) : (
                 <div className="flex justify-between font-bold text-lg">
                   <span>Pay today</span>
-                  <span>₹{totalNeeded}</span>
+                  <span>{isNaN(totalNeeded) ? '—' : `₹${totalNeeded}`}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm text-[#d4a017] mt-1">
@@ -925,7 +929,7 @@ export default function Subscribe() {
             disabled={shortfall > 0 || !agreedToTerms}
             className="w-full text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition shadow-lg disabled:opacity-50"
             style={{background: 'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
-            {loading ? 'Processing...' : shortfall > 0 ? `Recharge ₹${shortfall} to Subscribe` : 'Activate Subscription'}
+            {loading ? 'Processing...' : shortfall > 0 ? `Recharge ${isNaN(shortfall) ? '—' : `₹${shortfall}`} to Subscribe` : 'Activate Subscription'}
           </button>
 
         </form>}
