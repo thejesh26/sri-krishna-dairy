@@ -135,6 +135,9 @@ export default function AdminDashboard() {
   const [stopCancellationReason, setStopCancellationReason] = useState('')
   const [customersSubTab, setCustomersSubTab] = useState('all')
   const [areaFilter, setAreaFilter] = useState('all')
+  const [leads, setLeads] = useState([])
+  const [leadsLoading, setLeadsLoading] = useState(false)
+  const [leadsFilter, setLeadsFilter] = useState('all')
   const [walletRequests, setWalletRequests] = useState([])
   const [inlineWallet, setInlineWallet] = useState({})
   const [agentsSubTab, setAgentsSubTab] = useState('list')
@@ -438,7 +441,7 @@ export default function AdminDashboard() {
 
   const handleAdminTabChange = async (id) => {
     setActiveTab(id)
-    if (id === 'customers') await loadWallets()
+    if (id === 'customers') { await loadWallets(); loadLeads() }
     if (id === 'delivery_history' && !historyLoaded) loadDeliveryHistory()
     if (id === 'financials' && !transactionsLoaded) loadTransactions(txStartDate, txEndDate)
   }
@@ -533,6 +536,16 @@ export default function AdminDashboard() {
     setTransactions(result.transactions || [])
     setTransactionsLoaded(true)
     setTransactionsLoading(false)
+  }
+
+  const loadLeads = async () => {
+    setLeadsLoading(true)
+    const { data } = await supabase
+      .from('leads')
+      .select('*')
+      .order('created_at', { ascending: false })
+    setLeads(data || [])
+    setLeadsLoading(false)
   }
 
   const saveProductPrice = async (productId, newPrice, newAvailable) => {
@@ -1725,6 +1738,7 @@ export default function AdminDashboard() {
                 { id: 'inactive_subs', label: 'Inactive Subs' },
                 { id: 'low_balance', label: `Low Balance (${wallets.filter(w => (w.balance ?? 0) < 300).length})` },
                 { id: 'wallet_requests', label: `💳 Agent Requests (${walletRequests.filter(r => r.status === 'pending').length})` },
+                { id: 'leads', label: `🎯 Leads (${leads.filter(l => !l.converted).length})` },
               ].map(({ id, label }) => (
                 <button key={id} onClick={() => setCustomersSubTab(id)}
                   className={`text-xs font-semibold px-3 py-2 rounded-lg whitespace-nowrap transition ${
@@ -1784,8 +1798,84 @@ export default function AdminDashboard() {
               )
             )}
 
+            {/* Leads sub-tab */}
+            {customersSubTab === 'leads' && (
+              <div className="p-4 flex flex-col gap-4">
+                <div className="flex gap-2">
+                  {[{ id: 'all', label: 'All' }, { id: 'unconverted', label: 'Unconverted only' }].map(({ id, label }) => (
+                    <button key={id} onClick={() => setLeadsFilter(id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                        leadsFilter === id ? 'bg-[#1a5c38] text-white border-[#1a5c38]' : 'bg-white text-gray-600 border-[#e8e0d0]'
+                      }`}>
+                      {label}
+                    </button>
+                  ))}
+                  <button onClick={loadLeads} className="ml-auto px-3 py-1.5 rounded-lg text-xs font-semibold border border-[#e8e0d0] bg-white text-gray-600 hover:border-[#1a5c38] transition">
+                    {leadsLoading ? 'Loading…' : '↻ Refresh'}
+                  </button>
+                </div>
+
+                {leadsLoading ? (
+                  <div className="text-center py-10 text-gray-400 text-sm">Loading leads…</div>
+                ) : (
+                  <div className="bg-white rounded-xl border border-[#e8e0d0] overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-[#f5f0e8] bg-[#fdfbf7]">
+                          <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Name</th>
+                          <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Phone</th>
+                          <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Email</th>
+                          <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Date</th>
+                          <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Status</th>
+                          <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {leads
+                          .filter(l => leadsFilter === 'all' || !l.converted)
+                          .map((lead, idx, arr) => (
+                            <tr key={lead.id} className={`${idx !== arr.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                              <td className="px-4 py-3 font-medium text-[#1c1c1c]">{lead.name || '—'}</td>
+                              <td className="px-4 py-3 text-gray-600">{lead.phone || '—'}</td>
+                              <td className="px-4 py-3 text-gray-600 text-xs">{lead.email}</td>
+                              <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">
+                                {lead.created_at ? new Date(lead.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                              </td>
+                              <td className="px-4 py-3">
+                                {lead.converted
+                                  ? <span className="text-xs bg-[#f0faf4] text-[#1a5c38] font-semibold px-2 py-1 rounded-full">✅ Converted</span>
+                                  : <span className="text-xs bg-orange-50 text-orange-600 font-semibold px-2 py-1 rounded-full">⏳ Pending</span>}
+                              </td>
+                              <td className="px-4 py-3">
+                                {!lead.converted && lead.phone && (
+                                  <div className="flex gap-2">
+                                    <a href={`tel:+91${lead.phone.replace(/\D/g, '').slice(-10)}`}
+                                      className="text-xs bg-[#f0faf4] text-[#1a5c38] font-semibold px-3 py-1.5 rounded-lg border border-[#c8e6d4] hover:bg-[#1a5c38] hover:text-white transition">
+                                      📞 Call
+                                    </a>
+                                    <a href={`https://wa.me/91${lead.phone.replace(/\D/g, '').slice(-10)}`} target="_blank"
+                                      className="text-xs bg-[#25D366] text-white font-semibold px-3 py-1.5 rounded-lg hover:opacity-90 transition">
+                                      💬 WhatsApp
+                                    </a>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        {leads.filter(l => leadsFilter === 'all' || !l.converted).length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-sm">No leads found</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Customer list for other sub-tabs */}
-            {customersSubTab !== 'wallet_requests' && (() => {
+            {customersSubTab !== 'wallet_requests' && customersSubTab !== 'leads' && (() => {
               const activeSubByUser = {}
               subscriptions.filter(s => s.is_active).forEach(s => { activeSubByUser[s.user_id] = s })
               const inactiveSubUserIds = new Set(subscriptions.filter(s => !s.is_active).map(s => s.user_id))

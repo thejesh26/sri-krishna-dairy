@@ -61,6 +61,13 @@ export default function SignUp() {
       return
     }
 
+    // Save to leads before auth so we capture intent even if they abandon
+    await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: form.email, name: form.full_name, phone: form.phone }),
+    }).catch(() => {})
+
     const { data, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
@@ -110,6 +117,17 @@ export default function SignUp() {
           // Points awarded after 30 days of active subscription — handled by cron
         }
       }
+      // Mark lead as converted now that profile exists
+      try {
+        const { data: { session: newSession } } = await supabase.auth.getSession()
+        if (newSession?.access_token) {
+          await fetch('/api/auth/callback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${newSession.access_token}` },
+          })
+        }
+      } catch { /* non-blocking */ }
+
       // Send welcome WhatsApp (non-blocking — template must be approved in Meta)
       try {
         await fetch('/api/welcome', {
