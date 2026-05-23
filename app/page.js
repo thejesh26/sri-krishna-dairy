@@ -780,6 +780,15 @@ export default function Home() {
         </div>
       </section>
 
+      {/* WhatsApp banner */}
+      <section className="max-w-3xl mx-auto px-6 py-6">
+        <a href="https://wa.me/919980166221?text=Hi" target="_blank"
+          className="flex items-center gap-3 bg-[#25D366] text-white rounded-xl px-4 py-3 text-sm font-semibold">
+          <span>💬</span>
+          <span>Save our number & send us a Hi on WhatsApp to receive delivery updates!</span>
+        </a>
+      </section>
+
       {/* Footer */}
       <footer className="bg-[#0d1f13] text-white px-6 pt-16 pb-8">
         <div className="max-w-6xl mx-auto">

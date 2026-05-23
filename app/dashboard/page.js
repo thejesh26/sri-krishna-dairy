@@ -1182,6 +1182,14 @@ export default function Dashboard() {
 
       </div>
 
+      <div className="max-w-2xl mx-auto px-4 pb-2">
+        <a href="https://wa.me/919980166221?text=Hi" target="_blank"
+          className="flex items-center gap-3 bg-[#25D366] text-white rounded-xl px-4 py-3 text-sm font-semibold">
+          <span>💬</span>
+          <span>Save our number & send us a Hi on WhatsApp to receive delivery updates!</span>
+        </a>
+      </div>
+
       <Footer variant="app" />
 
       <DisclaimerPopup />
