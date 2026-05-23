@@ -3595,8 +3595,9 @@ export default function AdminDashboard() {
     {/* ── Add Order Tab ── */}
     {activeTab === 'add_order' && (() => {
       const tomorrow = new Date()
-      tomorrow.setDate(tomorrow.getDate() + 1)
-      const tomorrowStr = tomorrow.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+tomorrow.setDate(tomorrow.getDate() + 1)
+const tomorrowStr = tomorrow.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 
       const handleAddOrderSearch = (val) => {
         setAddOrderSearch(val)
@@ -3756,7 +3757,7 @@ export default function AdminDashboard() {
               {addOrderType === 'trial' && (
                 <div>
                   <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Delivery Date</label>
-                  <input type="date" min={tomorrowStr} value={addOrderDate} onChange={e => setAddOrderDate(e.target.value)}
+                  <input type="date" min={todayStr} value={addOrderDate} onChange={e => setAddOrderDate(e.target.value)}
                     className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]" />
                 </div>
               )}
@@ -3818,7 +3819,7 @@ export default function AdminDashboard() {
 
                   <div>
                     <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Start Date</label>
-                    <input type="date" min={tomorrowStr} value={addOrderDate} onChange={e => setAddOrderDate(e.target.value)}
+                    <input type="date" min={todayStr} value={addOrderDate} onChange={e => setAddOrderDate(e.target.value)}
                       className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]" />
                   </div>
                 </>
