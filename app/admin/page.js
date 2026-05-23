@@ -169,6 +169,7 @@ export default function AdminDashboard() {
   const [addOrderFrequency, setAddOrderFrequency] = useState('daily')
   const [addOrderSubType, setAddOrderSubType] = useState('ongoing')
   const [addOrderEndDate, setAddOrderEndDate] = useState('')
+  const [addOrderDiscount, setAddOrderDiscount] = useState(0)
   const [addOrderLoading, setAddOrderLoading] = useState(false)
 
   useEffect(() => { checkAdmin() }, [])
@@ -3644,6 +3645,7 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
                 subscription_type: addOrderSubType,
                 start_date: addOrderDate,
                 end_date: addOrderSubType === 'fixed' ? addOrderEndDate : null,
+                discount_percent: addOrderDiscount,
               }),
             })
             const data = await res.json()
@@ -3774,6 +3776,20 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
                             addOrderFrequency === id ? 'bg-[#1a5c38] text-white border-[#1a5c38]' : 'bg-white text-gray-600 border-[#e8e0d0] hover:border-[#1a5c38]'
                           }`}>
                           {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-2 block">Discount %</label>
+                    <div className="flex gap-2">
+                      {[0, 5, 10, 15, 20].map(d => (
+                        <button key={d} onClick={() => setAddOrderDiscount(d)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                            addOrderDiscount === d ? 'bg-[#1a5c38] text-white border-[#1a5c38]' : 'bg-white text-gray-600 border-[#e8e0d0]'
+                          }`}>
+                          {d === 0 ? 'No discount' : `${d}%`}
                         </button>
                       ))}
                     </div>

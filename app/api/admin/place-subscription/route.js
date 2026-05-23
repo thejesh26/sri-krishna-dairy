@@ -30,6 +30,7 @@ export async function POST(request) {
     const {
       target_user_id, product_id, quantity, delivery_slot,
       delivery_frequency, subscription_type, start_date, end_date,
+      discount_percent,
     } = await request.json()
 
     if (!target_user_id || !product_id || !start_date) {
@@ -56,7 +57,8 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Product not found or unavailable' }, { status: 404 })
     }
 
-    const dailyAmount = Math.round(product.price * qty)
+    const discountPct = Math.min(Math.max(0, Number(discount_percent) || 0), 100)
+    const dailyAmount = Math.round(product.price * qty * (1 - discountPct / 100))
 
     const insertData = {
       user_id: target_user_id,
@@ -65,6 +67,7 @@ export async function POST(request) {
       delivery_slot: delivery_slot || 'morning',
       delivery_frequency: delivery_frequency || 'daily',
       subscription_type: subscription_type || 'ongoing',
+      discount_percent: discountPct,
       start_date,
       is_active: true,
     }
