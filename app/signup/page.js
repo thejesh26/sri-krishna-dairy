@@ -287,6 +287,16 @@ export default function SignUp() {
               {loading ? 'Creating Account...' : 'Create Account'}
             </button>
 
+            <p className="text-center text-xs text-gray-500 mt-4">
+              After signing up, check your email for a confirmation link.
+              <br />
+              Didn't receive it?{' '}
+              <a href="https://wa.me/918553666002" target="_blank"
+                className="text-[#1a5c38] font-semibold underline">
+                Contact us on WhatsApp
+              </a>
+            </p>
+
           </form>
 
           <div className="flex items-center gap-3 my-5">
