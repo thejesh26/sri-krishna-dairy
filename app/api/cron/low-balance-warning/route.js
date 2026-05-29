@@ -7,8 +7,8 @@ import { sendLowBalanceEmail } from '../../../lib/email'
 
 // Called daily at 15:00 UTC (8:30 PM IST) by Vercel Cron
 export async function GET(request) {
-  const { error } = requireCron(request)
-  if (error) return error
+  const { error: cronError } = requireCron(request)
+  if (cronError) return cronError
 
   const today = getISTDate()
 
@@ -42,7 +42,7 @@ export async function GET(request) {
     if (!wallet || wallet.balance <= 0 || wallet.balance >= threshold) { skipped++; continue }
 
     try {
-      const { data: prof } = await supabase
+      const { data: prof } = await supabaseAdmin
         .from('profiles')
         .select('full_name, phone')
         .eq('id', sub.user_id)

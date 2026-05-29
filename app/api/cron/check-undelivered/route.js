@@ -14,7 +14,7 @@ export async function GET(request) {
   const today = getISTDate()
 
   // Find all subscriptions still in pending_delivery state (not yet confirmed by 10AM)
-  const { data: undelivered } = await supabase
+  const { data: undelivered } = await supabaseAdmin
     .from('subscriptions')
     .select('id, user_id, products(size), quantity')
     .eq('is_active', true)
@@ -35,7 +35,7 @@ export async function GET(request) {
 
     // Notify customer (non-blocking)
     try {
-      const { data: profile } = await supabase
+      const { data: profile } = await supabaseAdmin
         .from('profiles')
         .select('full_name, phone, email')
         .eq('id', sub.user_id)
