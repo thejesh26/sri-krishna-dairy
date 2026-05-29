@@ -1,31 +1,11 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireAuth } from '../../../lib/auth'
 import { sendOrderConfirmationEmail } from '../../../lib/email'
 import { sendOrderConfirmed } from '../../../lib/whatsapp'
 
-/**
- * SECURITY: Server-side order creation.
- *
- * Vulnerabilities this closes:
- *  - VULN-01: Price injection — total_price was previously calculated client-side and
- *             sent raw to Supabase. An attacker could intercept the request in DevTools
- *             and set total_price: 0.
- *  - VULN-06: Bottle deposit injection — bottle_deposit was passed from the client.
- *             An attacker could send bottle_deposit: 0 to skip the deposit requirement.
- *  - VULN-13: Quantity/field injection — no server-side range checks existed.
- *
- * This route:
- *  1. Authenticates the user via JWT (bearer token)
- *  2. Validates all input fields (types, ranges, formats)
- *  3. Fetches the real product price from the database — never trusts client
- *  4. Validates the discount code server-side if provided
- *  5. Recalculates total_price and bottle_deposit authoritatively
- *  6. Inserts the order with the correct, server-computed price
- */
-
 const VALID_DELIVERY_SLOTS = ['morning', 'evening']
 const VALID_DELIVERY_MODES = ['keep_bottle', 'direct']
-const BOTTLE_DEPOSIT_PER_UNIT = 200
 
 // Mirror of DISCOUNT_CODES in validate-discount/route.js — single source of truth
 const DISCOUNT_CODES = {
@@ -36,25 +16,15 @@ const DISCOUNT_CODES = {
 export async function POST(request) {
   try {
     // ── 1. Authenticate ──────────────────────────────────────────────────────
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.slice(7)
-    )
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, error: authError } = await requireAuth(request)
+    if (authError) return authError
 
     // ── 2. Parse & validate input ────────────────────────────────────────────
     const body = await request.json()
     const { items, delivery_date, delivery_slot, delivery_mode, discount_code } = body
 
     // Check if trial orders are enabled
-    const { data: trialSetting } = await supabase
+    const { data: trialSetting } = await supabaseAdmin
       .from('app_settings')
       .select('value')
       .eq('key', 'trial_order_enabled')
@@ -65,7 +35,7 @@ export async function POST(request) {
 
     // Check delivery slot is enabled
     const slotKey = delivery_slot === 'morning' ? 'morning_slot_enabled' : 'evening_slot_enabled'
-    const { data: slotSetting } = await supabase
+    const { data: slotSetting } = await supabaseAdmin
       .from('app_settings')
       .select('value')
       .eq('key', slotKey)
@@ -117,7 +87,7 @@ export async function POST(request) {
     }
 
     // ── 3. Check COD trial eligibility ─────────────────────────────────────
-    const { data: callerProfile } = await supabase
+    const { data: callerProfile } = await supabaseAdmin
       .from('profiles')
       .select('has_used_cod')
       .eq('id', user.id)
@@ -132,7 +102,7 @@ export async function POST(request) {
 
     // ── 4. Fetch the real product prices from the DB (never trust client) ─────
     const productIds = validatedItems.map(i => i.product_id)
-    const { data: fetchedProducts, error: productError } = await supabase
+    const { data: fetchedProducts, error: productError } = await supabaseAdmin
       .from('products')
       .select('id, price, size, is_available')
       .in('id', productIds)
@@ -199,7 +169,7 @@ export async function POST(request) {
       status: 'pending',
       payment_method: 'COD',
     }))
-    const { data: orders, error: insertError } = await supabase
+    const { data: orders, error: insertError } = await supabaseAdmin
       .from('orders').insert(orderRows).select('id')
 
     if (insertError) {
@@ -210,14 +180,14 @@ export async function POST(request) {
     console.log('[orders/create] Created', orders.length, 'order(s) for user:', user.id, 'date:', delivery_date)
 
     // ── 8. Mark COD trial as used (one COD order allowed per customer) ───────
-    await supabase
+    await supabaseAdmin
       .from('profiles')
       .update({ has_used_cod: true })
       .eq('id', user.id)
 
     // ── 9. Send confirmation email + WhatsApp (non-blocking) ────────────────
     try {
-      const { data: profile } = await supabase.from('profiles').select('full_name, phone').eq('id', user.id).single()
+      const { data: profile } = await supabaseAdmin.from('profiles').select('full_name, phone').eq('id', user.id).single()
       const name = profile?.full_name || user.email
       const orderSummary = itemsWithPrice.map(i => `${i.product.size} ×${i.quantity}`).join(', ')
       // Use first item for WA template (template only supports one product)

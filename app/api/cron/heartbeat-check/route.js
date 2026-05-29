@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '../../../lib/db'
 import { notifyAdmin } from '../../../lib/whatsapp'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
 
 /**
  * Called by Vercel Cron at 19:30 UTC (1AM IST) — 1 hour after the main deduction cron.

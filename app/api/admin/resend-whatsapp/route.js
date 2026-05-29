@@ -1,4 +1,5 @@
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireAdmin } from '../../../lib/auth'
 import { sendWhatsAppMessage, notifyOrderPlaced, notifySubscriptionActivated, notifyLowBalance, sendLowBalanceAlert, sendSubscriptionExpiry } from '../../../lib/whatsapp'
 
 const WA_API_URL = `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`
@@ -30,24 +31,8 @@ async function sendRawTemplate(body) {
 
 export async function POST(request) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
-    if (authError || !user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { data: adminProfile } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .eq('id', user.id)
-      .single()
-    if (!adminProfile?.is_admin) {
-      return Response.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const { error } = await requireAdmin(request)
+    if (error) return error
 
     const { userId, messageType, customMessage, targetId } = await request.json()
 
@@ -85,7 +70,7 @@ export async function POST(request) {
       return Response.json({ error: 'userId required for this messageType', accepted: VALID_TYPES }, { status: 400 })
     }
 
-    const { data: profile } = await supabase
+    const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('full_name, phone')
       .eq('id', userId)

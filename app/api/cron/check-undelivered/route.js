@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireCron } from '../../../lib/auth'
+import { getISTDate } from '../../../lib/pricing'
 import { sendUndeliveredAlertEmail } from '../../../lib/email'
 import { notifyUndelivered, sendWhatsAppToAdmin } from '../../../lib/whatsapp'
 
 // Called daily at 10AM IST (04:30 UTC) by Vercel Cron
 // Checks subscriptions still marked pending_delivery and clears them without charging
 export async function GET(request) {
-  const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { error } = requireCron(request)
+  if (error) return error
 
-  const supabase = createServerClient()
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  const today = getISTDate()
 
   // Find all subscriptions still in pending_delivery state (not yet confirmed by 10AM)
   const { data: undelivered } = await supabase
@@ -29,7 +28,7 @@ export async function GET(request) {
 
   for (const sub of undelivered) {
     // Clear the pending flag — do NOT deduct, do NOT deactivate
-    await supabase
+    await supabaseAdmin
       .from('subscriptions')
       .update({ pending_delivery: false })
       .eq('id', sub.id)
@@ -41,7 +40,7 @@ export async function GET(request) {
         .select('full_name, phone, email')
         .eq('id', sub.user_id)
         .single()
-      const { data: authUser } = await supabase.auth.admin.getUserById(sub.user_id)
+      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(sub.user_id)
       const email = authUser?.user?.email || profile?.email
       const name = profile?.full_name || email || 'Customer'
 

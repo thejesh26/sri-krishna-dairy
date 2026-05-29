@@ -1,19 +1,13 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireAuth } from '../../../lib/auth'
 import { sendSubscriptionCancelledEmail } from '../../../lib/email'
 import { sendWhatsAppToAdmin } from '../../../lib/whatsapp'
 
 export async function POST(request) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, error } = await requireAuth(request)
+    if (error) return error
 
     const { subscription_id, reason, details } = await request.json()
     if (!subscription_id) {
@@ -21,7 +15,7 @@ export async function POST(request) {
     }
 
     // Fetch subscription (ownership enforced)
-    const { data: sub, error: fetchError } = await supabase
+    const { data: sub, error: fetchError } = await supabaseAdmin
       .from('subscriptions')
       .select('*, products(*)')
       .eq('id', subscription_id)
@@ -35,7 +29,7 @@ export async function POST(request) {
 
     const cancellationReason = [reason, details].filter(Boolean).join(' — ') || 'No reason given'
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('subscriptions')
       .update({
         is_active: false,
@@ -51,7 +45,7 @@ export async function POST(request) {
 
     // Notify admin + send customer email (non-blocking)
     try {
-      const { data: profile } = await supabase.from('profiles').select('full_name, phone').eq('id', user.id).single()
+      const { data: profile } = await supabaseAdmin.from('profiles').select('full_name, phone').eq('id', user.id).single()
       const name = profile?.full_name || user.email
       const product = `${sub.products?.size || 'Milk'} × ${sub.quantity}`
 

@@ -1,13 +1,9 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '../../../lib/supabase-server'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireDelivery } from '../../../lib/auth'
+import { calcDailyAmount, getISTDate } from '../../../lib/pricing'
 import { sendDeliveryConfirmed, notifyCodUpsell, sendLowBalanceAlert, sendWhatsAppMessage, sendWhatsAppToAdmin, notifySubscriptionStopped, notifyAdmin } from '../../../lib/whatsapp'
 import { sendLowBalanceEmail, sendOrderConfirmationEmail, sendEmail } from '../../../lib/email'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
 
 /**
  * POST /api/delivery/confirm
@@ -17,22 +13,8 @@ const supabaseAdmin = createClient(
 export async function POST(request) {
   console.log('[DeliveryConfirm] Route called')
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { data: callerProfile } = await supabase
-      .from('profiles').select('is_admin, is_delivery, full_name').eq('id', user.id).single()
-    if (!callerProfile?.is_admin && !callerProfile?.is_delivery) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const { user, error } = await requireDelivery(request)
+    if (error) return error
 
     const { type, order_id, subscription_id, delivery_date, bottle_returned, not_delivered, photo_url, addon_id } = await request.json()
     const deliveredAt = new Date().toISOString()
@@ -40,7 +22,7 @@ export async function POST(request) {
 
     if (type === 'order' && order_id) {
       console.log('[DeliveryConfirm] Confirming delivery for order:', order_id)
-      const { data: orderRow, error } = await supabase
+      const { data: orderRow, error } = await supabaseAdmin
         .from('orders')
         .update({ status: 'delivered', delivered_at: deliveredAt, delivered_by: deliveredBy })
         .eq('id', order_id)
@@ -49,7 +31,7 @@ export async function POST(request) {
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
       // Fetch product separately — update().select() doesn't support FK joins in PostgREST
-      const { data: productData } = await supabase
+      const { data: productData } = await supabaseAdmin
         .from('products').select('size').eq('id', orderRow.product_id).maybeSingle()
       const productLabel = productData?.size
         ? `${productData.size} x${orderRow.quantity || 1}`
@@ -58,7 +40,7 @@ export async function POST(request) {
 
       // Customer notifications + COD upsell (non-blocking)
       try {
-        const { data: customerProfile } = await supabase
+        const { data: customerProfile } = await supabaseAdmin
           .from('profiles')
           .select('full_name, phone')
           .eq('id', orderRow.user_id)
@@ -98,7 +80,7 @@ export async function POST(request) {
 
       // Schedule review request (non-blocking)
       try {
-        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+        const today = getISTDate()
         await supabaseAdmin.from('review_requests').upsert({
           user_id: orderRow.user_id,
           delivery_date: today,
@@ -129,7 +111,7 @@ export async function POST(request) {
         return NextResponse.json({ success: true, not_delivered: true })
       }
 
-      const { data: sub } = await supabase
+      const { data: sub } = await supabaseAdmin
         .from('subscriptions')
         .select('user_id, products(*), quantity, discount_percent, pending_delivery')
         .eq('id', subscription_id)
@@ -158,7 +140,7 @@ export async function POST(request) {
 
       // ── Send delivery WhatsApp confirmation — always, regardless of wallet state ─
       try {
-        const { data: deliveryProfile } = await supabase
+        const { data: deliveryProfile } = await supabaseAdmin
           .from('profiles').select('full_name, phone').eq('id', sub.user_id).single()
         const deliveryName = deliveryProfile?.full_name || 'Customer'
         const dateLabel = new Date(delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -173,13 +155,11 @@ export async function POST(request) {
       }
 
       // ── Deduct wallet on delivery confirmation ──────────────────────────────
-      const dailyAmount = Math.round(
-        sub.products.price * sub.quantity * (1 - (sub.discount_percent || 0) / 100)
-      )
+      const dailyAmount = calcDailyAmount(sub.products.price, sub.quantity, sub.discount_percent || 0)
       const description = `Daily subscription ${subscription_id} [${delivery_date}]`
 
       // Idempotency: skip if already deducted (e.g. confirm called twice)
-      const { data: existing } = await supabase
+      const { data: existing } = await supabaseAdmin
         .from('wallet_transactions')
         .select('id')
         .eq('user_id', sub.user_id)
@@ -187,7 +167,7 @@ export async function POST(request) {
         .limit(1)
 
       if (!existing?.length) {
-        const { data: wallet } = await supabase
+        const { data: wallet } = await supabaseAdmin
           .from('wallet')
           .select('id, balance')
           .eq('user_id', sub.user_id)
@@ -214,7 +194,7 @@ export async function POST(request) {
               .eq('id', sub.user_id)
               .single()
             if (profileData) {
-              const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+              const today = getISTDate()
               const yesterday = new Date()
               yesterday.setDate(yesterday.getDate() - 1)
               const yesterdayStr = yesterday.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
@@ -359,7 +339,7 @@ export async function POST(request) {
     }
 
     if (type === 'addon' && addon_id) {
-      const { data: addonOrder } = await supabase
+      const { data: addonOrder } = await supabaseAdmin
         .from('addon_orders')
         .update({ status: 'delivered', delivered_at: deliveredAt, delivered_by: deliveredBy })
         .eq('id', addon_id)
@@ -368,7 +348,7 @@ export async function POST(request) {
 
       if (!addonOrder) return NextResponse.json({ error: 'Addon order not found' }, { status: 404 })
 
-      const { data: wallet } = await supabase
+      const { data: wallet } = await supabaseAdmin
         .from('wallet').select('id, balance').eq('user_id', addonOrder.user_id).maybeSingle()
 
       const balance = wallet?.balance || 0

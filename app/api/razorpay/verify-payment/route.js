@@ -1,20 +1,14 @@
 import crypto from 'crypto'
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireAuth } from '../../../lib/auth'
+import { calcDailyAmount } from '../../../lib/pricing'
 import { sendEmail, sendSubscriptionConfirmationEmail } from '../../../lib/email'
 import { sendSubscriptionActivated } from '../../../lib/whatsapp'
 
 export async function POST(request) {
   try {
-    // Authenticate
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-    }
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
-    if (authError || !user) {
-      return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, error: authError } = await requireAuth(request)
+    if (authError) return authError
 
     const {
       razorpay_order_id,
@@ -58,7 +52,7 @@ export async function POST(request) {
       const depositAmount = deposit || 0
 
       if (wallet) {
-        await supabase
+        await supabaseAdmin
           .from('wallet')
           .update({
             balance: (wallet.balance || 0) + walletAmount,
@@ -66,7 +60,7 @@ export async function POST(request) {
           })
           .eq('user_id', userId)
       } else {
-        await supabase
+        await supabaseAdmin
           .from('wallet')
           .insert({
             user_id: userId,
@@ -76,26 +70,26 @@ export async function POST(request) {
       }
 
       // Verify wallet update
-      const { data: updatedWallet, error: walletUpdateError } = await supabase
+      const { data: updatedWallet, error: walletUpdateError } = await supabaseAdmin
         .from('wallet').select('balance, deposit_balance').eq('user_id', userId).maybeSingle()
       console.log('[VerifyPayment] Updated wallet (subscription):', updatedWallet, walletUpdateError)
 
       // Activate all subscriptions (multi-product support)
-      await supabase
+      await supabaseAdmin
         .from('subscriptions')
         .update({ is_active: true })
         .in('id', subscriptionIds)
 
       // Record one-time discount code usage
       if (discount_code && typeof discount_code === 'string') {
-        const { data: usedCode } = await supabase
+        const { data: usedCode } = await supabaseAdmin
           .from('discount_codes')
           .select('id, one_time_per_customer')
           .eq('code', discount_code.trim().toUpperCase())
           .eq('is_active', true)
           .maybeSingle()
         if (usedCode?.one_time_per_customer) {
-          await supabase.from('discount_code_usage').upsert(
+          await supabaseAdmin.from('discount_code_usage').upsert(
             { code_id: usedCode.id, user_id: userId },
             { onConflict: 'code_id,user_id' }
           ).catch(() => {})
@@ -103,7 +97,7 @@ export async function POST(request) {
       }
 
       // Add wallet transaction
-      await supabase
+      await supabaseAdmin
         .from('wallet_transactions')
         .insert({
           user_id: userId,
@@ -114,19 +108,19 @@ export async function POST(request) {
 
       // Send activation notifications (non-blocking)
       try {
-        const { data: sub } = await supabase
+        const { data: sub } = await supabaseAdmin
           .from('subscriptions')
           .select('start_date, delivery_slot, quantity, discount_percent, delivery_frequency, products(size, price)')
           .eq('id', subscriptionIds[0])
           .single()
-        const { data: profile } = await supabase.from('profiles').select('full_name, phone').eq('id', userId).single()
+        const { data: profile } = await supabaseAdmin.from('profiles').select('full_name, phone').eq('id', userId).single()
         // user.email is already available from JWT auth — no admin API call needed
         const email = user.email || ''
         const name = profile?.full_name || email
         const product = sub?.products
         const qty = sub?.quantity || 1
         const dailyAmount = product
-          ? Math.round(product.price * qty * (1 - (sub.discount_percent || 0) / 100))
+          ? calcDailyAmount(product.price, qty, sub.discount_percent || 0)
           : 0
         if (email) {
           await sendSubscriptionConfirmationEmail({
@@ -146,14 +140,14 @@ export async function POST(request) {
 
     } else if (type === 'wallet') {
       if (wallet) {
-        await supabase
+        await supabaseAdmin
           .from('wallet')
           .update({
             balance: (wallet.balance || 0) + amount
           })
           .eq('user_id', userId)
       } else {
-        await supabase
+        await supabaseAdmin
           .from('wallet')
           .insert({
             user_id: userId,
@@ -163,12 +157,12 @@ export async function POST(request) {
       }
 
       // Verify wallet update
-      const { data: updatedWallet, error: walletUpdateError } = await supabase
+      const { data: updatedWallet, error: walletUpdateError } = await supabaseAdmin
         .from('wallet').select('balance, deposit_balance').eq('user_id', userId).maybeSingle()
       console.log('[VerifyPayment] Updated wallet (recharge):', updatedWallet, walletUpdateError)
 
       // Add wallet transaction
-      await supabase
+      await supabaseAdmin
         .from('wallet_transactions')
         .insert({
           user_id: userId,

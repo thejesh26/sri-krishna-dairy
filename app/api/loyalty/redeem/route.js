@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireAuth } from '../../../lib/auth'
+import { getTomorrowISTDate } from '../../../lib/pricing'
 
 /**
  * POST /api/loyalty/redeem
@@ -7,19 +9,11 @@ import { createServerClient } from '../../../lib/supabase-server'
  * Deducts 100 points from the user's profile and creates a zero-cost order.
  */
 export async function POST(request) {
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const supabase = createServerClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { user, error } = await requireAuth(request)
+  if (error) return error
 
   // Fetch profile to check points
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
     .select('loyalty_points')
     .eq('id', user.id)
@@ -34,7 +28,7 @@ export async function POST(request) {
   }
 
   // Find the 1000ml product
-  const { data: product } = await supabase
+  const { data: product } = await supabaseAdmin
     .from('products')
     .select('id, size, price')
     .ilike('size', '%1000%')
@@ -45,13 +39,10 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Free milk product not available right now.' }, { status: 400 })
   }
 
-  // Delivery date = tomorrow
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const deliveryDate = tomorrow.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  const deliveryDate = getTomorrowISTDate()
 
   // Check no existing order already for tomorrow (idempotency)
-  const { data: existingOrder } = await supabase
+  const { data: existingOrder } = await supabaseAdmin
     .from('orders')
     .select('id')
     .eq('user_id', user.id)
@@ -64,7 +55,7 @@ export async function POST(request) {
 
   // Atomically deduct 100 points — only succeeds if loyalty_points is still >= 100.
   // The .gte() acts as an optimistic lock preventing race-condition double-spend.
-  const { data: deducted } = await supabase
+  const { data: deducted } = await supabaseAdmin
     .from('profiles')
     .update({ loyalty_points: profile.loyalty_points - 100 })
     .eq('id', user.id)
@@ -77,7 +68,7 @@ export async function POST(request) {
   }
 
   // Create the free order (total_price = 0, bottle_deposit = 0)
-  const { error: orderError } = await supabase.from('orders').insert({
+  const { error: orderError } = await supabaseAdmin.from('orders').insert({
     user_id: user.id,
     product_id: product.id,
     quantity: 1,
@@ -100,7 +91,7 @@ export async function POST(request) {
   }
 
   // Record in wallet_transactions for history
-  await supabase.from('wallet_transactions').insert({
+  await supabaseAdmin.from('wallet_transactions').insert({
     user_id: user.id,
     amount: 0,
     type: 'credit',

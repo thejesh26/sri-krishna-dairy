@@ -1,18 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireAuth } from '../../../lib/auth'
+import { calcDailyAmount } from '../../../lib/pricing'
 
 export async function POST(request) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, error } = await requireAuth(request)
+    if (error) return error
 
     const { subscription_id, new_product_id } = await request.json()
     if (!subscription_id || !new_product_id) {
@@ -20,7 +14,7 @@ export async function POST(request) {
     }
 
     // Verify ownership and active status
-    const { data: sub } = await supabase
+    const { data: sub } = await supabaseAdmin
       .from('subscriptions')
       .select('id, product_id, quantity, discount_percent, products(size, price)')
       .eq('id', subscription_id)
@@ -33,7 +27,7 @@ export async function POST(request) {
     }
 
     // Verify new product exists and is available
-    const { data: newProduct } = await supabase
+    const { data: newProduct } = await supabaseAdmin
       .from('products')
       .select('id, size, price, is_available')
       .eq('id', new_product_id)
@@ -48,13 +42,13 @@ export async function POST(request) {
     }
 
     // Update subscription product_id — effective from next delivery
-    await supabase
+    await supabaseAdmin
       .from('subscriptions')
       .update({ product_id: newProduct.id })
       .eq('id', subscription_id)
       .eq('user_id', user.id)
 
-    const newDailyAmount = Math.round(newProduct.price * sub.quantity * (1 - (sub.discount_percent || 0) / 100))
+    const newDailyAmount = calcDailyAmount(newProduct.price, sub.quantity, sub.discount_percent || 0)
 
     return NextResponse.json({
       success: true,

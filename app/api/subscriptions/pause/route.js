@@ -1,19 +1,13 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireAuth } from '../../../lib/auth'
 import { sendSubscriptionPausedEmail } from '../../../lib/email'
 import { notifyAdmin } from '../../../lib/whatsapp'
 
 export async function POST(request) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, error } = await requireAuth(request)
+    if (error) return error
 
     const { subscription_id, pause_date } = await request.json()
 
@@ -27,7 +21,7 @@ export async function POST(request) {
     }
 
     // Fetch subscription (ownership enforced by user_id filter)
-    const { data: sub, error: fetchError } = await supabase
+    const { data: sub, error: fetchError } = await supabaseAdmin
       .from('subscriptions')
       .select('*, products(*), pause_days_used_this_month')
       .eq('id', subscription_id)
@@ -55,7 +49,7 @@ export async function POST(request) {
     const updatedPaused = [...currentPaused, pause_date].sort()
     const newPausedCount = pausedThisMonth + 1
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('subscriptions')
       .update({ paused_dates: updatedPaused, pause_days_used_this_month: newPausedCount })
       .eq('id', subscription_id)
@@ -77,7 +71,7 @@ export async function POST(request) {
 
     // Send pause confirmation email + admin notification (non-blocking)
     try {
-      const { data: profile } = await supabase.from('profiles').select('full_name, phone').eq('id', user.id).single()
+      const { data: profile } = await supabaseAdmin.from('profiles').select('full_name, phone').eq('id', user.id).single()
       await sendSubscriptionPausedEmail({
         to: user.email,
         name: profile?.full_name || user.email,

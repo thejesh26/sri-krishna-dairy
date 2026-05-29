@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '../../lib/supabase-server'
+import { supabaseAdmin } from '../../lib/db'
+import { requireAuth } from '../../lib/auth'
 
 // In-memory rate limiter (per serverless instance — use Redis/Upstash for multi-instance production)
 const rateLimitMap = new Map() // key: IP, value: { count, resetAt }
@@ -49,25 +50,8 @@ export async function POST(request) {
     }
 
     // --- Authentication check ---
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { valid: false, message: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const token = authHeader.slice(7)
-    const supabase = createServerClient()
-
-    // Verify the JWT belongs to a real active session
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    if (authError || !user) {
-      return NextResponse.json(
-        { valid: false, message: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+    const { user, error: authError } = await requireAuth(request)
+    if (authError) return authError
 
     // --- Input validation ---
     const body = await request.json()
@@ -82,7 +66,7 @@ export async function POST(request) {
     }
 
     // --- Lookup: check DB first, then fall back to env-var codes ---
-    const { data: dbCode } = await supabase
+    const { data: dbCode } = await supabaseAdmin
       .from('discount_codes')
       .select('id, percent, description, one_time_per_customer, applies_to')
       .eq('code', code)

@@ -1,18 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireAuth } from '../../../lib/auth'
+import { getISTDate } from '../../../lib/pricing'
 
 export async function POST(request) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, error } = await requireAuth(request)
+    if (error) return error
 
     const { subscription_id } = await request.json()
     if (!subscription_id) {
@@ -20,7 +14,7 @@ export async function POST(request) {
     }
 
     // Fetch subscription (ownership enforced by user_id filter)
-    const { data: sub } = await supabase
+    const { data: sub } = await supabaseAdmin
       .from('subscriptions')
       .select('*, products(*)')
       .eq('id', subscription_id)
@@ -37,7 +31,7 @@ export async function POST(request) {
     )
 
     // Check wallet balance
-    const { data: wallet } = await supabase
+    const { data: wallet } = await supabaseAdmin
       .from('wallet')
       .select('balance')
       .eq('user_id', user.id)
@@ -52,7 +46,7 @@ export async function POST(request) {
 
     // Check if end_date has already passed
     if (sub.end_date) {
-      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+      const today = getISTDate()
       if (sub.end_date < today) {
         return NextResponse.json({
           error: 'This subscription has expired. Please create a new subscription.'
@@ -60,7 +54,7 @@ export async function POST(request) {
       }
     }
 
-    await supabase
+    await supabaseAdmin
       .from('subscriptions')
       .update({ is_active: true })
       .eq('id', subscription_id)

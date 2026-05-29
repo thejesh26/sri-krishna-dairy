@@ -1,21 +1,11 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { createServerClient } from '../../../lib/supabase-server'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
+import { supabaseAdmin } from '../../../lib/db'
+import { requireAdmin } from '../../../lib/auth'
 
 export async function POST(request) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    const supabase = createServerClient()
-    const { data: { user } } = await supabase.auth.getUser(authHeader.slice(7))
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    const { data: profile } = await supabaseAdmin.from('profiles').select('is_admin').eq('id', user.id).single()
-    if (!profile?.is_admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const { user, error } = await requireAdmin(request)
+    if (error) return error
 
     const { type, id, agent_id } = await request.json()
     if (!type || !id) return NextResponse.json({ error: 'type and id required' }, { status: 400 })

@@ -1,18 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireAuth } from '../../../lib/auth'
+import { calcDailyAmount } from '../../../lib/pricing'
 
 export async function POST(request) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, error } = await requireAuth(request)
+    if (error) return error
 
     const { subscription_id, quantity } = await request.json()
     const qty = Number(quantity)
@@ -22,7 +16,7 @@ export async function POST(request) {
     }
 
     // Fetch subscription (ownership enforced)
-    const { data: sub } = await supabase
+    const { data: sub } = await supabaseAdmin
       .from('subscriptions')
       .select('*, products(*)')
       .eq('id', subscription_id)
@@ -34,12 +28,10 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Active subscription not found.' }, { status: 404 })
     }
 
-    const newDailyCost = Math.round(
-      sub.products.price * qty * (1 - (sub.discount_percent || 0) / 100)
-    )
+    const newDailyCost = calcDailyAmount(sub.products.price, qty, sub.discount_percent || 0)
 
     // Verify wallet can cover new amount
-    const { data: wallet } = await supabase
+    const { data: wallet } = await supabaseAdmin
       .from('wallet')
       .select('balance')
       .eq('user_id', user.id)
@@ -52,7 +44,7 @@ export async function POST(request) {
       }, { status: 400 })
     }
 
-    await supabase
+    await supabaseAdmin
       .from('subscriptions')
       .update({ quantity: qty })
       .eq('id', subscription_id)

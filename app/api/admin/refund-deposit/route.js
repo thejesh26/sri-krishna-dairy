@@ -1,32 +1,19 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireAdmin } from '../../../lib/auth'
 import { sendEmail } from '../../../lib/email'
 import { sendWhatsAppMessage } from '../../../lib/whatsapp'
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
-
 export async function POST(request) {
   try {
-    // Authenticate + verify admin
-    const authHeader = request.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
-    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { user, error } = await requireAdmin(request)
+    if (error) return error
 
     const { data: adminProfile } = await supabaseAdmin
       .from('profiles')
-      .select('is_admin, full_name')
+      .select('full_name')
       .eq('id', user.id)
       .single()
-
-    if (!adminProfile?.is_admin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
 
     const { user_id, refund_amount, good_bottles, notes } = await request.json()
 

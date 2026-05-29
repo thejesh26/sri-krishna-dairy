@@ -1,19 +1,18 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireCron } from '../../../lib/auth'
+import { calcDailyAmount, getISTDate } from '../../../lib/pricing'
 import { sendLowBalanceAlert } from '../../../lib/whatsapp'
 import { sendLowBalanceEmail } from '../../../lib/email'
 
 // Called daily at 15:00 UTC (8:30 PM IST) by Vercel Cron
 export async function GET(request) {
-  const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { error } = requireCron(request)
+  if (error) return error
 
-  const supabase = createServerClient()
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  const today = getISTDate()
 
-  const { data: subscriptions, error } = await supabase
+  const { data: subscriptions, error } = await supabaseAdmin
     .from('subscriptions')
     .select('user_id, quantity, discount_percent, subscription_type, products(price)')
     .eq('is_active', true)
@@ -29,14 +28,12 @@ export async function GET(request) {
     if (!sub.products?.price) { skipped++; continue }
     if (sub.subscription_type === 'fixed') { skipped++; continue }
 
-    const dailyAmount = Math.round(
-      sub.products.price * sub.quantity * (1 - (sub.discount_percent || 0) / 100)
-    )
+    const dailyAmount = calcDailyAmount(sub.products.price, sub.quantity, sub.discount_percent || 0)
     if (dailyAmount <= 0) { skipped++; continue }
 
     const threshold = dailyAmount * 7
 
-    const { data: wallet } = await supabase
+    const { data: wallet } = await supabaseAdmin
       .from('wallet')
       .select('balance')
       .eq('user_id', sub.user_id)
@@ -51,7 +48,7 @@ export async function GET(request) {
         .eq('id', sub.user_id)
         .single()
 
-      const { data: authUser } = await supabase.auth.admin.getUserById(sub.user_id)
+      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(sub.user_id)
       const email = authUser?.user?.email
       const name = prof?.full_name || 'Customer'
 

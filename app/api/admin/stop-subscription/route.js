@@ -1,34 +1,19 @@
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdminAdmin } from '../../../lib/db'
+import { requireAdmin } from '../../../lib/auth'
 import { sendEmail } from '../../../lib/email'
 import { sendWhatsAppMessage } from '../../../lib/whatsapp'
 
 export async function POST(request) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
-    if (authError || !user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { data: adminProfile } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .eq('id', user.id)
-      .single()
-    if (!adminProfile?.is_admin) {
-      return Response.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const { user, error } = await requireAdmin(request)
+    if (error) return error
 
     const { subscription_id, cancelled_by, cancellation_reason } = await request.json()
     if (!subscription_id) {
       return Response.json({ error: 'subscription_id required' }, { status: 400 })
     }
 
-    const { data: sub } = await supabase
+    const { data: sub } = await supabaseAdmin
       .from('subscriptions')
       .select('user_id, products(size)')
       .eq('id', subscription_id)
@@ -38,19 +23,19 @@ export async function POST(request) {
       return Response.json({ error: 'Subscription not found' }, { status: 404 })
     }
 
-    const { data: profile } = await supabase
+    const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('full_name, phone')
       .eq('id', sub.user_id)
       .single()
 
-    const { data: { user: customerUser } } = await supabase.auth.admin.getUserById(sub.user_id)
+    const { data: { user: customerUser } } = await supabaseAdmin.auth.admin.getUserById(sub.user_id)
 
     const updatePayload = { is_active: false }
     if (cancelled_by) updatePayload.cancelled_by = cancelled_by
     if (cancellation_reason) updatePayload.cancellation_reason = cancellation_reason
 
-    await supabase
+    await supabaseAdmin
       .from('subscriptions')
       .update(updatePayload)
       .eq('id', subscription_id)

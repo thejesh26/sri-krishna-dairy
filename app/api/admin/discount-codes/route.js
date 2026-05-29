@@ -1,24 +1,11 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
-
-async function verifyAdmin(request) {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '')
-  if (!token) return null
-  const { data: { user } } = await supabaseAdmin.auth.getUser(token)
-  if (!user) return null
-  const { data: profile } = await supabaseAdmin.from('profiles').select('is_admin').eq('id', user.id).single()
-  return profile?.is_admin ? user : null
-}
+import { supabaseAdmin } from '../../../lib/db'
+import { requireAdmin } from '../../../lib/auth'
 
 // POST — create a new discount code
 export async function POST(request) {
-  const user = await verifyAdmin(request)
-  if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const { user, error } = await requireAdmin(request)
+  if (error) return error
 
   const { code, percent, description } = await request.json()
   if (!code || !percent || typeof percent !== 'number' || percent < 1 || percent > 99) {
@@ -43,8 +30,8 @@ export async function POST(request) {
 
 // PATCH — toggle active/inactive
 export async function PATCH(request) {
-  const user = await verifyAdmin(request)
-  if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const { user, error } = await requireAdmin(request)
+  if (error) return error
 
   const { id, is_active } = await request.json()
   if (!id) return NextResponse.json({ error: 'id is required.' }, { status: 400 })
@@ -60,8 +47,8 @@ export async function PATCH(request) {
 
 // DELETE — remove a discount code
 export async function DELETE(request) {
-  const user = await verifyAdmin(request)
-  if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const { error } = await requireAdmin(request)
+  if (error) return error
 
   const { id } = await request.json()
   if (!id) return NextResponse.json({ error: 'id is required.' }, { status: 400 })

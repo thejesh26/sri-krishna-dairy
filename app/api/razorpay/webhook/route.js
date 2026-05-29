@@ -1,11 +1,6 @@
 import crypto from 'crypto'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '../../../lib/db'
 import { notifyAdmin } from '../../../lib/whatsapp'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
 
 export async function POST(request) {
   try {
@@ -39,6 +34,15 @@ export async function POST(request) {
         .maybeSingle()
 
       if (sub && !sub.is_active) {
+        // Idempotency: skip if this payment_id was already processed
+        const { data: existing } = await supabaseAdmin
+          .from('wallet_transactions')
+          .select('id')
+          .eq('user_id', sub.user_id)
+          .like('description', `%[${payment.id}]`)
+          .limit(1)
+        if (existing?.length) return Response.json({ success: true })
+
         // Activate subscription
         await supabaseAdmin
           .from('subscriptions')

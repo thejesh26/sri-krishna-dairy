@@ -1,22 +1,10 @@
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireDelivery } from '../../../lib/auth'
 
 export async function POST(request) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
-    if (authError || !user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles').select('is_delivery, is_admin').eq('id', user.id).single()
-    if (!profile?.is_delivery && !profile?.is_admin) {
-      return Response.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const { user, error } = await requireDelivery(request)
+    if (error) return error
 
     const { type, message } = await request.json()
     if (!type || !message?.trim()) {
@@ -26,7 +14,7 @@ export async function POST(request) {
       return Response.json({ error: 'type must be issue, feedback, or suggestion' }, { status: 400 })
     }
 
-    const { error: insertError } = await supabase.from('delivery_issues').insert({
+    const { error: insertError } = await supabaseAdmin.from('delivery_issues').insert({
       reported_by: user.id,
       type,
       message: message.trim(),

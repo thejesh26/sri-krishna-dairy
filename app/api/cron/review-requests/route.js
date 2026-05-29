@@ -1,18 +1,15 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdminAdmin } from '../../../lib/db'
+import { requireCron } from '../../../lib/auth'
 import { sendWhatsAppMessage } from '../../../lib/whatsapp'
 
 // Runs at 10:00 UTC daily (3:30 PM IST) — catches morning deliveries that are 24h+ old
 export async function GET(request) {
-  const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const supabase = createServerClient()
+  const { error } = requireCron(request)
+  if (error) return error
   const now = new Date().toISOString()
 
-  const { data: pending, error } = await supabase
+  const { data: pending, error } = await supabaseAdmin
     .from('review_requests')
     .select('id, user_id, delivery_date')
     .eq('sent', false)
@@ -25,18 +22,18 @@ export async function GET(request) {
   for (const row of pending || []) {
     try {
       // Skip if customer already has a review (approved or pending)
-      const { data: existing } = await supabase
+      const { data: existing } = await supabaseAdmin
         .from('reviews')
         .select('id')
         .eq('user_id', row.user_id)
         .maybeSingle()
 
       if (existing) {
-        await supabase.from('review_requests').update({ sent: true, sent_at: now }).eq('id', row.id)
+        await supabaseAdmin.from('review_requests').update({ sent: true, sent_at: now }).eq('id', row.id)
         continue
       }
 
-      const { data: prof } = await supabase
+      const { data: prof } = await supabaseAdmin
         .from('profiles')
         .select('full_name, phone')
         .eq('id', row.user_id)
@@ -52,7 +49,7 @@ export async function GET(request) {
         sent++
       }
 
-      await supabase
+      await supabaseAdmin
         .from('review_requests')
         .update({ sent: true, sent_at: now })
         .eq('id', row.id)

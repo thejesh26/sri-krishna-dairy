@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdmin } from '../../../lib/db'
 
 /**
  * Secure phone-based login endpoint.
@@ -72,11 +72,8 @@ export async function POST(request) {
       )
     }
 
-    // Use the service-role client — never exposed to the browser
-    const adminClient = createServerClient()
-
     // Step 1: Look up user profile by phone
-    const { data: profile, error: profileError } = await adminClient
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('id')
       .eq('phone', phone)
@@ -93,7 +90,7 @@ export async function POST(request) {
     }
 
     // Step 2: Use admin API to retrieve the email (stays server-side)
-    const { data: adminUser, error: adminError } = await adminClient.auth.admin.getUserById(profile.id)
+    const { data: adminUser, error: adminError } = await supabaseAdmin.auth.admin.getUserById(profile.id)
 
     if (adminError || !adminUser?.user?.email) {
       return NextResponse.json(

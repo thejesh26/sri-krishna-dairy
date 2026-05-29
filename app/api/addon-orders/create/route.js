@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireAuth } from '../../../lib/auth'
+import { getISTDate } from '../../../lib/pricing'
 import { sendAddonOrderEmail } from '../../../lib/email'
 import { notifyAddonOrderConfirmed } from '../../../lib/whatsapp'
 
@@ -7,19 +9,11 @@ const VALID_DELIVERY_SLOTS = ['morning', 'evening']
 
 export async function POST(request) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, error } = await requireAuth(request)
+    if (error) return error
 
     // Must have an active subscription
-    const { data: activeSub } = await supabase
+    const { data: activeSub } = await supabaseAdmin
       .from('subscriptions')
       .select('id, delivery_slot')
       .eq('user_id', user.id)
@@ -42,7 +36,7 @@ export async function POST(request) {
     const slot = VALID_DELIVERY_SLOTS.includes(delivery_slot) ? delivery_slot : activeSub.delivery_slot
 
     // Validate all dates are in the future
-    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+    const today = getISTDate()
     for (const d of dates) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d <= today) {
         return NextResponse.json({ error: `Invalid or past date: ${d}` }, { status: 400 })
@@ -50,7 +44,7 @@ export async function POST(request) {
     }
 
     // Fetch product price
-    const { data: product } = await supabase
+    const { data: product } = await supabaseAdmin
       .from('products')
       .select('id, price, size, is_available')
       .eq('id', product_id)
@@ -74,7 +68,7 @@ export async function POST(request) {
       status: 'pending',
     }))
 
-    const { data: addonOrders, error: insertError } = await supabase
+    const { data: addonOrders, error: insertError } = await supabaseAdmin
       .from('addon_orders')
       .insert(insertRows)
       .select('id')
@@ -87,7 +81,7 @@ export async function POST(request) {
     try {
       const { data: profile } = await supabase
         .from('profiles').select('full_name, phone').eq('id', user.id).single()
-      const { data: authUser } = await supabase.auth.admin.getUserById(user.id)
+      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(user.id)
       const email = authUser?.user?.email
       const name = profile?.full_name || email || 'Customer'
 

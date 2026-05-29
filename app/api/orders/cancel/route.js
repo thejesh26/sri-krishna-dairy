@@ -1,20 +1,13 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireAuth } from '../../../lib/auth'
 import { sendOrderCancelledEmail } from '../../../lib/email'
 import { notifyOrderCancelled } from '../../../lib/whatsapp'
 
 export async function POST(request) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, error } = await requireAuth(request)
+    if (error) return error
 
     const { order_id, reason } = await request.json()
     if (!order_id) {
@@ -22,7 +15,7 @@ export async function POST(request) {
     }
 
     // Fetch and verify order belongs to user
-    const { data: order } = await supabase
+    const { data: order } = await supabaseAdmin
       .from('orders')
       .select('id, user_id, delivery_date, status, total_price, payment_method, bottle_deposit')
       .eq('id', order_id)
@@ -44,7 +37,7 @@ export async function POST(request) {
     }
 
     // Update order status to cancelled
-    await supabase
+    await supabaseAdmin
       .from('orders')
       .update({ status: 'cancelled' })
       .eq('id', order_id)
@@ -66,7 +59,7 @@ export async function POST(request) {
             .update({ balance: (wallet.balance || 0) + refundAmount })
             .eq('user_id', user.id)
 
-          await supabase.from('wallet_transactions').insert({
+          await supabaseAdmin.from('wallet_transactions').insert({
             user_id: user.id,
             amount: refundAmount,
             type: 'credit',
@@ -84,7 +77,7 @@ export async function POST(request) {
         .eq('id', user.id)
         .single()
 
-      const { data: authUser } = await supabase.auth.admin.getUserById(user.id)
+      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(user.id)
       const email = authUser?.user?.email
       const name = profile?.full_name || email || 'Customer'
 

@@ -1,18 +1,11 @@
 import crypto from 'crypto'
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireAuth } from '../../../lib/auth'
 
 export async function POST(request) {
   try {
-    // Authenticate
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-    }
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
-    if (authError || !user) {
-      return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, error } = await requireAuth(request)
+    if (error) return error
 
     const {
       razorpay_order_id,
@@ -41,7 +34,7 @@ export async function POST(request) {
     }
 
     // Get or create wallet
-    const { data: wallet } = await supabase
+    const { data: wallet } = await supabaseAdmin
       .from('wallet')
       .select('*')
       .eq('user_id', userId)
@@ -65,7 +58,7 @@ export async function POST(request) {
     }
 
     // Add wallet transaction
-    await supabase
+    await supabaseAdmin
       .from('wallet_transactions')
       .insert({
         user_id: userId,

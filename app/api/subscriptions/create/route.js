@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireAuth } from '../../../lib/auth'
+import { BOTTLE_DEPOSIT_PER_UNIT, calcDailyAmount } from '../../../lib/pricing'
 import { sendSubscriptionConfirmationEmail } from '../../../lib/email'
 import { notifySubscriptionActivated } from '../../../lib/whatsapp'
 
@@ -7,7 +9,6 @@ const VALID_DELIVERY_SLOTS = ['morning', 'evening']
 const VALID_DELIVERY_MODES = ['keep_bottle', 'direct']
 const VALID_SUBSCRIPTION_TYPES = ['ongoing', 'fixed', 'oneday']
 const VALID_FREQUENCIES = ['daily', 'alternate', 'weekly']
-const BOTTLE_DEPOSIT_PER_UNIT = 200
 
 const DISCOUNT_CODES = {
   ...(process.env.DISCOUNT_CODE_1 ? { [process.env.DISCOUNT_CODE_1]: 10 } : {}),
@@ -17,16 +18,8 @@ const DISCOUNT_CODES = {
 export async function POST(request) {
   try {
     // ── 1. Authenticate ──────────────────────────────────────────────────────
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, error: authError } = await requireAuth(request)
+    if (authError) return authError
 
     // ── 2. Parse & validate input ────────────────────────────────────────────
     // Parse body early to get delivery_slot for the slot check below
@@ -34,7 +27,7 @@ export async function POST(request) {
     const delivery_slot_check = body.delivery_slot
     // Check delivery slot is enabled
     const slotKey = delivery_slot_check === 'morning' ? 'morning_slot_enabled' : 'evening_slot_enabled'
-    const { data: slotSetting } = await supabase
+    const { data: slotSetting } = await supabaseAdmin
       .from('app_settings')
       .select('value')
       .eq('key', slotKey)
@@ -102,7 +95,7 @@ export async function POST(request) {
 
     // ── 3. Verify all products ───────────────────────────────────────────────
     const productIds = items.map(i => i.product_id)
-    const { data: products, error: productError } = await supabase
+    const { data: products, error: productError } = await supabaseAdmin
       .from('products')
       .select('id, price, size, is_available')
       .in('id', productIds)
@@ -150,7 +143,7 @@ export async function POST(request) {
     const addlDeposit = Math.min(Math.max(0, Number(additional_deposit) || 0), bottleDeposit)
 
     const dailyAmount = parsedItems.reduce((sum, i) =>
-      sum + Math.round(i.product.price * i.quantity * (1 - discountPercent / 100)), 0)
+      sum + calcDailyAmount(i.product.price, i.quantity, discountPercent), 0)
 
     // ── 6. WALLET-ONLY PATH ──────────────────────────────────────────────────
     if (wallet_only) {
@@ -201,12 +194,12 @@ export async function POST(request) {
       }
 
       if (depositAmount > 0) {
-        await supabase.from('wallet').update({
+        await supabaseAdmin.from('wallet').update({
           balance: currentBalance - depositAmount,
           deposit_balance: (wallet?.deposit_balance || 0) + depositAmount
         }).eq('user_id', user.id)
 
-        await supabase.from('wallet_transactions').insert({
+        await supabaseAdmin.from('wallet_transactions').insert({
           user_id: user.id,
           amount: depositAmount,
           type: 'debit',
@@ -215,7 +208,7 @@ export async function POST(request) {
       }
 
       if (usedDbCode?.one_time_per_customer) {
-        await supabase.from('discount_code_usage').upsert(
+        await supabaseAdmin.from('discount_code_usage').upsert(
           { code_id: usedDbCode.id, user_id: user.id },
           { onConflict: 'code_id,user_id' }
         ).catch(() => {})
@@ -223,7 +216,7 @@ export async function POST(request) {
 
       // Notifications (non-blocking)
       try {
-        const { data: profile } = await supabase.from('profiles').select('full_name, phone').eq('id', user.id).single()
+        const { data: profile } = await supabaseAdmin.from('profiles').select('full_name, phone').eq('id', user.id).single()
         const name = profile?.full_name || user.email
         const firstItem = parsedItems[0]
         await sendSubscriptionConfirmationEmail({
@@ -240,7 +233,7 @@ export async function POST(request) {
     }
 
     // ── 7. RAZORPAY PATH — create pending subscriptions ──────────────────────
-    await supabase
+    await supabaseAdmin
       .from('subscriptions')
       .delete()
       .eq('user_id', user.id)
@@ -262,7 +255,7 @@ export async function POST(request) {
       paused_dates: [],
     }))
 
-    const { data: subs, error: insertError } = await supabase
+    const { data: subs, error: insertError } = await supabaseAdmin
       .from('subscriptions')
       .insert(insertRows)
       .select('id')

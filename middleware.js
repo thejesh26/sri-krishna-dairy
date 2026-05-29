@@ -21,7 +21,8 @@ const LIMITS = [
   { pattern: /^\/api\/subscriptions\/reactivate$/,max: 10, windowMs: 60_000 },
 ]
 
-// Map<`${ip}:${pattern}`, { count, windowStart }>
+// Map<`${ip}:${pattern}`, { count, windowStart, windowMs }>
+// windowMs is stored per-entry so cleanup uses each entry's own TTL, not the current rule's.
 const store = new Map()
 
 function getIp(request) {
@@ -30,6 +31,12 @@ function getIp(request) {
     request.headers.get('x-real-ip') ||
     '127.0.0.1'
   )
+}
+
+function pruneStore(now) {
+  for (const [k, v] of store) {
+    if (now - v.windowStart > v.windowMs) store.delete(k)
+  }
 }
 
 export function middleware(request) {
@@ -44,18 +51,15 @@ export function middleware(request) {
 
   let entry = store.get(key)
   if (!entry || now - entry.windowStart > rule.windowMs) {
-    entry = { count: 1, windowStart: now }
+    entry = { count: 1, windowStart: now, windowMs: rule.windowMs }
   } else {
     entry.count++
   }
   store.set(key, entry)
 
-  // Clean up old entries periodically (every ~500 requests)
-  if (store.size > 500) {
-    for (const [k, v] of store) {
-      if (now - v.windowStart > rule.windowMs) store.delete(k)
-    }
-  }
+  // Prune expired entries every 200 requests to prevent unbounded memory growth.
+  // Each entry carries its own windowMs so cleanup is always accurate.
+  if (store.size % 200 === 0) pruneStore(now)
 
   if (entry.count > rule.max) {
     return new NextResponse(

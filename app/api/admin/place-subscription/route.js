@@ -1,31 +1,13 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '../../../lib/supabase-server'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireAdmin } from '../../../lib/auth'
+import { calcDailyAmount } from '../../../lib/pricing'
 import { notifySubscriptionActivated } from '../../../lib/whatsapp'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
 
 export async function POST(request) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { data: adminProfile } = await supabaseAdmin
-      .from('profiles').select('is_admin').eq('id', user.id).single()
-    if (!adminProfile?.is_admin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const { user, error } = await requireAdmin(request)
+    if (error) return error
 
     const {
       target_user_id, product_id, quantity, delivery_slot,
@@ -58,7 +40,7 @@ export async function POST(request) {
     }
 
     const discountPct = Math.min(Math.max(0, Number(discount_percent) || 0), 100)
-    const dailyAmount = Math.round(product.price * qty * (1 - discountPct / 100))
+    const dailyAmount = calcDailyAmount(product.price, qty, discountPct)
 
     const insertData = {
       user_id: target_user_id,

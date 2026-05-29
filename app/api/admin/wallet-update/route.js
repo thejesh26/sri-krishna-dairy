@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '../../../lib/supabase-server'
+import { supabaseAdmin } from '../../../lib/db'
+import { requireDelivery } from '../../../lib/auth'
 import { notifyWalletCredited, notifyWalletDebited } from '../../../lib/whatsapp'
 import { sendEmail } from '../../../lib/email'
 
@@ -9,22 +10,11 @@ import { sendEmail } from '../../../lib/email'
  */
 export async function POST(request) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, error } = await requireDelivery(request)
+    if (error) return error
 
-    // Verify caller is admin or delivery
-    const { data: callerProfile } = await supabase
-      .from('profiles').select('is_admin, is_delivery, full_name').eq('id', user.id).single()
-    if (!callerProfile?.is_admin && !callerProfile?.is_delivery) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const { data: callerProfile } = await supabaseAdmin
+      .from('profiles').select('full_name').eq('id', user.id).single()
 
     const { target_user_id, action, amount, note } = await request.json()
 
@@ -38,7 +28,7 @@ export async function POST(request) {
     }
 
     // Get or create target wallet
-    let { data: wallet } = await supabase
+    let { data: wallet } = await supabaseAdmin
       .from('wallet').select('id, balance').eq('user_id', target_user_id).maybeSingle()
 
     if (!wallet) {
@@ -65,10 +55,10 @@ export async function POST(request) {
       txnAmount = Math.abs(newBalance - wallet.balance)
     }
 
-    await supabase.from('wallet').update({ balance: newBalance }).eq('user_id', target_user_id)
+    await supabaseAdmin.from('wallet').update({ balance: newBalance }).eq('user_id', target_user_id)
 
     if (txnAmount > 0) {
-      await supabase.from('wallet_transactions').insert({
+      await supabaseAdmin.from('wallet_transactions').insert({
         user_id: target_user_id,
         amount: txnAmount,
         type: txnType,
@@ -84,7 +74,7 @@ export async function POST(request) {
         .eq('id', target_user_id)
         .single()
 
-      const { data: authUser } = await supabase.auth.admin.getUserById(target_user_id)
+      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(target_user_id)
       const customerEmail = authUser?.user?.email
       const customerName = customerProfile?.full_name || 'Customer'
 
