@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '../../../lib/supabase-server'
 import { sendSubscriptionPausedEmail } from '../../../lib/email'
+import { notifyAdmin } from '../../../lib/whatsapp'
 
 export async function POST(request) {
   try {
@@ -64,15 +65,29 @@ export async function POST(request) {
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
-    // Send pause confirmation email (non-blocking)
+    // Extend end_date by 1 day for fixed subscriptions
+    if (sub.subscription_type === 'fixed' && sub.end_date) {
+      const newEndDate = new Date(sub.end_date + 'T00:00:00')
+      newEndDate.setDate(newEndDate.getDate() + 1)
+      await supabase
+        .from('subscriptions')
+        .update({ end_date: newEndDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) })
+        .eq('id', subscription_id)
+    }
+
+    // Send pause confirmation email + admin notification (non-blocking)
     try {
-      const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single()
+      const { data: profile } = await supabase.from('profiles').select('full_name, phone').eq('id', user.id).single()
       await sendSubscriptionPausedEmail({
         to: user.email,
         name: profile?.full_name || user.email,
         pauseDate: pause_date,
       })
-    } catch { /* email failure must not block response */ }
+      await notifyAdmin(
+        `Subscription Paused — ${profile?.full_name || 'Customer'}`,
+        `⏸️ Subscription paused\nCustomer: ${profile?.full_name || user.id}\nPhone: ${profile?.phone || 'N/A'}\nPaused date: ${pause_date}\nTotal paused days: ${updatedPaused.length}`
+      )
+    } catch { /* non-blocking */ }
 
     return NextResponse.json({
       success: true,

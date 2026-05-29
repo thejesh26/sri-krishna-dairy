@@ -21,7 +21,7 @@ export async function POST(request) {
       razorpay_payment_id,
       razorpay_signature,
       type,
-      subscriptionId,
+      subscriptionIds,
       userId,
       amount,
       deposit,
@@ -80,11 +80,11 @@ export async function POST(request) {
         .from('wallet').select('balance, deposit_balance').eq('user_id', userId).maybeSingle()
       console.log('[VerifyPayment] Updated wallet (subscription):', updatedWallet, walletUpdateError)
 
-      // Activate subscription
+      // Activate all subscriptions (multi-product support)
       await supabase
         .from('subscriptions')
         .update({ is_active: true })
-        .eq('id', subscriptionId)
+        .in('id', subscriptionIds)
 
       // Record one-time discount code usage
       if (discount_code && typeof discount_code === 'string') {
@@ -117,7 +117,7 @@ export async function POST(request) {
         const { data: sub } = await supabase
           .from('subscriptions')
           .select('start_date, delivery_slot, quantity, discount_percent, delivery_frequency, products(size, price)')
-          .eq('id', subscriptionId)
+          .eq('id', subscriptionIds[0])
           .single()
         const { data: profile } = await supabase.from('profiles').select('full_name, phone').eq('id', userId).single()
         // user.email is already available from JWT auth — no admin API call needed

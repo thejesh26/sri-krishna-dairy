@@ -199,6 +199,15 @@ export default function Subscribe() {
     additional_deposit: additionalDeposit,
   })
 
+  // ── Shared form validation ────────────────────────────────────────────────
+  const validateForm = () => {
+    if (!agreedToTerms) { showError('Please accept the terms and conditions to proceed.'); return false }
+    if (selectedProductList.length === 0) { showError('Please select at least one product.'); return false }
+    if (subscriptionType === 'fixed' && !endDate) { showError('Please select a duration (1 Week, 2 Weeks, 1 Month, or 3 Months)!'); return false }
+    if (subscriptionType === 'fixed' && new Date(endDate) <= new Date(startDate)) { showError('End date must be after start date!'); return false }
+    return true
+  }
+
   // ── Path A: Activate directly from wallet balance ────────────────────────
   const activateWithWallet = async (session) => {
     const res = await fetch('/api/subscriptions/create', {
@@ -215,125 +224,54 @@ export default function Subscribe() {
     }
   }
 
-  // ── Razorpay payment handler ─────────────────────────────────────────────
-  const handlePayment = async () => {
+  const handleWalletSubscribe = async () => {
+    if (!validateForm()) return
+    setLoading(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    await activateWithWallet(session)
+  }
+
+  // ── Path B: Razorpay for shortfall amount ────────────────────────────────
+  const handleRazorpayPayment = async () => {
+    if (!validateForm()) return
     try {
       setPaymentLoading(true)
-
-      // Get current user
       const { data: { session } } = await supabase.auth.getSession()
-      const userId = session.user.id
 
-      // Get customer profile
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name, phone')
-        .eq('id', userId)
-        .single()
-
-      // Sanitize phone
-      const rawPhone = profile?.phone || ''
-      const digits = rawPhone.replace(/\D/g, '').slice(-10)
-      const phone = digits.length === 10 ? '+91' + digits : ''
-
-      // Calculate amounts
-      const depositAmount = deliveryMode === 'keep_bottle' ? totalQuantity * 200 : 0
-      const subscriptionAmount = totalNeeded
-      const totalAmount = subscriptionAmount
-
-      // Check existing wallet balance
-      const { data: wallet } = await supabase
-        .from('wallet')
-        .select('balance, deposit_balance')
-        .eq('user_id', userId)
-        .maybeSingle()
-
-      const existingBalance = wallet?.balance || 0
-      const existingDeposit = wallet?.deposit_balance || 0
-
-      // Calculate additional deposit needed
-      const additionalDeposit = Math.max(0, depositAmount - existingDeposit)
-
-      // Calculate payment needed
-      const paymentNeeded = Math.max(0, totalAmount - existingBalance - existingDeposit)
-
-      // Create one subscription per selected product (inactive)
-      const insertRows = selectedProductList.map(p => ({
-        user_id: userId,
-        product_id: p.id,
-        quantity: selectedProducts[p.id],
-        is_active: false,
-        start_date: startDate,
-        end_date: endDate || null,
-        delivery_slot: deliverySlot,
-        subscription_type: subscriptionType,
-        bottle_deposit: deliveryMode === 'keep_bottle' ? 200 * selectedProducts[p.id] : 0,
-        delivery_mode: deliveryMode,
-        delivery_frequency: deliveryFrequency,
-        discount_percent: discount,
-        paused_dates: [],
-      }))
-
-      const { data: createdSubs, error: subError } = await supabase
-        .from('subscriptions')
-        .insert(insertRows)
-        .select('id')
-
-      if (subError || !createdSubs?.length) {
-        showError('Failed to create subscription')
+      // Step 1: Create inactive subscriptions via API
+      const createRes = await fetch('/api/subscriptions/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify(subscriptionPayload()),
+      })
+      const createData = await createRes.json()
+      if (!createRes.ok) {
+        showError(createData.error || 'Failed to prepare subscription')
         setPaymentLoading(false)
         return
       }
+      const subscriptionIds = createData.subscription_ids
 
-      // If existing wallet balance is enough
-      if (existingBalance >= totalAmount) {
-        await supabase.from('wallet').update({
-          balance: existingBalance - subscriptionAmount,
-          deposit_balance: existingDeposit + additionalDeposit,
-        }).eq('user_id', userId)
+      // Step 2: Get profile for Razorpay prefill
+      const { data: userProfile } = await supabase
+        .from('profiles').select('full_name, phone').eq('id', session.user.id).single()
+      const digits = (userProfile?.phone || '').replace(/\D/g, '').slice(-10)
+      const phone = digits.length === 10 ? '+91' + digits : ''
 
-        await supabase.from('subscriptions')
-          .update({ is_active: true })
-          .in('id', createdSubs.map(s => s.id))
-
-        await supabase.from('wallet_transactions').insert({
-          user_id: userId,
-          amount: totalAmount,
-          type: 'debit',
-          description: 'Subscription activated using wallet balance',
-        })
-
-        showSuccess('Subscription activated!')
-        setTimeout(() => {
-          window.location.href = `/confirmation?type=subscription&startDate=${encodeURIComponent(startDate)}`
-        }, 1500)
-        return
-      }
-
-      // Need Razorpay payment
-      const amountToPay = paymentNeeded > 0 ? paymentNeeded : totalAmount
-
-      // Create Razorpay order
+      // Step 3: Create Razorpay order for shortfall only
       const orderRes = await fetch('/api/razorpay/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: amountToPay })
+        body: JSON.stringify({ amount: shortfall }),
       })
       const orderData = await orderRes.json()
-
-      if (orderData.orderId) {
-        await supabase.from('subscriptions')
-          .update({ razorpay_order_id: orderData.orderId })
-          .in('id', createdSubs.map(s => s.id))
-      }
-
       if (!orderData.orderId) {
         showError('Failed to create payment order')
         setPaymentLoading(false)
         return
       }
 
-      // Open Razorpay
+      // Step 4: Open Razorpay
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: orderData.amount,
@@ -342,27 +280,23 @@ export default function Subscribe() {
         description: 'Milk Subscription',
         image: '/Logo.jpg',
         order_id: orderData.orderId,
-        prefill: {
-          name: profile?.full_name || '',
-          contact: phone,
-        },
+        prefill: { name: userProfile?.full_name || '', contact: phone },
         theme: { color: '#1a5c38' },
         handler: async function (response) {
           const verifyRes = await fetch('/api/razorpay/verify-payment', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
             body: JSON.stringify({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
               type: 'subscription',
-              subscriptionId: createdSubs[0]?.id,
-              subscriptionIds: createdSubs.map(s => s.id),
-              userId: userId,
-              amount: amountToPay,
-              deposit: additionalDeposit,
+              subscriptionIds,
+              userId: session.user.id,
+              amount: shortfall,
+              deposit: depositAmount,
               discount_code: discountCode || null,
-            })
+            }),
           })
           const verifyData = await verifyRes.json()
           if (verifyData.success) {
@@ -375,55 +309,15 @@ export default function Subscribe() {
             setPaymentLoading(false)
           }
         },
-        modal: {
-          ondismiss: function () {
-            setPaymentLoading(false)
-          }
-        }
+        modal: { ondismiss: () => setPaymentLoading(false) },
       }
-
       const rzp = new window.Razorpay(options)
       rzp.open()
-
-    } catch (error) {
-      console.error('Payment error:', error)
+    } catch (err) {
+      console.error('Payment error:', err)
       showError('Something went wrong!')
       setPaymentLoading(false)
     }
-  }
-
-  // ── Main submit handler ──────────────────────────────────────────────────
-  const handleSubscribe = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-
-    if (!agreedToTerms) {
-      showError('Please accept the terms and conditions to proceed.')
-      setLoading(false)
-      return
-    }
-    if (subscriptionType === 'fixed' && !endDate) {
-      showError('Please select a duration (1 Week, 2 Weeks, 1 Month, or 3 Months)!')
-      setLoading(false)
-      return
-    }
-    if (subscriptionType === 'fixed' && new Date(endDate) <= new Date(startDate)) {
-      showError('End date must be after start date!')
-      setLoading(false)
-      return
-    }
-
-    const { data: { session } } = await supabase.auth.getSession()
-
-    // Activate using wallet balance
-    if (walletCovers) {
-      await activateWithWallet(session)
-      return
-    }
-
-    // Not enough wallet balance — prompt to recharge
-    showError(`Insufficient wallet balance. Please recharge your wallet with at least ₹${razorpayNeeded} and try again.`)
-    setLoading(false)
   }
 
   return (
@@ -518,7 +412,7 @@ export default function Subscribe() {
           </div>
         )}
 
-        {!subscriberLimitReached && <form onSubmit={handleSubscribe} className="flex flex-col gap-5">
+        {!subscriberLimitReached && <form onSubmit={e => e.preventDefault()} className="flex flex-col gap-5">
 
           {/* Subscription Type */}
           <div className="bg-white rounded-xl p-5 shadow-sm border border-[#e8e0d0]">
@@ -779,11 +673,13 @@ export default function Subscribe() {
                 <span className="text-sm text-gray-600">Your wallet</span>
                 <span className={`font-bold text-sm ${walletBalance > 0 ? 'text-[#1a5c38]' : 'text-gray-400'}`}>₹{walletBalance}</span>
               </div>
-              {shortfall > 0 ? (
-                <div className="mt-3 text-red-500 font-semibold text-sm text-center">
-                  Please recharge {isNaN(shortfall) ? '—' : `₹${shortfall}`} more to subscribe.
+              {shortfall > 0 && (
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-sm font-semibold text-red-600">Amount to pay now</span>
+                  <span className="font-bold text-sm text-red-600">₹{isNaN(shortfall) ? '—' : shortfall}</span>
                 </div>
-              ) : totalNeeded > 0 && (
+              )}
+              {walletCovers && (
                 <div className="mt-3 text-[#1a5c38] font-semibold text-sm text-center bg-[#f0faf4] rounded-lg p-2">
                   ✅ Wallet balance is sufficient — activate instantly
                 </div>
@@ -923,14 +819,25 @@ export default function Subscribe() {
             </label>
           </div>
 
-          <button
-            type="button"
-            onClick={handleSubscribe}
-            disabled={shortfall > 0 || !agreedToTerms}
-            className="w-full text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition shadow-lg disabled:opacity-50"
-            style={{background: 'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
-            {loading ? 'Processing...' : shortfall > 0 ? `Recharge ${isNaN(shortfall) ? '—' : `₹${shortfall}`} to Subscribe` : 'Activate Subscription'}
-          </button>
+          {shortfall > 0 ? (
+            <button
+              type="button"
+              onClick={handleRazorpayPayment}
+              disabled={!agreedToTerms || paymentLoading}
+              className="w-full text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition shadow-lg disabled:opacity-50"
+              style={{background: 'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
+              {paymentLoading ? 'Processing...' : `Pay ₹${isNaN(shortfall) ? '—' : shortfall} & Subscribe`}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleWalletSubscribe}
+              disabled={!agreedToTerms || loading || totalNeeded === 0}
+              className="w-full text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition shadow-lg disabled:opacity-50"
+              style={{background: 'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
+              {loading ? 'Processing...' : 'Subscribe (from wallet)'}
+            </button>
+          )}
 
         </form>}
       </div>

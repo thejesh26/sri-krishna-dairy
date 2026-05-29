@@ -2051,6 +2051,19 @@ export default function AdminDashboard() {
                                       <p><span className="text-gray-500">Slot:</span> <span className="font-semibold">{d.subscription.delivery_slot === 'morning' ? '7AM–9AM' : '5PM–7PM'}</span></p>
                                       <p><span className="text-gray-500">Start:</span> <span className="font-semibold">{d.subscription.start_date}</span></p>
                                       <p><span className="text-gray-500">Daily:</span> <span className="font-semibold">₹{Math.round((d.subscription.products?.price || 0) * d.subscription.quantity * (1 - (d.subscription.discount_percent || 0) / 100))}</span></p>
+                                      <p><span className="text-gray-500">Paused days:</span> <span className="font-semibold">{d.subscription?.paused_dates?.length || 0}</span></p>
+                                      {d.subscription?.paused_dates?.length > 0 && (
+                                        <div className="mt-2">
+                                          <p className="text-xs text-gray-500">Paused dates:</p>
+                                          <div className="flex flex-wrap gap-1 mt-1">
+                                            {d.subscription.paused_dates.map(date => (
+                                              <span key={date} className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
+                                                {new Date(date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 )}

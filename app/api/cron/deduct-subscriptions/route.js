@@ -12,7 +12,7 @@ function isDeliveryDay(sub) {
   return true
 }
 import { sendLowBalanceEmail, sendCronFailureAlert, sendSubscriptionExpiryReminderEmail, sendReferralCompletedEmail, sendPointsExpiryEmail } from '../../../lib/email'
-import { sendDeliveryStopped, sendSubscriptionExpiry, notifyReferralCompleted, notifyPointsExpiring } from '../../../lib/whatsapp'
+import { sendDeliveryStopped, sendSubscriptionExpiry, notifyReferralCompleted, notifyPointsExpiring, notifyAdmin } from '../../../lib/whatsapp'
 
 // Called daily by Vercel Cron at 18:30 UTC (midnight IST)
 // GET /api/cron/deduct-subscriptions
@@ -40,6 +40,24 @@ async function runDeductions() {
 
   // Always use IST for the daily date so it matches subscription dates stored by users in IST
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+
+  // Auto-deactivate expired fixed subscriptions
+  try {
+    const { data: expiredSubs } = await supabase
+      .from('subscriptions')
+      .select('id, user_id, end_date')
+      .eq('is_active', true)
+      .eq('subscription_type', 'fixed')
+      .lt('end_date', today)
+
+    for (const sub of expiredSubs || []) {
+      await supabase.from('subscriptions').update({ is_active: false }).eq('id', sub.id)
+      await notifyAdmin(
+        'Subscription Expired',
+        `📅 Fixed subscription #${sub.id} has expired (end date: ${sub.end_date}). Auto-deactivated.`
+      ).catch(() => {})
+    }
+  } catch { /* must not block cron */ }
 
   // Fetch all active subscriptions that have started and not yet ended
   const { data: subscriptions, error } = await supabase
