@@ -520,8 +520,7 @@ export default function AdminDashboard() {
       supabase.from('subscription_deliveries').select('*, subscriptions(products(size))').eq('user_id', userId).order('delivery_date', { ascending: false }).limit(10),
       supabase.from('orders').select('*, products(size)').eq('user_id', userId).order('created_at', { ascending: false }).limit(10),
       supabase.from('wallet').select('balance, deposit_balance').eq('user_id', userId).maybeSingle(),
-      supabase.from('subscriptions').select('*, products(size, price), paused_dates').eq('user_id', userId).eq('is_active', true).maybeSingle(),
-    ])
+supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),    ])
     setCustomerDetails(prev => ({ ...prev, [userId]: { transactions: transactions || [], deliveries: deliveries || [], orders: orders || [], wallet, subscription } }))
     setCustomerDetailsLoading(prev => ({ ...prev, [userId]: false }))
   }
