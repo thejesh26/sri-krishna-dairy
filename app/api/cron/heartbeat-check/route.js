@@ -23,35 +23,42 @@ export async function GET(request) {
 
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 
-  // Check if any subscription deduction ran today
-  const { data: todayRun, error } = await supabaseAdmin
-    .from('wallet_transactions')
+  // Check if cron marked any subscriptions as pending_delivery today
+  const { data: todayRun } = await supabaseAdmin
+    .from('subscriptions')
     .select('id')
-    .like('description', `%[${today}]%`)
-    .eq('type', 'debit')
+    .eq('pending_delivery', true)
     .limit(1)
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  // Also check if any active subscriptions exist — if none, cron has nothing to do
+  const { data: activeSubs } = await supabaseAdmin
+    .from('subscriptions')
+    .select('id')
+    .eq('is_active', true)
+    .limit(1)
+
+  // If no active subscriptions exist, cron ran successfully (nothing to do)
+  if (!activeSubs?.length) {
+    return NextResponse.json({ date: today, status: 'OK', message: 'No active subscriptions.' })
   }
 
-  if (!todayRun || todayRun.length === 0) {
-    // Cron did not run today — alert admin
-    await notifyAdmin(
-      '⚠️ Cron Alert — Deduction Did Not Run',
-      `The daily subscription deduction cron did NOT run on ${today}.\n\nPlease check Vercel logs and trigger manually if needed:\nhttps://srikrishnaadairy.in/api/cron/deduct-subscriptions`
-    )
+  // If active subs exist and none are pending — cron may not have run
+  if (!todayRun?.length) {
+    // Check wallet_transactions as fallback
+    const { data: txCheck } = await supabaseAdmin
+      .from('wallet_transactions')
+      .select('id')
+      .like('description', `%[${today}]%`)
+      .limit(1)
 
-    return NextResponse.json({
-      date: today,
-      status: 'MISSED',
-      message: 'Cron did not run today. Admin has been alerted.',
-    })
+    if (!txCheck?.length) {
+      await notifyAdmin(
+        '⚠️ Cron Alert — Deduction Did Not Run',
+        `The daily cron did NOT run on ${today}. Please check Vercel logs.`
+      )
+      return NextResponse.json({ date: today, status: 'MISSED' })
+    }
   }
 
-  return NextResponse.json({
-    date: today,
-    status: 'OK',
-    message: 'Cron ran successfully today.',
-  })
+  return NextResponse.json({ date: today, status: 'OK' })
 }

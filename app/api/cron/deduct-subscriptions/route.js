@@ -1,18 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '../../../lib/supabase-server'
+import { createClient } from '@supabase/supabase-js'
+import { sendLowBalanceEmail, sendSubscriptionExpiryReminderEmail, sendReferralCompletedEmail, sendPointsExpiryEmail } from '../../../lib/email'
+import { sendSubscriptionExpiry, notifyReferralCompleted, notifyPointsExpiring, notifyAdmin } from '../../../lib/whatsapp'
 
-function isDeliveryDay(sub) {
-  const freq = sub.delivery_frequency || 'daily'
-  if (freq === 'daily') return true
-  const start = new Date(sub.start_date)
-  const today = new Date()
-  const daysDiff = Math.floor((today - start) / (1000 * 60 * 60 * 24))
-  if (freq === 'alternate') return daysDiff % 2 === 0
-  if (freq === 'weekly') return daysDiff % 7 === 0
-  return true
-}
-import { sendLowBalanceEmail, sendCronFailureAlert, sendSubscriptionExpiryReminderEmail, sendReferralCompletedEmail, sendPointsExpiryEmail } from '../../../lib/email'
-import { sendDeliveryStopped, sendSubscriptionExpiry, notifyReferralCompleted, notifyPointsExpiring, notifyAdmin } from '../../../lib/whatsapp'
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+)
 
 // Called daily by Vercel Cron at 18:30 UTC (midnight IST)
 // GET /api/cron/deduct-subscriptions
@@ -36,8 +30,6 @@ export async function POST(request) {
 }
 
 async function runDeductions() {
-  const supabase = createServerClient()
-
   // Always use IST for the daily date so it matches subscription dates stored by users in IST
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 
@@ -51,7 +43,7 @@ async function runDeductions() {
       .lt('end_date', today)
 
     for (const sub of expiredSubs || []) {
-      await supabase.from('subscriptions').update({ is_active: false }).eq('id', sub.id)
+      await supabaseAdmin.from('subscriptions').update({ is_active: false }).eq('id', sub.id)
       await notifyAdmin(
         'Subscription Expired',
         `📅 Fixed subscription #${sub.id} has expired (end date: ${sub.end_date}). Auto-deactivated.`
@@ -59,125 +51,57 @@ async function runDeductions() {
     }
   } catch { /* must not block cron */ }
 
-  // Fetch all active subscriptions that have started and not yet ended
-  const { data: subscriptions, error } = await supabase
-    .from('subscriptions')
-    .select('*, products(*), discount_percent')
-    .eq('is_active', true)
-    .lte('start_date', today)
-    .or(`end_date.is.null,end_date.gte.${today}`)
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
-  // Filter out subscriptions paused today, missing product, or not a delivery day for their frequency
-  const eligible = (subscriptions || []).filter(sub =>
-    sub.products && !(sub.paused_dates || []).includes(today) && isDeliveryDay(sub)
-  )
-
-  const pendingMarked = []
-  const failed = []
-  let skipped = 0
-
-  // ── Mark eligible subscriptions as pending_delivery (deduction happens on confirm) ──
-  for (const sub of eligible) {
-    const dailyAmount = Math.round(
-      sub.products.price * sub.quantity * (1 - (sub.discount_percent || 0) / 100)
-    )
-
-    // Check if already processed today (idempotency)
-    const description = `Daily subscription ${sub.id} [${today}]`
-    const { data: existing } = await supabase
-      .from('wallet_transactions')
-      .select('id')
-      .eq('user_id', sub.user_id)
-      .eq('description', description)
-      .limit(1)
-
-    if (existing?.length > 0) {
-      skipped++
-      continue
-    }
-
-    // Check wallet has sufficient balance before marking pending
-    const { data: wallet } = await supabase
-      .from('wallet')
-      .select('id, balance')
-      .eq('user_id', sub.user_id)
-      .maybeSingle()
-
-    const balance = wallet?.balance || 0
-
-    if (balance < dailyAmount) {
-      // Auto-deactivate subscription — balance cannot cover today's delivery
-      await supabase
-        .from('subscriptions')
-        .update({ is_active: false, pending_delivery: false })
-        .eq('id', sub.id)
-
-      try {
-        const { data: stoppedProfile } = await supabase
-          .from('profiles')
-          .select('full_name, phone')
-          .eq('id', sub.user_id)
-          .single()
-        if (stoppedProfile?.phone) {
-          await sendDeliveryStopped(stoppedProfile.phone, stoppedProfile.full_name || 'Customer', balance)
-        }
-      } catch { /* non-blocking */ }
-
-      failed.push({
-        subscriptionId: sub.id,
-        userId: sub.user_id,
-        product: `${sub.products.size} x${sub.quantity}`,
-        balance,
-        required: dailyAmount,
-        reason: 'Insufficient balance — subscription deactivated',
-      })
-      // Persist to failed_deductions table
-      await supabase.from('failed_deductions').insert({
-        user_id: sub.user_id,
-        subscription_id: sub.id,
-        amount: dailyAmount,
-        reason: 'Insufficient balance — subscription deactivated',
-      }).catch(() => {})
-      await supabase.from('wallet_transactions').insert({
-        user_id: sub.user_id,
-        amount: 0,
-        type: 'debit',
-        description: `Subscription stopped - insufficient balance [${today}]. Required: ₹${dailyAmount}, Available: ₹${balance}`,
-      })
-      continue
-    }
-
-    if (!wallet) {
-      failed.push({
-        subscriptionId: sub.id,
-        userId: sub.user_id,
-        product: `${sub.products.size} x${sub.quantity}`,
-        balance: 0,
-        required: dailyAmount,
-        reason: 'No wallet found',
-      })
-      // Persist to failed_deductions table
-      await supabase.from('failed_deductions').insert({
-        user_id: sub.user_id,
-        subscription_id: sub.id,
-        amount: dailyAmount,
-        reason: 'No wallet found',
-      }).catch(() => {})
-      continue
-    }
-
-    // Mark as pending delivery — deduction happens when delivery is confirmed
-    await supabase
+  // Low balance alerts for active ongoing subscribers
+  try {
+    const { data: activeSubs } = await supabase
       .from('subscriptions')
-      .update({ pending_delivery: true })
-      .eq('id', sub.id)
+      .select('user_id, products(price), quantity, discount_percent, subscription_type')
+      .eq('is_active', true)
+      .lte('start_date', today)
+      .or(`end_date.is.null,end_date.gte.${today}`)
 
-    pendingMarked.push({ subscriptionId: sub.id, userId: sub.user_id, amount: dailyAmount })
-  }
+    const userAlerted = new Set()
+    for (const sub of activeSubs || []) {
+      if (userAlerted.has(sub.user_id) || sub.subscription_type === 'fixed') continue
+      userAlerted.add(sub.user_id)
+      const dailyAmount = Math.round((sub.products?.price || 0) * sub.quantity * (1 - (sub.discount_percent || 0) / 100))
+      if (!dailyAmount) continue
+      const threshold = dailyAmount * 7
+      const { data: wallet } = await supabaseAdmin.from('wallet').select('balance').eq('user_id', sub.user_id).maybeSingle()
+      const balance = wallet?.balance || 0
+      if (balance > 0 && balance < threshold) {
+        const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(sub.user_id)
+        const { data: profile } = await supabaseAdmin.from('profiles').select('full_name').eq('id', sub.user_id).single()
+        const email = authUser?.user?.email
+        if (email) await sendLowBalanceEmail({ to: email, name: profile?.full_name || 'Customer', balance }).catch(() => {})
+      }
+    }
+  } catch { /* must not block cron */ }
+
+  // Admin notification if no deliveries were confirmed yesterday
+  try {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayStr = yesterday.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+
+    const { count: activeCount } = await supabase
+      .from('subscriptions')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true)
+
+    const { count: deliveryCount } = await supabase
+      .from('wallet_transactions')
+      .select('*', { count: 'exact', head: true })
+      .eq('type', 'debit')
+      .like('description', `%[${yesterdayStr}]`)
+
+    if ((activeCount || 0) > 0 && (deliveryCount || 0) === 0) {
+      await notifyAdmin(
+        'No Deliveries Yesterday',
+        `⚠️ No deliveries were confirmed on ${yesterdayStr}. Please check if deliveries are being marked in the admin panel.`
+      ).catch(() => {})
+    }
+  } catch { /* must not block cron */ }
 
   // ── Reset pause_days_used_this_month on the 1st of each month ────────────────
   try {
@@ -221,8 +145,8 @@ async function runDeductions() {
           .select('loyalty_points, full_name, phone, email')
           .eq('id', ref.referrer_id)
           .single()
-        const { data: referrerAuth } = await supabase.auth.admin.getUserById(ref.referrer_id)
-        await supabase.from('profiles').update({
+        const { data: referrerAuth } = await supabaseAdmin.auth.admin.getUserById(ref.referrer_id)
+        await supabaseAdmin.from('profiles').update({
           loyalty_points: (referrerProf?.loyalty_points || 0) + REFERRAL_POINTS,
         }).eq('id', ref.referrer_id)
 
@@ -232,13 +156,13 @@ async function runDeductions() {
           .select('loyalty_points, full_name, phone, email')
           .eq('id', ref.referred_id)
           .single()
-        const { data: referredAuth } = await supabase.auth.admin.getUserById(ref.referred_id)
-        await supabase.from('profiles').update({
+        const { data: referredAuth } = await supabaseAdmin.auth.admin.getUserById(ref.referred_id)
+        await supabaseAdmin.from('profiles').update({
           loyalty_points: (referredProf?.loyalty_points || 0) + REFERRAL_POINTS,
         }).eq('id', ref.referred_id)
 
         // Mark referral completed
-        await supabase.from('referrals').update({
+        await supabaseAdmin.from('referrals').update({
           status: 'completed',
           referral_activated_at: new Date().toISOString(),
           subscription_days_count: newCount,
@@ -255,7 +179,7 @@ async function runDeductions() {
         } catch { /* non-blocking */ }
       } else {
         // Increment counter
-        await supabase.from('referrals').update({ subscription_days_count: newCount }).eq('id', ref.id)
+        await supabaseAdmin.from('referrals').update({ subscription_days_count: newCount }).eq('id', ref.id)
       }
     }
   } catch { /* referral check must not block cron */ }
@@ -275,7 +199,7 @@ async function runDeductions() {
       .gt('loyalty_points', 0)
 
     for (const prof of expiredProfiles || []) {
-      await supabase.from('profiles').update({ loyalty_points: 0, loyalty_points_expiry: null }).eq('id', prof.id)
+      await supabaseAdmin.from('profiles').update({ loyalty_points: 0, loyalty_points_expiry: null }).eq('id', prof.id)
     }
 
     // Notify customers whose points expire in exactly 30 days
@@ -287,15 +211,13 @@ async function runDeductions() {
 
     for (const prof of expiringProfiles || []) {
       try {
-        const { data: authUser } = await supabase.auth.admin.getUserById(prof.id)
+        const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(prof.id)
         const email = authUser?.user?.email
         if (email) await sendPointsExpiryEmail({ to: email, name: prof.full_name || 'Customer', points: prof.loyalty_points, expiryDate: prof.loyalty_points_expiry })
         if (prof.phone) await notifyPointsExpiring({ phone: prof.phone, name: prof.full_name || 'Customer', points: prof.loyalty_points, expiryDate: prof.loyalty_points_expiry })
       } catch { /* non-blocking */ }
     }
   } catch { /* expiry check must not block cron */ }
-
-  const deducted = pendingMarked // keep field name for admin alert compat
 
   // ── Subscription expiry reminders (3-day warning for fixed subs) ──────────
   try {
@@ -316,7 +238,7 @@ async function runDeductions() {
           .select('full_name, phone, email')
           .eq('id', sub.user_id)
           .single()
-        const { data: authUser } = await supabase.auth.admin.getUserById(sub.user_id)
+        const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(sub.user_id)
         const email = authUser?.user?.email || expiryProfile?.email
         const name = expiryProfile?.full_name || email || 'Customer'
         const product = sub.products?.size || 'Milk'
@@ -336,28 +258,5 @@ async function runDeductions() {
     // Expiry check failure must not block cron
   }
 
-  // Send admin alert if any deductions failed
-  if (failed.length > 0) {
-    try {
-      await sendCronFailureAlert({
-        date: today,
-        failed,
-        skipped,
-        deducted: deducted.length,
-      })
-    } catch {
-      // Alert failure must not block the cron response
-    }
-  }
-
-  return NextResponse.json({
-    date: today,
-    summary: {
-      eligible: eligible.length,
-      pendingMarked: pendingMarked.length,
-      skipped,
-      failed: failed.length,
-    },
-    failed,
-  })
+  return NextResponse.json({ date: today, summary: 'daily cron complete' })
 }
