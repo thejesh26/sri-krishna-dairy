@@ -443,37 +443,40 @@ export default function AdminDashboard() {
     const fromDate = startDate || historyStartDate
     const toDate = endDate || historyEndDate
 
-    // Fetch subscription delivery records
-    const { data: subDeliveries } = await supabase
-      .from('subscription_deliveries')
-      .select('*')
-      .gte('delivery_date', fromDate)
-      .lte('delivery_date', toDate)
-      .order('delivery_date', { ascending: false })
+    // Run both queries in parallel
+    const [{ data: subDeliveries }, { data: deliveredOrders }] = await Promise.all([
+      supabase
+        .from('subscription_deliveries')
+        .select('*')
+        .gte('delivery_date', fromDate)
+        .lte('delivery_date', toDate)
+        .order('delivery_date', { ascending: false }),
+      supabase
+        .from('orders')
+        .select('*, profiles(*), products(*)')
+        .eq('status', 'delivered')
+        .gte('delivery_date', fromDate)
+        .lte('delivery_date', toDate)
+        .order('delivery_date', { ascending: false }),
+    ])
 
-    // Fetch delivered orders
-    const { data: deliveredOrders } = await supabase
-      .from('orders')
-      .select('*, profiles(*), products(*)')
-      .eq('status', 'delivered')
-      .gte('delivery_date', fromDate)
-      .lte('delivery_date', toDate)
-      .order('delivery_date', { ascending: false })
-
-    // Build agent/admin name lookup map for fast access
+    // O(1) lookup maps
     const agentMap = {}
     deliveryAgents.forEach(a => { agentMap[a.id] = a.full_name })
     customers.forEach(c => { agentMap[c.id] = c.full_name })
 
+    const subMap = {}
+    subscriptions.forEach(s => { subMap[s.id] = s })
+
     const combined = [
       ...(subDeliveries || []).map(d => {
-        const sub = subscriptions.find(s => s.id === d.subscription_id)
-        const customer = customers.find(c => c.id === d.user_id)
+        const sub = subMap[d.subscription_id]
+        const customerName = agentMap[d.user_id] || 'Unknown'
         return {
           id: 'sub-' + d.id,
           type: 'subscription',
-          customerName: customer?.full_name || 'Unknown',
-          phone: customer?.phone || '',
+          customerName,
+          phone: customers.find(c => c.id === d.user_id)?.phone || '',
           product: sub?.products?.size || 'Milk',
           quantity: sub?.quantity || 1,
           deliveredBy: agentMap[d.delivered_by] || d.delivered_by || '-',
@@ -490,7 +493,7 @@ export default function AdminDashboard() {
         phone: o.profiles?.phone || '',
         product: o.products?.size || 'Milk',
         quantity: o.quantity || 1,
-        deliveredBy: agentMap[d.delivered_by] || d.delivered_by || '-',
+        deliveredBy: agentMap[o.delivered_by] || o.delivered_by || '-',
         deliveredAt: o.delivered_at || o.updated_at,
         date: o.delivery_date,
         status: 'delivered',
