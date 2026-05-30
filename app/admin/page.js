@@ -398,8 +398,7 @@ export default function AdminDashboard() {
       todayRevenue,
       monthlyRevenue,
     })
-
-    
+  }
 
   const loadWallets = async () => {
     const { data: walletData, error: walletError } = await supabase.from('wallet').select('*')
@@ -3203,9 +3202,10 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
     {/* ── Settings Tab ── */}
     {activeTab === 'settings' && (
       <div className="flex flex-col gap-6">
-        {!settingsLoaded ? (
+        {!settingsLoaded && (
           <div className="text-center py-12 text-gray-400 text-sm">Loading settings...</div>
-        ) : (<>
+        )}
+        <div className={settingsLoaded ? 'flex flex-col gap-6' : 'hidden'}>
 
         {/* WhatsApp template cleanup warning */}
         {process.env.NEXT_PUBLIC_WHATSAPP_CLEANUP_DONE !== 'true' && (
@@ -3702,7 +3702,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           )}
         </div>
 
-        </>)}
+        </div>
       </div>
     )}
 
