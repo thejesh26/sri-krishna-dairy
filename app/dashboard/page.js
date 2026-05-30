@@ -56,8 +56,15 @@ export default function Dashboard() {
   const [reportType, setReportType] = useState('missed')
   const [reportDescription, setReportDescription] = useState('')
   const [reportSubmitting, setReportSubmitting] = useState(false)
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
 
   useEffect(() => { getUser() }, [])
+  useEffect(() => {
+    if (!profileDropdownOpen) return
+    const close = (e) => { if (!e.target.closest('[data-profile-dropdown]')) setProfileDropdownOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [profileDropdownOpen])
 
   const getGreeting = () => {
     const hour = new Date().getHours()
@@ -301,20 +308,42 @@ export default function Dashboard() {
             <p className="text-xs text-[#d4a017] font-medium hidden sm:block">Farm Fresh - Pure - Natural</p>
           </div>
         </a>
-        <div className="flex items-center gap-4">
-          <a href="/profile"
-            className="flex items-center gap-2 border border-[#e8e0d0] rounded-full px-3 py-1.5 hover:border-[#d4a017] transition">
+        <div className="relative" data-profile-dropdown>
+          <button
+            onClick={() => setProfileDropdownOpen(o => !o)}
+            className="flex items-center gap-2 border border-[#e8e0d0] rounded-full px-3 py-1.5 hover:border-[#d4a017] transition bg-white"
+          >
             <Avatar name={profile?.full_name || firstName} size="xs" />
             <span className="text-sm font-medium text-[#1c1c1c]">{firstName}</span>
-          </a>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLogout}
-            className="rounded-full border border-red-200 text-red-400 hover:bg-red-50 hover:text-red-600"
-          >
-            Logout
-          </Button>
+            <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+
+          {profileDropdownOpen && (
+            <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-[#e8e0d0] rounded-2xl shadow-xl z-50 overflow-hidden">
+              <div className="px-4 py-3 border-b border-[#f5f0e8]">
+                <p className="text-xs font-semibold text-[#1c1c1c] truncate">{profile?.full_name || firstName}</p>
+                <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+              </div>
+              {[
+                { href: '/profile?tab=transactions', icon: '💰', label: 'My Transactions' },
+                { href: '/profile?tab=orders',       icon: '📦', label: 'My Orders'       },
+                { href: '/profile?tab=profile',      icon: '👤', label: 'My Profile'      },
+              ].map(({ href, icon, label }) => (
+                <a key={label} href={href}
+                  className="flex items-center gap-3 px-4 py-3 text-sm text-[#1c1c1c] hover:bg-[#f5f0e8] transition border-b border-[#f5f0e8] last:border-0"
+                  onClick={() => setProfileDropdownOpen(false)}>
+                  <span>{icon}</span>
+                  <span className="font-medium">{label}</span>
+                </a>
+              ))}
+              <button
+                onClick={() => { setProfileDropdownOpen(false); handleLogout() }}
+                className="flex items-center gap-3 px-4 py-3 text-sm text-red-500 hover:bg-red-50 transition w-full text-left">
+                <span>🚪</span>
+                <span className="font-semibold">Logout</span>
+              </button>
+            </div>
+          )}
         </div>
       </header>
 

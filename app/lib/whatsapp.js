@@ -1,4 +1,5 @@
 import { sendEmail } from './email'
+import { createAdminNotification } from './notify'
 
 const WA_API_URL = `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`
 const ADMIN_PHONE = process.env.ADMIN_WHATSAPP_PHONE || '918553666002'
@@ -159,6 +160,7 @@ async function notifyOrderPlaced({ phone, name, size, quantity, deliveryDate, sl
     `New Order – ${name}`,
     `🛒 New Order Placed!\nCustomer: ${name}\nProduct: ${product}\nDate: ${date}\nSlot: ${slotLabel}\nAmount: Rs.${amount || 0}`,
   )
+  createAdminNotification({ type: 'new_order', title: `New order from ${name}`, body: `${product} · ${date}`, link_tab: 'orders' })
 }
 
 async function notifySubscriptionActivated({ phone, name, size, quantity, startDate, slot, dailyAmount, frequency }) {
@@ -174,6 +176,7 @@ async function notifySubscriptionActivated({ phone, name, size, quantity, startD
     `New Subscription – ${name}`,
     `📅 New Subscription Activated!\nCustomer: ${name}\nProduct: ${product}\nStart Date: ${date}\nSlot: ${slotLabel}\nFrequency: ${freqLabel}\nDaily: Rs.${dailyAmount || 0}/day`,
   )
+  createAdminNotification({ type: 'new_subscription', title: `New subscription: ${name}`, body: `${product} from ${date}`, link_tab: 'subscriptions' })
 }
 
 async function notifyOrderDelivered({ phone, name, date, product }) {

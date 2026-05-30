@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../../../lib/db'
 import { requireDelivery } from '../../../lib/auth'
+import { createAdminNotification } from '../../../lib/notify'
 
 export async function POST(request) {
   try {
@@ -28,8 +29,15 @@ export async function POST(request) {
     })
 
     if (insertError) {
-      return Response.json({ error: insertError.message }, { status: 500 })
+      return Response.json({ error: 'Server error.' }, { status: 500 })
     }
+
+    createAdminNotification({
+      type: 'wallet_request',
+      title: `Agent wallet request: ${action} ₹${amt}`,
+      body: note || '',
+      link_tab: 'customers',
+    })
 
     return Response.json({ success: true })
   } catch (error) {

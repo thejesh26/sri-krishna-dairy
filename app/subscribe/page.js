@@ -345,10 +345,19 @@ export default function Subscribe() {
       <div className="max-w-2xl mx-auto px-6 py-8">
 
         {/* Page Title */}
-        <div className="mb-6">
+        <div className="mb-4">
           <p className="text-[#d4a017] font-semibold text-xs tracking-widest uppercase mb-1">Daily Milk</p>
           <h2 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#1c1c1c]">Subscribe Now</h2>
           <p className="text-gray-400 text-sm mt-1">Fresh milk delivered to your doorstep every day</p>
+        </div>
+
+        {/* Raw milk safety disclaimer */}
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 mb-6">
+          <span className="text-xl flex-shrink-0 mt-0.5">⚠️</span>
+          <p className="text-amber-800 text-sm leading-relaxed">
+            <span className="font-semibold">Raw Milk Advisory:</span> Our milk is farm-fresh and unprocessed.{' '}
+            <span className="font-semibold">Please boil before consumption</span>, especially for children, elderly, pregnant women, and immunocompromised individuals.
+          </p>
         </div>
 
         {/* Trial banner — only if customer hasn't used COD yet */}

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../lib/db'
 import { requireAuth } from '../../lib/auth'
 import { sendWhatsAppToAdmin } from '../../lib/whatsapp'
+import { createAdminNotification } from '../../lib/notify'
 
 export async function POST(request) {
   try {
@@ -46,6 +47,13 @@ export async function POST(request) {
     await sendWhatsAppToAdmin(
       `⚠️ *Quality Issue Reported*\n👤 ${name}${profile?.phone ? ` (${profile.phone})` : ''}\n🥛 ${order.products?.size || 'Milk'} · ${dateStr}\n💬 "${issue.trim()}"`
     )
+
+    createAdminNotification({
+      type: 'quality_report',
+      title: `Quality issue from ${name}`,
+      body: issue.trim(),
+      link_tab: 'reports',
+    })
 
     return NextResponse.json({ success: true })
   } catch {

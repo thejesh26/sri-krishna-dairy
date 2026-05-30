@@ -74,44 +74,22 @@ export default function DeliveryDashboard() {
   }
 
   const loadDeliveries = async (userId, prof) => {
-    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-    let ordersQuery = supabase
-      .from('orders')
-      .select('*, products(*), profiles(*)')
-      .eq('delivery_date', today)
-      .in('status', ['pending', 'out_for_delivery'])
-      .order('delivery_slot', { ascending: true })
-    if (!prof?.is_admin) ordersQuery = ordersQuery.eq('assigned_to', userId)
-    const { data: allOrders } = await ordersQuery
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/delivery/today', {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    })
+    if (!res.ok) { showError('Could not load deliveries.'); return }
+    const { orders: allOrders, subscriptions: activeSubs, addonOrders: allAddons } = await res.json()
+
     setOrders(allOrders || [])
-
-    let subsQuery = supabase
-      .from('subscriptions')
-      .select('*, products(*), profiles(*)')
-      .eq('is_active', true)
-      .lte('start_date', today)
-      .or(`end_date.is.null,end_date.gte.${today}`)
-      .order('delivery_slot', { ascending: true })
-    if (!prof?.is_admin) subsQuery = subsQuery.eq('assigned_to', userId)
-    const { data: allSubs } = await subsQuery
-    const activeSubs = (allSubs || []).filter(sub =>
-      !(sub.paused_dates || []).includes(today) && isDeliveryDay(sub)
-    )
-    setSubscriptions(activeSubs)
-
-    const { data: allAddons } = await supabase
-      .from('addon_orders')
-      .select('*, products(*), profiles!addon_orders_user_id_fkey(*)')
-      .eq('delivery_date', today)
-      .eq('status', 'pending')
+    setSubscriptions(activeSubs || [])
     setAddonOrders(allAddons || [])
 
-    const allDeliveries = [...(allOrders || [])]
     setStats({
-      total: allDeliveries.length + activeSubs.length,
-      pending: allDeliveries.filter(o => o.status === 'pending').length + activeSubs.length,
-      out: allDeliveries.filter(o => o.status === 'out_for_delivery').length,
-      delivered: allDeliveries.filter(o => o.status === 'delivered').length,
+      total: (allOrders || []).length + (activeSubs || []).length,
+      pending: (allOrders || []).filter(o => o.status === 'pending').length + (activeSubs || []).length,
+      out: (allOrders || []).filter(o => o.status === 'out_for_delivery').length,
+      delivered: (allOrders || []).filter(o => o.status === 'delivered').length,
     })
   }
 
@@ -506,7 +484,7 @@ export default function DeliveryDashboard() {
                   <div className="flex-1">
                     <p className="font-semibold text-[#1c1c1c] text-sm">{sub.profiles?.full_name}</p>
                     <p className="text-xs text-gray-400">{sub.profiles?.apartment_name}, Flat {sub.profiles?.flat_number}</p>
-                    <p className="text-xs text-gray-400">{sub.profiles?.area}</p>
+                    <p className="text-xs text-gray-400">{sub.profiles?.area}{sub.profiles?.pincode ? ` - ${sub.profiles.pincode}` : ''}</p>
                     {sub.profiles?.landmark && <p className="text-xs text-[#d4a017]">📍 Near: {sub.profiles?.landmark}</p>}
                     <div className="flex items-center gap-2 mt-1">
                       <span className="bg-[#f0faf4] text-[#1a5c38] text-xs px-2 py-0.5 rounded-full">{sub.products?.size} x {sub.quantity}</span>
@@ -867,7 +845,7 @@ export default function DeliveryDashboard() {
                     <div className="flex-1">
                       <p className="font-semibold text-[#1c1c1c] text-sm">{order.profiles?.full_name}</p>
                       <p className="text-xs text-gray-400">{order.profiles?.apartment_name}, Flat {order.profiles?.flat_number}</p>
-                      <p className="text-xs text-gray-400">{order.profiles?.area}</p>
+                      <p className="text-xs text-gray-400">{order.profiles?.area}{order.profiles?.pincode ? ` - ${order.profiles.pincode}` : ''}</p>
                       {order.profiles?.landmark && <p className="text-xs text-[#d4a017]">📍 Near: {order.profiles?.landmark}</p>}
                       <div className="flex items-center gap-2 mt-1">
                         <span className="bg-[#f0faf4] text-[#1a5c38] text-xs px-2 py-0.5 rounded-full">{order.products?.size} x {order.quantity}</span>

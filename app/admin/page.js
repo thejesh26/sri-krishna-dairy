@@ -147,6 +147,14 @@ export default function AdminDashboard() {
   const [agentPhoto, setAgentPhoto] = useState(null)
   const [agentDoc, setAgentDoc] = useState(null)
   const [agentSaving, setAgentSaving] = useState(false)
+  const [convertDepositModal, setConvertDepositModal] = useState(null) // { customer, balance }
+  const [convertDepositAmount, setConvertDepositAmount] = useState('')
+  const [convertDepositNote, setConvertDepositNote] = useState('')
+  const [convertDepositLoading, setConvertDepositLoading] = useState(false)
+  const [notifBellOpen, setNotifBellOpen] = useState(false)
+  const [notifications, setNotifications] = useState([])
+  const [notifUnread, setNotifUnread] = useState(0)
+  const [notifLoaded, setNotifLoaded] = useState(false)
   const [assignSearch, setAssignSearch] = useState('')
   const [assignAreaFilter, setAssignAreaFilter] = useState('all')
   const [assignDateFilter, setAssignDateFilter] = useState('')
@@ -177,6 +185,12 @@ export default function AdminDashboard() {
   const [addOrderLoading, setAddOrderLoading] = useState(false)
 
   useEffect(() => { checkAdmin() }, [])
+  useEffect(() => {
+    if (!notifBellOpen) return
+    const close = (e) => { if (!e.target.closest('[data-notif-bell]')) setNotifBellOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [notifBellOpen])
 
   useEffect(() => {
     if (activeTab !== 'customers') return
@@ -614,6 +628,30 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
     router.push('/')
   }
 
+  const loadNotifications = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/notifications', {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    })
+    if (res.ok) {
+      const { notifications: notifs, unread } = await res.json()
+      setNotifications(notifs)
+      setNotifUnread(unread)
+      setNotifLoaded(true)
+    }
+  }
+
+  const markAllNotificationsRead = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    await fetch('/api/admin/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({}),
+    })
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+    setNotifUnread(0)
+  }
+
   // ── Settings helpers ─────────────────────────────────────────────────────────
 
   const loadAppSettings = async () => {
@@ -907,6 +945,82 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           <span className="bg-red-50 text-red-500 border border-red-200 text-xs font-semibold px-3 py-1 rounded-full">
             Admin
           </span>
+
+          {/* Notification Bell */}
+          <div className="relative" data-notif-bell>
+            <button
+              onClick={() => {
+                setNotifBellOpen(o => !o)
+                if (!notifLoaded) loadNotifications()
+              }}
+              className="relative w-9 h-9 rounded-full border border-[#e8e0d0] bg-white flex items-center justify-center hover:border-[#d4a017] transition"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-[#1c1c1c]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+              </svg>
+              {notifUnread > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {notifUnread > 9 ? '9+' : notifUnread}
+                </span>
+              )}
+            </button>
+
+            {notifBellOpen && (
+              <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-[#e8e0d0] rounded-2xl shadow-2xl z-50 overflow-hidden"
+                onClick={e => e.stopPropagation()}>
+                <div className="px-4 py-3 border-b border-[#f5f0e8] flex items-center justify-between">
+                  <p className="font-semibold text-sm text-[#1c1c1c]">Notifications</p>
+                  {notifUnread > 0 && (
+                    <button onClick={markAllNotificationsRead}
+                      className="text-xs text-[#1a5c38] font-semibold hover:underline">
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-center">
+                      <div className="text-3xl mb-2">🔔</div>
+                      <p className="text-gray-400 text-sm">No notifications yet</p>
+                    </div>
+                  ) : notifications.map((n, idx) => {
+                    const icons = { new_subscription: '📅', new_order: '🛒', wallet_request: '💳', low_balance: '⚠️', missed_delivery: '❌', quality_report: '⚠️' }
+                    return (
+                      <button key={n.id}
+                        onClick={() => {
+                          if (n.link_tab) { setActiveTab(n.link_tab); setNotifBellOpen(false) }
+                          if (!n.is_read) {
+                            setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, is_read: true } : x))
+                            setNotifUnread(c => Math.max(0, c - 1))
+                            supabase.auth.getSession().then(({ data: { session } }) => {
+                              fetch('/api/admin/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify({ ids: [n.id] }) })
+                            })
+                          }
+                        }}
+                        className={`w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-[#fdfbf7] transition ${idx !== notifications.length - 1 ? 'border-b border-[#f5f0e8]' : ''} ${!n.is_read ? 'bg-[#f0faf4]' : ''}`}>
+                        <span className="text-lg flex-shrink-0 mt-0.5">{icons[n.type] || '🔔'}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm ${!n.is_read ? 'font-semibold text-[#1c1c1c]' : 'text-gray-600'}`}>{n.title}</p>
+                          {n.body && <p className="text-xs text-gray-400 mt-0.5 truncate">{n.body}</p>}
+                          <p className="text-xs text-gray-300 mt-0.5">
+                            {new Date(n.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                        {!n.is_read && <span className="w-2 h-2 rounded-full bg-[#1a5c38] flex-shrink-0 mt-1.5" />}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="px-4 py-2 border-t border-[#f5f0e8]">
+                  <button onClick={() => { loadNotifications(); setNotifLoaded(false) }}
+                    className="text-xs text-gray-400 hover:text-[#1a5c38] transition">
+                    ↻ Refresh
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <button onClick={handleLogout}
             className="border border-red-200 text-red-400 font-medium px-4 py-2 rounded-full text-sm hover:bg-red-50 transition">
             Logout
@@ -1991,6 +2105,12 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                                 - Deduct
                               </button>
                             </div>
+                            {balance > 0 && (
+                              <button onClick={() => { setConvertDepositModal({ customer, balance }); setConvertDepositAmount(''); setConvertDepositNote('') }}
+                                className="text-xs bg-amber-50 text-amber-700 border border-amber-300 px-2.5 py-1 rounded-lg font-semibold hover:bg-amber-100 transition w-full text-center">
+                                🍼 → Deposit
+                              </button>
+                            )}
                             <div className="flex gap-1.5">
                               <a href={'https://wa.me/91' + customer.phone} target="_blank"
                                 className="text-xs bg-[#25D366] text-white px-2.5 py-1 rounded-lg font-semibold hover:bg-[#1da851] transition">
@@ -4259,6 +4379,64 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
               }}
               className="flex-1 bg-[#25D366] text-white font-bold py-3 rounded-xl text-sm hover:bg-[#1da851] transition disabled:opacity-50">
               {customWaLoading ? 'Sending...' : 'Send'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ── Convert Balance → Deposit Modal ── */}
+    {convertDepositModal && (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
+          <h3 className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c] mb-1">Convert Balance → Deposit</h3>
+          <p className="text-sm text-gray-500 mb-4">
+            Move amount from <strong>{convertDepositModal.customer.full_name}</strong>'s wallet balance into their bottle deposit.
+            Available balance: <strong>₹{convertDepositModal.balance}</strong>
+          </p>
+          <input
+            type="number"
+            placeholder={`Amount (max ₹${convertDepositModal.balance})`}
+            value={convertDepositAmount}
+            onChange={e => setConvertDepositAmount(e.target.value)}
+            className="w-full border border-[#e8e0d0] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] mb-3"
+          />
+          <input
+            type="text"
+            placeholder="Note (optional)"
+            value={convertDepositNote}
+            onChange={e => setConvertDepositNote(e.target.value)}
+            className="w-full border border-[#e8e0d0] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] mb-4"
+          />
+          <div className="flex gap-3">
+            <button onClick={() => setConvertDepositModal(null)}
+              className="flex-1 border border-[#e8e0d0] text-gray-500 font-bold py-3 rounded-xl text-sm">
+              Cancel
+            </button>
+            <button
+              disabled={convertDepositLoading || !convertDepositAmount || Number(convertDepositAmount) <= 0 || Number(convertDepositAmount) > convertDepositModal.balance}
+              onClick={async () => {
+                setConvertDepositLoading(true)
+                const { data: { session } } = await supabase.auth.getSession()
+                const res = await fetch('/api/admin/convert-to-deposit', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                  body: JSON.stringify({ target_user_id: convertDepositModal.customer.id, amount: Number(convertDepositAmount), note: convertDepositNote || undefined }),
+                })
+                setConvertDepositLoading(false)
+                if (res.ok) {
+                  const { new_balance, new_deposit } = await res.json()
+                  setWallets(prev => prev.map(w => w.user_id === convertDepositModal.customer.id ? { ...w, balance: new_balance, deposit_balance: new_deposit } : w))
+                  setConvertDepositModal(null)
+                  showSuccess(`₹${convertDepositAmount} moved to deposit for ${convertDepositModal.customer.full_name}`)
+                } else {
+                  const j = await res.json()
+                  showError(j.error || 'Failed to convert.')
+                }
+              }}
+              className="flex-1 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50 transition"
+              style={{ background: 'linear-gradient(135deg, #b45309, #d97706)' }}>
+              {convertDepositLoading ? 'Converting...' : '🍼 Convert'}
             </button>
           </div>
         </div>

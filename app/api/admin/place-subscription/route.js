@@ -67,12 +67,13 @@ export async function POST(request) {
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
-    // Notify customer — non-blocking
+    // Notify customer via subscription_activated_v2 template — non-blocking
     try {
       const { data: customerProfile } = await supabaseAdmin
         .from('profiles').select('full_name, phone').eq('id', target_user_id).single()
+
       if (customerProfile?.phone) {
-        await notifySubscriptionActivated({
+        const waResult = await notifySubscriptionActivated({
           phone: customerProfile.phone,
           name: customerProfile.full_name || 'Customer',
           size: product.size || product.name,
@@ -82,8 +83,15 @@ export async function POST(request) {
           dailyAmount,
           frequency: delivery_frequency || 'daily',
         })
+        if (waResult?.error) {
+          console.error('[AdminPlaceSub] Customer WA failed:', waResult.error)
+        }
+      } else {
+        console.warn('[AdminPlaceSub] No phone on profile for user:', target_user_id)
       }
-    } catch { /* non-blocking */ }
+    } catch (notifyErr) {
+      console.error('[AdminPlaceSub] Notification error:', notifyErr?.message)
+    }
 
     return NextResponse.json({ success: true, subscription_id: subscription.id })
   } catch (err) {

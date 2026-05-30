@@ -1,24 +1,31 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ToastContext'
 import Footer from '../components/Footer'
 import { TabBar, EmptyState, StatusBadge } from '../components/ui'
 
-export default function Profile() {
+function ProfileInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [user, setUser] = useState(null)
   const [form, setForm] = useState({
     full_name: '', phone: '', area: '',
-    apartment_name: '', flat_number: '', landmark: '',
+    apartment_name: '', flat_number: '', landmark: '', pincode: '',
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const { showSuccess, showError } = useToast()
 
-  // Tabs
-  const [activeTab, setActiveTab] = useState('profile')
+  // Tabs — pre-select from ?tab= URL param
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const t = new URLSearchParams(window.location.search).get('tab')
+      if (['profile', 'orders', 'transactions'].includes(t)) return t
+    }
+    return 'profile'
+  })
 
   // History — lazy loaded on first tab switch
   const [orders, setOrders] = useState([])
@@ -34,7 +41,13 @@ export default function Profile() {
     'Bagalur Cross', 'Palahalli', 'Kogilu', 'Srinivasapura',
   ]
 
-  useEffect(() => { getUser() }, [])
+  useEffect(() => {
+    getUser().then(() => {
+      // Fire lazy loads if the page opened directly on orders/transactions tab
+      const t = searchParams?.get('tab')
+      if (t === 'orders' || t === 'transactions') handleTabChange(t)
+    })
+  }, [])
 
   const getUser = async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -52,6 +65,7 @@ export default function Profile() {
         apartment_name: profile.apartment_name || '',
         flat_number: profile.flat_number || '',
         landmark: profile.landmark || '',
+        pincode: profile.pincode || '',
       })
     }
     setLoading(false)
@@ -103,7 +117,7 @@ export default function Profile() {
       return
     }
     setSaving(true)
-    const fullAddress = `${form.apartment_name}, ${form.flat_number}, ${form.area}, Bangalore`
+    const fullAddress = `${form.apartment_name}, ${form.flat_number}, ${form.area}${form.pincode ? ' - ' + form.pincode : ''}, Bangalore`
     const { error } = await supabase
       .from('profiles')
       .update({
@@ -113,6 +127,7 @@ export default function Profile() {
         apartment_name: form.apartment_name,
         flat_number: form.flat_number,
         landmark: form.landmark,
+        pincode: form.pincode,
         address: fullAddress,
       })
       .eq('id', user.id)
@@ -232,12 +247,23 @@ export default function Profile() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Landmark (Optional)</label>
-                  <input name="landmark" value={form.landmark} onChange={handleChange}
-                    placeholder="Eg: Near main gate, opposite park"
-                    autoComplete="off"
-                    className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Landmark (Optional)</label>
+                    <input name="landmark" value={form.landmark} onChange={handleChange}
+                      placeholder="Eg: Near main gate"
+                      autoComplete="off"
+                      className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Pincode</label>
+                    <input name="pincode" value={form.pincode} onChange={e => setForm({ ...form, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                      placeholder="560064"
+                      inputMode="numeric"
+                      maxLength={6}
+                      autoComplete="postal-code"
+                      className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+                  </div>
                 </div>
               </div>
 
@@ -354,5 +380,13 @@ export default function Profile() {
 
       <Footer variant="app" />
     </div>
+  )
+}
+
+export default function Profile() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#fdfbf7] flex items-center justify-center"><p className="text-[#1a5c38] font-semibold">Loading...</p></div>}>
+      <ProfileInner />
+    </Suspense>
   )
 }

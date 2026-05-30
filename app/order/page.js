@@ -155,7 +155,16 @@ export default function Order() {
       <div className="max-w-lg mx-auto px-6 py-8">
         <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-2">One Time Order</p>
         <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1c1c1c] mb-2 text-center">Place Your Order 🥛</h2>
-        <p className="text-center text-gray-400 text-sm mb-6">Fresh milk delivered to your doorstep</p>
+        <p className="text-center text-gray-400 text-sm mb-4">Fresh milk delivered to your doorstep</p>
+
+        {/* Raw milk safety disclaimer */}
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 mb-6">
+          <span className="text-xl flex-shrink-0 mt-0.5">⚠️</span>
+          <p className="text-amber-800 text-sm leading-relaxed">
+            <span className="font-semibold">Raw Milk Advisory:</span> Our milk is farm-fresh and unprocessed.{' '}
+            <span className="font-semibold">Please boil before consumption</span>, especially for children, elderly, pregnant women, and immunocompromised individuals.
+          </p>
+        </div>
 
         {/* COD Trial Used — show restriction */}
         {profile?.has_used_cod && (
