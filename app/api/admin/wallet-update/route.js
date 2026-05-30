@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../lib/db'
-import { requireDelivery } from '../../../lib/auth'
+import { requireAdmin } from '../../../lib/auth'
 import { notifyWalletCredited, notifyWalletDebited } from '../../../lib/whatsapp'
 import { sendEmail } from '../../../lib/email'
 
@@ -10,7 +10,7 @@ import { sendEmail } from '../../../lib/email'
  */
 export async function POST(request) {
   try {
-    const { user, error: authError } = await requireDelivery(request)
+    const { user, error: authError } = await requireAdmin(request)
     if (authError) return authError
 
     const { data: callerProfile } = await supabaseAdmin
@@ -110,6 +110,6 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true, new_balance: newBalance })
   } catch (err) {
-    return NextResponse.json({ error: err.message || 'Server error.' }, { status: 500 })
+    return NextResponse.json({ error: 'Server error.' }, { status: 500 })
   }
 }

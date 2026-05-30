@@ -85,7 +85,7 @@ export async function POST(request) {
       console.error('[ResendWA] Invalid phone after normalization:', profile.phone)
       return Response.json({ error: `Invalid phone number: "${profile.phone}" — update the customer profile first` }, { status: 400 })
     }
-    console.log('[ResendWA] Normalized phone:', phone, '(raw:', profile.phone, ')')
+    console.log('[ResendWA] Phone normalized OK')
 
     const name = profile.full_name || 'Customer'
 

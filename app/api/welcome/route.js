@@ -16,7 +16,7 @@ export async function POST(request) {
       if (age > 10 * 60 * 1000) return NextResponse.json({ error: 'Token expired' }, { status: 400 })
     }
 
-    console.log('[Welcome] Sending welcome WA to:', phone, 'name:', name)
+    console.log('[Welcome] Sending welcome WA')
     await notifyWelcome(phone, name)
     return NextResponse.json({ success: true })
   } catch (err) {

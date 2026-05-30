@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../lib/db'
 import { requireAuth } from '../../../lib/auth'
 import { calcDailyAmount } from '../../../lib/pricing'
@@ -52,6 +52,6 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true, new_quantity: qty, new_daily_cost: newDailyCost })
   } catch (err) {
-    return NextResponse.json({ error: err.message || 'Server error.' }, { status: 500 })
+    return NextResponse.json({ error: 'Server error.' }, { status: 500 })
   }
 }

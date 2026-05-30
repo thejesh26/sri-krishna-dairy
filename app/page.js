@@ -38,8 +38,13 @@ export default function Home() {
       setAuthChecked(true)
     }
     const loadProducts = async () => {
-      const { data } = await supabase.from('products').select('*').eq('is_available', true).order('price')
-      setProducts(data || [])
+      try {
+        const res = await fetch('/api/products')
+        const data = await res.json()
+        setProducts(data || [])
+      } catch {
+        setProducts([])
+      }
     }
     const loadReviews = async () => {
       const { data } = await supabase

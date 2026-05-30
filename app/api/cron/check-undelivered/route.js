@@ -8,7 +8,7 @@ import { notifyUndelivered, sendWhatsAppToAdmin } from '../../../lib/whatsapp'
 // Called daily at 10AM IST (04:30 UTC) by Vercel Cron
 // Checks subscriptions still marked pending_delivery and clears them without charging
 export async function GET(request) {
-  const { error } = requireCron(request)
+  const { error: authError } = requireCron(request)
   if (authError) return authError
 
   const today = getISTDate()

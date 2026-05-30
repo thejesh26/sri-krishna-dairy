@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../lib/db'
 import { requireAdmin } from '../../../lib/auth'
 
@@ -43,6 +43,6 @@ const enriched = (transactions || []).map(t => ({
 console.log('[Transactions] Found:', enriched.length)
 return NextResponse.json({ transactions: enriched })
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: 'Server error.' }, { status: 500 })
   }
 }

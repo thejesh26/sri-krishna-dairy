@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../lib/db'
 import { requireAuth } from '../../../lib/auth'
 import { sendSubscriptionPausedEmail } from '../../../lib/email'
@@ -91,6 +91,6 @@ export async function POST(request) {
       pause_days_remaining: Math.max(0, 5 - newPausedCount),
     })
   } catch (err) {
-    return NextResponse.json({ error: err.message || 'Server error.' }, { status: 500 })
+    return NextResponse.json({ error: 'Server error.' }, { status: 500 })
   }
 }

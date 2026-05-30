@@ -81,8 +81,13 @@ export default function Order() {
   }
 
   const getProducts = async () => {
-    const { data } = await supabase.from('products').select('*').eq('is_available', true)
-    setProducts(data || [])
+    try {
+      const res = await fetch('/api/products')
+      const data = await res.json()
+      setProducts(data || [])
+    } catch {
+      setProducts([])
+    }
   }
 
   const isValidBooking = () => {

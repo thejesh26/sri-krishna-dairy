@@ -76,8 +76,8 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid delivery mode.' }, { status: 400 })
     }
 
-    // Must be at least 12 hours in the future
-    const deliveryMs = new Date(delivery_date).getTime()
+    // Must be at least 12 hours in the future (compare in IST to match delivery slot times)
+    const deliveryMs = new Date(delivery_date + 'T00:00:00+05:30').getTime()
     const nowMs = Date.now()
     if ((deliveryMs - nowMs) / (1000 * 60 * 60) < 12) {
       return NextResponse.json(

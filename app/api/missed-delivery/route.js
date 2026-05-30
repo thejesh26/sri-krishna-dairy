@@ -60,7 +60,7 @@ export async function POST(request) {
     const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
     const issueText = description?.trim() || 'Missed delivery reported'
 
-    console.log(`[MissedDelivery] Customer: ${name}, Phone: ${phone}, Order: ${order_id}, Issue: ${issueText}`)
+    console.log(`[MissedDelivery] Order: ${order_id}, Issue: ${issueText}`)
 
     await sendAdminAlert(
       `⚠️ Customer Issue Report!\nCustomer: ${name}\nPhone: ${phone}\nIssue: ${issueText}\nDate: ${today}`

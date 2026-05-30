@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../lib/db'
 import { requireAdmin } from '../../../lib/auth'
 import { notifyOrderPlaced } from '../../../lib/whatsapp'
@@ -62,6 +62,6 @@ export async function POST(request) {
     return NextResponse.json({ success: true, order_id: order.id })
   } catch (err) {
     console.error('[AdminPlaceOrder] Error:', err)
-    return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 })
+    return NextResponse.json({ error: 'Server error.' }, { status: 500 })
   }
 }

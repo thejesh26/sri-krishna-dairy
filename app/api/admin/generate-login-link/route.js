@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../lib/db'
 import { requireAdmin } from '../../../lib/auth'
 import { sendWhatsAppMessage } from '../../../lib/whatsapp'
@@ -43,6 +43,6 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true, link: loginLink })
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: 'Server error.' }, { status: 500 })
   }
 }

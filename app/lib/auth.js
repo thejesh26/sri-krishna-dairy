@@ -52,7 +52,7 @@ export async function requireDelivery(request) {
     return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
   }
 
-  return { user: result.user }
+  return { user: result.user, isAdmin: !!profile?.is_admin }
 }
 
 // For cron routes — verifies CRON_SECRET in Authorization header.

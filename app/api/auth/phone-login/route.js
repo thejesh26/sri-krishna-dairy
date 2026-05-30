@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '../../../lib/db'
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
 
 /**
  * Secure phone-based login endpoint.
@@ -18,10 +20,25 @@ import { supabaseAdmin } from '../../../lib/db'
  *   5. Client calls supabase.auth.setSession() to persist the session locally
  */
 
-// In-memory rate limiter (per serverless instance — use Redis/Upstash for multi-instance production)
-const rateLimitMap = new Map() // key: IP, value: { count, resetAt }
+// Use Upstash Redis if configured (recommended for production multi-instance deployments).
+// Falls back to an in-process map when env vars are absent (e.g. local dev).
+// To activate: set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN in Vercel env vars.
+let ratelimit = null
+if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+  const redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+  })
+  ratelimit = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(5, '10 m'),
+    prefix: 'rl:phone-login',
+  })
+}
 
-function checkRateLimit(ip, maxAttempts = 5, windowMs = 60_000) {
+// In-memory fallback — resets on cold start, but acceptable for dev/low-traffic
+const rateLimitMap = new Map()
+function checkInMemoryRateLimit(ip, maxAttempts = 5, windowMs = 600_000) {
   const now = Date.now()
   const entry = rateLimitMap.get(ip)
   if (!entry || now > entry.resetAt) {
@@ -37,21 +54,30 @@ function checkRateLimit(ip, maxAttempts = 5, windowMs = 60_000) {
 
 export async function POST(request) {
   try {
-    // Rate limit by IP — 5 attempts per 60 seconds
     const ip =
       request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
       request.headers.get('x-real-ip') ||
       'unknown'
 
-    const limit = checkRateLimit(ip, 5, 60_000)
-    if (!limit.allowed) {
-      return NextResponse.json(
-        { error: 'Too many login attempts. Please try again later.' },
-        {
-          status: 429,
-          headers: { 'Retry-After': String(limit.retryAfter) },
-        }
-      )
+    if (ratelimit) {
+      // Upstash sliding window — consistent across all serverless instances
+      const { success, reset } = await ratelimit.limit(ip)
+      if (!success) {
+        const retryAfter = Math.ceil((reset - Date.now()) / 1000)
+        return NextResponse.json(
+          { error: 'Too many login attempts. Please try again later.' },
+          { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+        )
+      }
+    } else {
+      // In-memory fallback: 5 attempts per 10 minutes
+      const limit = checkInMemoryRateLimit(ip, 5, 600_000)
+      if (!limit.allowed) {
+        return NextResponse.json(
+          { error: 'Too many login attempts. Please try again later.' },
+          { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+        )
+      }
     }
 
     const body = await request.json()

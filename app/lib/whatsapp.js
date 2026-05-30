@@ -1,8 +1,8 @@
 import { sendEmail } from './email'
 
 const WA_API_URL = `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`
-const ADMIN_PHONE = '918553666002'
-const ADMIN_EMAIL = 'hello@srikrishnaadairy.in'
+const ADMIN_PHONE = process.env.ADMIN_WHATSAPP_PHONE || '918553666002'
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'hello@srikrishnaadairy.in'
 
 function formatPhone(phone) {
   if (!phone) return null

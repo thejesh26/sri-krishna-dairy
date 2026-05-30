@@ -1,9 +1,29 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../lib/db'
 import { requireDelivery } from '../../../lib/auth'
 import { calcDailyAmount, getISTDate } from '../../../lib/pricing'
 import { sendDeliveryConfirmed, notifyCodUpsell, sendLowBalanceAlert, sendWhatsAppMessage, sendWhatsAppToAdmin, notifySubscriptionStopped, notifyAdmin } from '../../../lib/whatsapp'
 import { sendLowBalanceEmail, sendOrderConfirmationEmail, sendEmail } from '../../../lib/email'
+
+const SUPABASE_STORAGE_HOST = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
+  : null
+
+function validatePhotoUrl(url) {
+  if (!url) return null
+  try {
+    const u = new URL(url)
+    if (u.protocol !== 'https:') return null
+    if (!SUPABASE_STORAGE_HOST || !u.hostname.endsWith(SUPABASE_STORAGE_HOST)) return null
+    return url
+  } catch { return null }
+}
+
+function redactPhone(phone) {
+  if (!phone) return '[no phone]'
+  const s = String(phone)
+  return s.length >= 4 ? `****${s.slice(-4)}` : '****'
+}
 
 /**
  * POST /api/delivery/confirm
@@ -11,24 +31,32 @@ import { sendLowBalanceEmail, sendOrderConfirmationEmail, sendEmail } from '../.
  * Caller must be is_delivery or is_admin.
  */
 export async function POST(request) {
-  console.log('[DeliveryConfirm] Route called')
   try {
-    const { user, error: authError } = await requireDelivery(request)
+    const { user, error: authError, isAdmin } = await requireDelivery(request)
     if (authError) return authError
 
     const { type, order_id, subscription_id, delivery_date, bottle_returned, not_delivered, photo_url, addon_id } = await request.json()
     const deliveredAt = new Date().toISOString()
     const deliveredBy = user.id
+    const safePhotoUrl = validatePhotoUrl(photo_url)
 
     if (type === 'order' && order_id) {
-      console.log('[DeliveryConfirm] Confirming delivery for order:', order_id)
+      // Ownership check: delivery agents may only confirm their assigned orders
+      if (!isAdmin) {
+        const { data: assignCheck } = await supabaseAdmin
+          .from('orders').select('assigned_to').eq('id', order_id).maybeSingle()
+        if (!assignCheck || assignCheck.assigned_to !== user.id) {
+          return NextResponse.json({ error: 'Not assigned to this order.' }, { status: 403 })
+        }
+      }
+
       const { data: orderRow, error } = await supabaseAdmin
         .from('orders')
         .update({ status: 'delivered', delivered_at: deliveredAt, delivered_by: deliveredBy })
         .eq('id', order_id)
         .select('user_id, payment_method, quantity, product_id')
         .single()
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      if (error) return NextResponse.json({ error: 'Failed to update order.' }, { status: 500 })
 
       // Fetch product separately — update().select() doesn't support FK joins in PostgREST
       const { data: productData } = await supabaseAdmin
@@ -49,10 +77,7 @@ export async function POST(request) {
         const customerEmail = authUser?.user?.email
         const customerName = customerProfile?.full_name || 'Customer'
 
-        console.log('[DeliveryConfirm] Customer phone:', customerProfile?.phone, '| email:', customerEmail)
-
         if (customerProfile?.phone) {
-          console.log('[DeliveryConfirm] Sending WhatsApp delivery confirmation to:', customerProfile.phone)
           const waResult = await sendDeliveryConfirmed(customerProfile.phone, customerName, dateLabel, productLabel)
           console.log('[DeliveryConfirm] WA delivery result:', waResult)
           if (orderRow.payment_method === 'COD') {
@@ -93,7 +118,15 @@ export async function POST(request) {
     }
 
     if (type === 'subscription' && subscription_id && delivery_date) {
-      console.log('[Delivery] Confirming subscription delivery:', subscription_id, 'date:', delivery_date)
+      // Ownership check: delivery agents may only confirm their assigned subscriptions
+      if (!isAdmin) {
+        const { data: assignCheck } = await supabaseAdmin
+          .from('subscriptions').select('assigned_to').eq('id', subscription_id).maybeSingle()
+        if (!assignCheck || assignCheck.assigned_to !== user.id) {
+          return NextResponse.json({ error: 'Not assigned to this subscription.' }, { status: 403 })
+        }
+      }
+
       // ── Not-delivered path: clear pending without charging ───────────────────
       if (not_delivered) {
         await supabaseAdmin.from('subscriptions').update({ pending_delivery: false }).eq('id', subscription_id)
@@ -129,7 +162,7 @@ export async function POST(request) {
         delivered_by: deliveredBy,
         not_delivered: false,
         bottle_returned: bottle_returned !== false,
-        ...(photo_url ? { photo_url } : {}),
+        ...(safePhotoUrl ? { photo_url: safePhotoUrl } : {}),
       }, { onConflict: 'subscription_id,delivery_date' })
 
       if (upsertError) {
@@ -145,45 +178,31 @@ export async function POST(request) {
         const deliveryName = deliveryProfile?.full_name || 'Customer'
         const dateLabel = new Date(delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
         const productLabel = sub.products?.size || 'Milk'
-        console.log('[Delivery] Sending WhatsApp to:', deliveryProfile?.phone, 'name:', deliveryName)
         if (deliveryProfile?.phone) {
-          const waResult = await sendDeliveryConfirmed(deliveryProfile.phone, deliveryName, dateLabel, productLabel)
-          console.log('[Delivery] WhatsApp result:', waResult)
+          await sendDeliveryConfirmed(deliveryProfile.phone, deliveryName, dateLabel, productLabel)
         }
       } catch (waErr) {
         console.error('[Delivery] WhatsApp send failed:', waErr?.message)
       }
 
-      // ── Deduct wallet on delivery confirmation ──────────────────────────────
+      // ── Deduct wallet on delivery confirmation (atomic via DB function) ───────
       const dailyAmount = calcDailyAmount(sub.products.price, sub.quantity, sub.discount_percent || 0)
       const description = `Daily subscription ${subscription_id} [${delivery_date}]`
 
-      // Idempotency: skip if already deducted (e.g. confirm called twice)
-      const { data: existing } = await supabaseAdmin
-        .from('wallet_transactions')
-        .select('id')
-        .eq('user_id', sub.user_id)
-        .eq('description', description)
-        .limit(1)
+      // deduct_wallet is an atomic Postgres function: it locks the wallet row,
+      // checks idempotency via description, deducts, and inserts the transaction
+      // in a single transaction — preventing double-deduction race conditions.
+      const { data: newBalanceResult, error: deductError } = await supabaseAdmin
+        .rpc('deduct_wallet', {
+          p_user_id: sub.user_id,
+          p_amount: dailyAmount,
+          p_description: description,
+        })
 
-      if (!existing?.length) {
-        const { data: wallet } = await supabaseAdmin
-          .from('wallet')
-          .select('id, balance')
-          .eq('user_id', sub.user_id)
-          .maybeSingle()
+      const deductedOk = !deductError
+      const newBalance = newBalanceResult ?? 0
 
-        const balance = wallet?.balance || 0
-
-        if (wallet && balance >= dailyAmount) {
-          const newBalance = balance - dailyAmount
-          await supabaseAdmin.from('wallet').update({ balance: newBalance }).eq('user_id', sub.user_id)
-          await supabaseAdmin.from('wallet_transactions').insert({
-            user_id: sub.user_id,
-            amount: dailyAmount,
-            type: 'debit',
-            description,
-          })
+      if (deductedOk) {
 
           // Award loyalty points
           const pointsEarned = Math.floor(dailyAmount / 100)
@@ -263,31 +282,32 @@ export async function POST(request) {
               if (userProfile?.phone) await sendLowBalanceAlert(userProfile.phone, name, newBalance)
             } catch { /* non-blocking */ }
           }
-        } else if (wallet && balance < dailyAmount) {
-          // Insufficient balance — deactivate subscription
-          await supabaseAdmin.from('subscriptions').update({ is_active: false, pending_delivery: false }).eq('id', subscription_id)
-          // Record in failed_deductions so admin dashboard count is accurate
-          await supabaseAdmin.from('failed_deductions').insert({
-            user_id: sub.user_id,
-            subscription_id,
-            amount: dailyAmount,
-            reason: 'Insufficient balance — deactivated on delivery confirm',
-          }).catch(() => {})
-          await supabaseAdmin.from('wallet_transactions').insert({
-            user_id: sub.user_id,
-            amount: 0,
-            type: 'debit',
-            description: `Subscription stopped - insufficient balance [${delivery_date}]. Required: ₹${dailyAmount}, Available: ₹${balance}`,
-          })
-          // Notify customer their delivery has been stopped
-          try {
-            const { data: stoppedProfile } = await supabaseAdmin
-              .from('profiles').select('full_name, phone').eq('id', sub.user_id).single()
-            if (stoppedProfile?.phone) {
-              await notifySubscriptionStopped({ phone: stoppedProfile.phone, name: stoppedProfile.full_name || 'Customer', balance })
-            }
-          } catch { /* non-blocking */ }
-        }
+      } else if (deductError) {
+        // Insufficient balance — deactivate subscription
+        const { data: walletSnap } = await supabaseAdmin
+          .from('wallet').select('balance').eq('user_id', sub.user_id).maybeSingle()
+        const balance = walletSnap?.balance || 0
+
+        await supabaseAdmin.from('subscriptions').update({ is_active: false, pending_delivery: false }).eq('id', subscription_id)
+        await supabaseAdmin.from('failed_deductions').insert({
+          user_id: sub.user_id,
+          subscription_id,
+          amount: dailyAmount,
+          reason: 'Insufficient balance — deactivated on delivery confirm',
+        }).catch(() => {})
+        await supabaseAdmin.from('wallet_transactions').insert({
+          user_id: sub.user_id,
+          amount: 0,
+          type: 'debit',
+          description: `Subscription stopped - insufficient balance [${delivery_date}]. Required: ₹${dailyAmount}, Available: ₹${balance}`,
+        })
+        try {
+          const { data: stoppedProfile } = await supabaseAdmin
+            .from('profiles').select('full_name, phone').eq('id', sub.user_id).single()
+          if (stoppedProfile?.phone) {
+            await notifySubscriptionStopped({ phone: stoppedProfile.phone, name: stoppedProfile.full_name || 'Customer', balance })
+          }
+        } catch { /* non-blocking */ }
       }
 
       // Clear pending_delivery flag
@@ -372,6 +392,6 @@ export async function POST(request) {
 
     return NextResponse.json({ error: 'Invalid input.' }, { status: 400 })
   } catch (err) {
-    return NextResponse.json({ error: err.message || 'Server error.' }, { status: 500 })
+    return NextResponse.json({ error: 'Server error.' }, { status: 500 })
   }
 }

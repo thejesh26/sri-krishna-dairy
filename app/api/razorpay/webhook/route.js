@@ -39,7 +39,7 @@ export async function POST(request) {
           .from('wallet_transactions')
           .select('id')
           .eq('user_id', sub.user_id)
-          .like('description', `%[${payment.id}]`)
+          .eq('description', `Subscription payment webhook [${payment.id}]`)
           .limit(1)
         if (existing?.length) return Response.json({ success: true })
 

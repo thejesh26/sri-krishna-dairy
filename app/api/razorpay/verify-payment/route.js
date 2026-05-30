@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import Razorpay from 'razorpay'
 import { supabaseAdmin } from '../../../lib/db'
 import { requireAuth } from '../../../lib/auth'
 import { calcDailyAmount } from '../../../lib/pricing'
@@ -17,7 +18,6 @@ export async function POST(request) {
       type,
       subscriptionIds,
       userId,
-      amount,
       deposit,
       discount_code,
     } = await request.json()
@@ -36,6 +36,17 @@ export async function POST(request) {
     if (expectedSignature !== razorpay_signature) {
       return Response.json({ success: false, error: 'Invalid signature' }, { status: 400 })
     }
+
+    // Fetch the authoritative amount from Razorpay — never trust the client-supplied value
+    const razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    })
+    const payment = await razorpay.payments.fetch(razorpay_payment_id)
+    if (payment.status !== 'captured') {
+      return Response.json({ success: false, error: 'Payment not captured.' }, { status: 400 })
+    }
+    const amount = Math.round(payment.amount / 100) // paise → rupees
 
     // Idempotency: if this payment_id was already processed, return success without re-crediting
     const descriptionKey = type === 'subscription'
