@@ -617,10 +617,14 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
   // ── Settings helpers ─────────────────────────────────────────────────────────
 
   const loadAppSettings = async () => {
-    const { data } = await supabase.from('app_settings').select('key, value')
-    if (data) {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/settings', {
+      headers: { Authorization: `Bearer ${session?.access_token}` }
+    })
+    const result = await res.json()
+    if (result.settings) {
       const map = {}
-      data.forEach(row => { map[row.key] = row.value })
+      result.settings.forEach(row => { map[row.key] = row.value })
       setAppSettings(prev => ({ ...prev, ...map }))
     }
   }
@@ -632,10 +636,19 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
 
   const saveSetting = async (key, value) => {
     setSettingsSaving(prev => ({ ...prev, [key]: true }))
-    await supabase.from('app_settings').upsert({ key, value: String(value) }, { onConflict: 'key' })
-    setAppSettings(prev => ({ ...prev, [key]: String(value) }))
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ key, value: String(value) })
+    })
+    if (res.ok) {
+      setAppSettings(prev => ({ ...prev, [key]: String(value) }))
+      showSuccess('Saved!')
+    } else {
+      showError('Failed to save setting.')
+    }
     setSettingsSaving(prev => ({ ...prev, [key]: false }))
-    showSuccess('Saved!')
   }
 
   const addHoliday = async () => {
