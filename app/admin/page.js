@@ -399,16 +399,7 @@ export default function AdminDashboard() {
       monthlyRevenue,
     })
 
-    // Load settings tab data
-    const { data: settingsData } = await supabase.from('app_settings').select('key, value')
-    if (settingsData) {
-      const map = {}
-      settingsData.forEach(row => { map[row.key] = row.value })
-      setAppSettings(prev => ({ ...prev, ...map }))
-    }
-    const { data: waitlist } = await supabase.from('priority_waitlist').select('*').order('created_at', { ascending: false })
-    setWaitlistEntries(waitlist || [])
-  }
+    
 
   const loadWallets = async () => {
     const { data: walletData, error: walletError } = await supabase.from('wallet').select('*')
@@ -445,6 +436,7 @@ export default function AdminDashboard() {
     if (id === 'customers') { await loadWallets(); loadLeads() }
     if (id === 'delivery_history' && !historyLoaded) loadDeliveryHistory()
     if (id === 'financials' && !transactionsLoaded) loadTransactions(txStartDate, txEndDate)
+    if (id === 'settings') loadAppSettings()
   }
 
   const loadDeliveryHistory = async (startDate, endDate) => {
