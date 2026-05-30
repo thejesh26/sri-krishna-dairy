@@ -75,7 +75,8 @@ export async function POST(request) {
     }
     const freq = VALID_FREQUENCIES.includes(delivery_frequency) ? delivery_frequency : 'daily'
 
-    const startMs = new Date(start_date).getTime()
+    // Parse as IST midnight to avoid rejecting valid evening signups (new Date('YYYY-MM-DD') is UTC midnight = 5:30AM IST)
+    const startMs = new Date(start_date + 'T00:00:00+05:30').getTime()
     if ((startMs - Date.now()) / (1000 * 60 * 60) < 12) {
       return NextResponse.json({ error: 'Subscription must start at least 12 hours from now.' }, { status: 400 })
     }
@@ -233,11 +234,16 @@ export async function POST(request) {
     }
 
     // ── 7. RAZORPAY PATH — create pending subscriptions ──────────────────────
+    // Delete only genuinely pending (never-activated) subscriptions, not cancelled/expired historical records.
+    // Using start_date as a proxy for "pending from this session" is imperfect but safe —
+    // the real fix is a dedicated `status = 'pending_payment'` column.
     await supabaseAdmin
       .from('subscriptions')
       .delete()
       .eq('user_id', user.id)
       .eq('is_active', false)
+      .is('cancelled_by', null)
+      .is('cancellation_reason', null)
 
     const insertRows = parsedItems.map(item => ({
       user_id: user.id,

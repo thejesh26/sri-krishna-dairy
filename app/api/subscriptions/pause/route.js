@@ -15,8 +15,8 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid input.' }, { status: 400 })
     }
 
-    // Must be at least 12 hours in the future
-    if ((new Date(pause_date).getTime() - Date.now()) / (1000 * 60 * 60) < 12) {
+    // Parse as IST midnight — new Date('YYYY-MM-DD') is UTC midnight which is 5:30AM IST and would reject valid evening requests
+    if ((new Date(pause_date + 'T00:00:00+05:30').getTime() - Date.now()) / (1000 * 60 * 60) < 12) {
       return NextResponse.json({ error: 'Please pause at least 12 hours in advance.' }, { status: 400 })
     }
 
@@ -49,24 +49,25 @@ export async function POST(request) {
     const updatedPaused = [...currentPaused, pause_date].sort()
     const newPausedCount = pausedThisMonth + 1
 
+    // Build the full update payload atomically — end_date extension in the same write
+    const updatePayload = {
+      paused_dates: updatedPaused,
+      pause_days_used_this_month: newPausedCount,
+    }
+    if (sub.subscription_type === 'fixed' && sub.end_date) {
+      const newEndDate = new Date(sub.end_date + 'T00:00:00+05:30')
+      newEndDate.setDate(newEndDate.getDate() + 1)
+      updatePayload.end_date = newEndDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+    }
+
     const { error: updateError } = await supabaseAdmin
       .from('subscriptions')
-      .update({ paused_dates: updatedPaused, pause_days_used_this_month: newPausedCount })
+      .update(updatePayload)
       .eq('id', subscription_id)
       .eq('user_id', user.id)
 
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 })
-    }
-
-    // Extend end_date by 1 day for fixed subscriptions
-    if (sub.subscription_type === 'fixed' && sub.end_date) {
-      const newEndDate = new Date(sub.end_date + 'T00:00:00')
-      newEndDate.setDate(newEndDate.getDate() + 1)
-      await supabaseAdmin
-        .from('subscriptions')
-        .update({ end_date: newEndDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) })
-        .eq('id', subscription_id)
     }
 
     // Send pause confirmation email + admin notification (non-blocking)

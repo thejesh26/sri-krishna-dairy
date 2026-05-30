@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../lib/db'
 import { requireAuth } from '../../../lib/auth'
-import { getISTDate } from '../../../lib/pricing'
+import { calcDailyAmount, getISTDate } from '../../../lib/pricing'
 
 export async function POST(request) {
   try {
@@ -26,9 +26,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Subscription not found or already active.' }, { status: 404 })
     }
 
-    const dailyAmount = Math.round(
-      sub.products.price * sub.quantity * (1 - (sub.discount_percent || 0) / 100)
-    )
+    const dailyAmount = calcDailyAmount(sub.products.price, sub.quantity, sub.discount_percent || 0)
 
     // Check wallet balance
     const { data: wallet } = await supabaseAdmin

@@ -198,8 +198,11 @@ export async function POST(request) {
               const yesterday = new Date()
               yesterday.setDate(yesterday.getDate() - 1)
               const yesterdayStr = yesterday.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-              const isConsecutive = profileData.last_delivery_date === yesterdayStr || profileData.last_delivery_date === today
-              const newStreak = isConsecutive ? (profileData.streak_count || 0) + 1 : 1
+              // Only yesterday counts as consecutive; same-day (2nd sub confirmed today) must not double-increment streak
+              const isConsecutive = profileData.last_delivery_date === yesterdayStr
+              const newStreak = profileData.last_delivery_date === today
+                ? (profileData.streak_count || 0)   // already counted today
+                : isConsecutive ? (profileData.streak_count || 0) + 1 : 1
               const newPoints = (profileData.loyalty_points || 0) + pointsEarned
               const currentBadges = profileData.badges || []
               const newBadges = [...currentBadges]

@@ -170,7 +170,8 @@ async function runDeductions() {
     const in30DaysStr = in30Days.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 
     const [{ data: expiredProfiles }, { data: expiringProfiles }] = await Promise.all([
-      supabaseAdmin.from('profiles').select('id').not('loyalty_points_expiry', 'is', null).lte('loyalty_points_expiry', today).gt('loyalty_points', 0),
+      // lt (strictly before today) so points remain valid through the full expiry date
+      supabaseAdmin.from('profiles').select('id').not('loyalty_points_expiry', 'is', null).lt('loyalty_points_expiry', today).gt('loyalty_points', 0),
       supabaseAdmin.from('profiles').select('id, full_name, phone, loyalty_points, loyalty_points_expiry, email').eq('loyalty_points_expiry', in30DaysStr).gt('loyalty_points', 0),
     ])
 
