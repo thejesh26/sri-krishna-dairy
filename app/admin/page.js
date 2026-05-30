@@ -460,6 +460,11 @@ export default function AdminDashboard() {
       .lte('delivery_date', toDate)
       .order('delivery_date', { ascending: false })
 
+    // Build agent/admin name lookup map for fast access
+    const agentMap = {}
+    deliveryAgents.forEach(a => { agentMap[a.id] = a.full_name })
+    customers.forEach(c => { agentMap[c.id] = c.full_name })
+
     const combined = [
       ...(subDeliveries || []).map(d => {
         const sub = subscriptions.find(s => s.id === d.subscription_id)
@@ -471,7 +476,7 @@ export default function AdminDashboard() {
           phone: customer?.phone || '',
           product: sub?.products?.size || 'Milk',
           quantity: sub?.quantity || 1,
-          deliveredBy: deliveryAgents.find(a => a.id === d.delivered_by)?.full_name || customers.find(c => c.id === d.delivered_by)?.full_name || d.delivered_by || '-',
+          deliveredBy: agentMap[d.delivered_by] || d.delivered_by || '-',
           deliveredAt: d.delivered_at,
           date: d.delivery_date,
           status: 'delivered',
@@ -485,7 +490,7 @@ export default function AdminDashboard() {
         phone: o.profiles?.phone || '',
         product: o.products?.size || 'Milk',
         quantity: o.quantity || 1,
-        deliveredBy: deliveryAgents.find(a => a.id === d.delivered_by)?.full_name || customers.find(c => c.id === d.delivered_by)?.full_name || d.delivered_by || '-',
+        deliveredBy: agentMap[d.delivered_by] || d.delivered_by || '-',
         deliveredAt: o.delivered_at || o.updated_at,
         date: o.delivery_date,
         status: 'delivered',
