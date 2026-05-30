@@ -4,8 +4,8 @@ import { requireAuth } from '../../../lib/auth'
 
 export async function POST(request) {
   try {
-    const { user, error } = await requireAuth(request)
-    if (error) return error
+    const { user, error: authError } = await requireAuth(request)
+    if (authError) return authError
 
     const {
       razorpay_order_id,
@@ -41,14 +41,14 @@ export async function POST(request) {
       .maybeSingle()
 
     if (wallet) {
-      await supabase
+      await supabaseAdmin
         .from('wallet')
         .update({
           balance: (wallet.balance || 0) + amount
         })
         .eq('user_id', userId)
     } else {
-      await supabase
+      await supabaseAdmin
         .from('wallet')
         .insert({
           user_id: userId,

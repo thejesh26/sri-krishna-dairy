@@ -6,8 +6,8 @@ const VALID_STATUSES = ['pending', 'out_for_delivery', 'delivered', 'cancelled',
 
 export async function POST(request) {
   try {
-    const { error } = await requireAdmin(request)
-    if (error) return error
+    const { error: authError } = await requireAdmin(request)
+    if (authError) return authError
 
     const body = await request.json()
     const { order_id, status } = body

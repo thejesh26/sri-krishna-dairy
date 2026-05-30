@@ -4,8 +4,8 @@ import { requireAuth } from '../../../lib/auth'
 
 export async function POST(request) {
   try {
-    const { user, error } = await requireAuth(request)
-    if (error) return error
+    const { user, error: authError } = await requireAuth(request)
+    if (authError) return authError
 
     await supabaseAdmin.from('leads').update({ converted: true })
       .eq('email', user.email)

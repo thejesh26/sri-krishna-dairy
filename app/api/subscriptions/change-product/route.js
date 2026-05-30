@@ -5,8 +5,8 @@ import { calcDailyAmount } from '../../../lib/pricing'
 
 export async function POST(request) {
   try {
-    const { user, error } = await requireAuth(request)
-    if (error) return error
+    const { user, error: authError } = await requireAuth(request)
+    if (authError) return authError
 
     const { subscription_id, new_product_id } = await request.json()
     if (!subscription_id || !new_product_id) {

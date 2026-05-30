@@ -6,8 +6,8 @@ import { notifySubscriptionActivated } from '../../../lib/whatsapp'
 
 export async function POST(request) {
   try {
-    const { user, error } = await requireAdmin(request)
-    if (error) return error
+    const { user, error: authError } = await requireAdmin(request)
+    if (authError) return authError
 
     const {
       target_user_id, product_id, quantity, delivery_slot,

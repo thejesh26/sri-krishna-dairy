@@ -39,7 +39,7 @@ function pruneStore(now) {
   }
 }
 
-export function middleware(request) {
+export function proxy(request) {
   const { pathname } = request.nextUrl
 
   const rule = LIMITS.find(r => r.pattern.test(pathname))

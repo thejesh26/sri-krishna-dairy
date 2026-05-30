@@ -3,8 +3,8 @@ import { supabaseAdmin } from '../../../lib/db'
 import { requireAuth } from '../../../lib/auth'
 
 export async function POST(request) {
-  const { user, error } = await requireAuth(request)
-  if (error) return error
+  const { user, error: authError } = await requireAuth(request)
+  if (authError) return authError
 
   const { rating, review, photo_url } = await request.json()
   if (!rating || rating < 1 || rating > 5) {

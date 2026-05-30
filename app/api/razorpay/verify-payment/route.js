@@ -41,7 +41,7 @@ export async function POST(request) {
     }
 
     // Get or create wallet
-    const { data: wallet } = await supabase
+    const { data: wallet } = await supabaseAdmin
       .from('wallet')
       .select('*')
       .eq('user_id', userId)

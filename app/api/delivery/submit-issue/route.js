@@ -3,8 +3,8 @@ import { requireDelivery } from '../../../lib/auth'
 
 export async function POST(request) {
   try {
-    const { user, error } = await requireDelivery(request)
-    if (error) return error
+    const { user, error: authError } = await requireDelivery(request)
+    if (authError) return authError
 
     const { type, message } = await request.json()
     if (!type || !message?.trim()) {

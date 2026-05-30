@@ -4,8 +4,8 @@ import { requireAdmin } from '../../../lib/auth'
 
 // POST — create a new discount code
 export async function POST(request) {
-  const { user, error } = await requireAdmin(request)
-  if (error) return error
+  const { user, error: authError } = await requireAdmin(request)
+  if (authError) return authError
 
   const { code, percent, description } = await request.json()
   if (!code || !percent || typeof percent !== 'number' || percent < 1 || percent > 99) {
@@ -30,8 +30,8 @@ export async function POST(request) {
 
 // PATCH — toggle active/inactive
 export async function PATCH(request) {
-  const { user, error } = await requireAdmin(request)
-  if (error) return error
+  const { user, error: authError } = await requireAdmin(request)
+  if (authError) return authError
 
   const { id, is_active } = await request.json()
   if (!id) return NextResponse.json({ error: 'id is required.' }, { status: 400 })
@@ -47,8 +47,8 @@ export async function PATCH(request) {
 
 // DELETE — remove a discount code
 export async function DELETE(request) {
-  const { error } = await requireAdmin(request)
-  if (error) return error
+  const { error: authError } = await requireAdmin(request)
+  if (authError) return authError
 
   const { id } = await request.json()
   if (!id) return NextResponse.json({ error: 'id is required.' }, { status: 400 })

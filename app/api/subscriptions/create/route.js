@@ -117,7 +117,7 @@ export async function POST(request) {
     let usedDbCode = null
     if (discount_code && typeof discount_code === 'string') {
       const code = discount_code.trim().toUpperCase()
-      const { data: dbCode } = await supabase
+      const { data: dbCode } = await supabaseAdmin
         .from('discount_codes')
         .select('id, percent, one_time_per_customer')
         .eq('code', code)
@@ -154,7 +154,7 @@ export async function POST(request) {
 
       const requiredWalletAmount = (dailyAmount * daysToCheck) + depositAmount
 
-      const { data: wallet } = await supabase
+      const { data: wallet } = await supabaseAdmin
         .from('wallet')
         .select('id, balance, deposit_balance')
         .eq('user_id', user.id)
@@ -184,7 +184,7 @@ export async function POST(request) {
         paused_dates: [],
       }))
 
-      const { data: subs, error: insertError } = await supabase
+      const { data: subs, error: insertError } = await supabaseAdmin
         .from('subscriptions')
         .insert(insertRows)
         .select('id')

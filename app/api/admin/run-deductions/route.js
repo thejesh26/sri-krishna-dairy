@@ -3,8 +3,8 @@ import { requireAdmin } from '../../../lib/auth'
 
 export async function POST(request) {
   try {
-    const { error } = await requireAdmin(request)
-    if (error) return error
+    const { error: authError } = await requireAdmin(request)
+    if (authError) return authError
 
     // Delegate to the cron endpoint — single source of deduction truth
     // VERCEL_URL is auto-set by Vercel; NEXT_PUBLIC_SITE_URL overrides for custom domains

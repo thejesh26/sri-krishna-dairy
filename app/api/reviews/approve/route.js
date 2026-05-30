@@ -3,8 +3,8 @@ import { supabaseAdmin } from '../../../lib/db'
 import { requireAdmin } from '../../../lib/auth'
 
 export async function POST(request) {
-  const { error } = await requireAdmin(request)
-  if (error) return error
+  const { error: authError } = await requireAdmin(request)
+  if (authError) return authError
 
   const { reviewId, approved } = await request.json()
   if (!reviewId) return NextResponse.json({ error: 'reviewId required' }, { status: 400 })

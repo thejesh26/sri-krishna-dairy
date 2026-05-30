@@ -7,8 +7,8 @@ import { sendEmail } from '../../lib/email'
 export async function POST(request) {
   console.log('[MissedDelivery] Route called')
   try {
-    const { user, error } = await requireAuth(request)
-    if (error) return error
+    const { user, error: authError } = await requireAuth(request)
+    if (authError) return authError
 
     const { order_id, description } = await request.json()
     if (!order_id) {

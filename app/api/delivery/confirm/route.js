@@ -13,8 +13,8 @@ import { sendLowBalanceEmail, sendOrderConfirmationEmail, sendEmail } from '../.
 export async function POST(request) {
   console.log('[DeliveryConfirm] Route called')
   try {
-    const { user, error } = await requireDelivery(request)
-    if (error) return error
+    const { user, error: authError } = await requireDelivery(request)
+    if (authError) return authError
 
     const { type, order_id, subscription_id, delivery_date, bottle_returned, not_delivered, photo_url, addon_id } = await request.json()
     const deliveredAt = new Date().toISOString()
@@ -188,7 +188,7 @@ export async function POST(request) {
           // Award loyalty points
           const pointsEarned = Math.floor(dailyAmount / 100)
           if (pointsEarned > 0) {
-            const { data: profileData } = await supabase
+            const { data: profileData } = await supabaseAdmin
               .from('profiles')
               .select('loyalty_points, streak_count, last_delivery_date, badges, loyalty_points_expiry')
               .eq('id', sub.user_id)
@@ -229,7 +229,7 @@ export async function POST(request) {
             const { data: deliveryAuthUser } = await supabaseAdmin.auth.admin.getUserById(sub.user_id)
             const deliveryEmail = deliveryAuthUser?.user?.email
             if (deliveryEmail) {
-              const { data: deliveryProfile } = await supabase
+              const { data: deliveryProfile } = await supabaseAdmin
                 .from('profiles').select('full_name').eq('id', sub.user_id).single()
               const deliveryName = deliveryProfile?.full_name || 'Customer'
               const dateLabel = new Date(delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -251,7 +251,7 @@ export async function POST(request) {
           const lowBalanceThreshold = dailyAmount * 7
           if (newBalance < lowBalanceThreshold) {
             try {
-              const { data: userProfile } = await supabase
+              const { data: userProfile } = await supabaseAdmin
                 .from('profiles').select('full_name, phone, email').eq('id', sub.user_id).single()
               const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(sub.user_id)
               const email = authUser?.user?.email || userProfile?.email
@@ -278,7 +278,7 @@ export async function POST(request) {
           })
           // Notify customer their delivery has been stopped
           try {
-            const { data: stoppedProfile } = await supabase
+            const { data: stoppedProfile } = await supabaseAdmin
               .from('profiles').select('full_name, phone').eq('id', sub.user_id).single()
             if (stoppedProfile?.phone) {
               await notifySubscriptionStopped({ phone: stoppedProfile.phone, name: stoppedProfile.full_name || 'Customer', balance })
@@ -293,7 +293,7 @@ export async function POST(request) {
       // ── Bottle return tracking ──────────────────────────────────────────────
       if (bottle_returned === false) {
         try {
-          const { data: profileData } = await supabase
+          const { data: profileData } = await supabaseAdmin
             .from('profiles')
             .select('full_name, phone, apartment_name, flat_number, area, unreturned_bottles')
             .eq('id', sub.user_id).single()

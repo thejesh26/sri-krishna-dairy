@@ -9,7 +9,7 @@ import { notifyUndelivered, sendWhatsAppToAdmin } from '../../../lib/whatsapp'
 // Checks subscriptions still marked pending_delivery and clears them without charging
 export async function GET(request) {
   const { error } = requireCron(request)
-  if (error) return error
+  if (authError) return authError
 
   const today = getISTDate()
 

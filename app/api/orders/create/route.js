@@ -120,7 +120,7 @@ export async function POST(request) {
     if (discount_code && typeof discount_code === 'string') {
       const code = discount_code.trim().toUpperCase()
       // Check DB-managed codes first
-      const { data: dbCode } = await supabase
+      const { data: dbCode } = await supabaseAdmin
         .from('discount_codes')
         .select('percent')
         .eq('code', code)
@@ -145,7 +145,7 @@ export async function POST(request) {
 
     // ── 6. Check for duplicate orders on this date (per product) ─────────────
     for (const item of itemsWithPrice) {
-      const { data: dup } = await supabase
+      const { data: dup } = await supabaseAdmin
         .from('orders').select('id')
         .eq('user_id', user.id)
         .eq('delivery_date', delivery_date)

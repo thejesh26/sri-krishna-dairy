@@ -4,8 +4,8 @@ import { requireAdmin } from '../../../lib/auth'
 
 export async function POST(request) {
   try {
-    const { user, error } = await requireAdmin(request)
-    if (error) return error
+    const { user, error: authError } = await requireAdmin(request)
+    if (authError) return authError
 
     const { type, id, agent_id } = await request.json()
     if (!type || !id) return NextResponse.json({ error: 'type and id required' }, { status: 400 })

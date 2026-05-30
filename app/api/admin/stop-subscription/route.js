@@ -1,12 +1,12 @@
-import { supabaseAdminAdmin } from '../../../lib/db'
+import { supabaseAdmin } from '../../../lib/db'
 import { requireAdmin } from '../../../lib/auth'
 import { sendEmail } from '../../../lib/email'
 import { sendWhatsAppMessage } from '../../../lib/whatsapp'
 
 export async function POST(request) {
   try {
-    const { user, error } = await requireAdmin(request)
-    if (error) return error
+    const { user, error: authError } = await requireAdmin(request)
+    if (authError) return authError
 
     const { subscription_id, cancelled_by, cancellation_reason } = await request.json()
     if (!subscription_id) {

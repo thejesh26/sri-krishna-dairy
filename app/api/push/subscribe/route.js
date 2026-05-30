@@ -4,8 +4,8 @@ import { requireAuth } from '../../../lib/auth'
 
 export async function POST(request) {
   try {
-    const { user, error } = await requireAuth(request)
-    if (error) return error
+    const { user, error: authError } = await requireAuth(request)
+    if (authError) return authError
 
     const { subscription } = await request.json()
     if (!subscription?.endpoint) {
@@ -27,8 +27,8 @@ export async function POST(request) {
 
 export async function DELETE(request) {
   try {
-    const { user, error } = await requireAuth(request)
-    if (error) return error
+    const { user, error: authError } = await requireAuth(request)
+    if (authError) return authError
 
     await supabaseAdmin.from('profiles').update({ push_subscription: null }).eq('id', user.id)
 

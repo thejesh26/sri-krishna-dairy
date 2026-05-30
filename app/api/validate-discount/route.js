@@ -76,7 +76,7 @@ export async function POST(request) {
     if (dbCode) {
       // One-time per customer check
       if (dbCode.one_time_per_customer) {
-        const { data: existing } = await supabase
+        const { data: existing } = await supabaseAdmin
           .from('discount_code_usage')
           .select('id')
           .eq('code_id', dbCode.id)

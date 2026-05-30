@@ -10,8 +10,8 @@ import { sendEmail } from '../../../lib/email'
  */
 export async function POST(request) {
   try {
-    const { user, error } = await requireDelivery(request)
-    if (error) return error
+    const { user, error: authError } = await requireDelivery(request)
+    if (authError) return authError
 
     const { data: callerProfile } = await supabaseAdmin
       .from('profiles').select('full_name').eq('id', user.id).single()
@@ -32,7 +32,7 @@ export async function POST(request) {
       .from('wallet').select('id, balance').eq('user_id', target_user_id).maybeSingle()
 
     if (!wallet) {
-      const { data: newWallet } = await supabase
+      const { data: newWallet } = await supabaseAdmin
         .from('wallet').insert({ user_id: target_user_id, balance: 0 }).select().single()
       wallet = newWallet
     }
@@ -68,7 +68,7 @@ export async function POST(request) {
 
     // Notify customer (non-blocking)
     try {
-      const { data: customerProfile } = await supabase
+      const { data: customerProfile } = await supabaseAdmin
         .from('profiles')
         .select('full_name, phone')
         .eq('id', target_user_id)

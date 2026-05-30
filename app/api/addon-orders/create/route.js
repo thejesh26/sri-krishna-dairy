@@ -9,8 +9,8 @@ const VALID_DELIVERY_SLOTS = ['morning', 'evening']
 
 export async function POST(request) {
   try {
-    const { user, error } = await requireAuth(request)
-    if (error) return error
+    const { user, error: authError } = await requireAuth(request)
+    if (authError) return authError
 
     // Must have an active subscription
     const { data: activeSub } = await supabaseAdmin
@@ -79,7 +79,7 @@ export async function POST(request) {
 
     // Send notifications — non-blocking
     try {
-      const { data: profile } = await supabase
+      const { data: profile } = await supabaseAdmin
         .from('profiles').select('full_name, phone').eq('id', user.id).single()
       const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(user.id)
       const email = authUser?.user?.email

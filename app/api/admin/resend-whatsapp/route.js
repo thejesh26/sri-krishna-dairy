@@ -31,8 +31,8 @@ async function sendRawTemplate(body) {
 
 export async function POST(request) {
   try {
-    const { error } = await requireAdmin(request)
-    if (error) return error
+    const { error: authError } = await requireAdmin(request)
+    if (authError) return authError
 
     const { userId, messageType, customMessage, targetId } = await request.json()
 
@@ -98,7 +98,7 @@ export async function POST(request) {
     }
 
     if (messageType === 'low_balance') {
-      const { data: wallet } = await supabase
+      const { data: wallet } = await supabaseAdmin
         .from('wallet')
         .select('balance')
         .eq('user_id', userId)
@@ -110,14 +110,14 @@ export async function POST(request) {
     if (messageType === 'order_confirmation') {
       let order = null
       if (targetId) {
-        const { data } = await supabase
+        const { data } = await supabaseAdmin
           .from('orders')
           .select('*, products(size, price)')
           .eq('id', targetId)
           .single()
         order = data
       } else {
-        const { data } = await supabase
+        const { data } = await supabaseAdmin
           .from('orders')
           .select('*, products(size, price)')
           .eq('user_id', userId)
@@ -153,14 +153,14 @@ export async function POST(request) {
     if (messageType === 'subscription_active') {
       let sub = null
       if (targetId) {
-        const { data } = await supabase
+        const { data } = await supabaseAdmin
           .from('subscriptions')
           .select('*, products(size, price)')
           .eq('id', targetId)
           .single()
         sub = data
       } else {
-        const { data } = await supabase
+        const { data } = await supabaseAdmin
           .from('subscriptions')
           .select('*, products(size, price)')
           .eq('user_id', userId)
@@ -186,14 +186,14 @@ export async function POST(request) {
     if (messageType === 'subscription_expiring') {
       let sub = null
       if (targetId) {
-        const { data } = await supabase
+        const { data } = await supabaseAdmin
           .from('subscriptions')
           .select('end_date, products(size)')
           .eq('id', targetId)
           .single()
         sub = data
       } else {
-        const { data } = await supabase
+        const { data } = await supabaseAdmin
           .from('subscriptions')
           .select('end_date, products(size)')
           .eq('user_id', userId)

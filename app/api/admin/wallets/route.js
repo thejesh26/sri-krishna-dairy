@@ -4,8 +4,8 @@ import { requireAdmin } from '../../../lib/auth'
 
 export async function GET(request) {
   try {
-    const { user, error } = await requireAdmin(request)
-    if (error) return error
+    const { user, error: authError } = await requireAdmin(request)
+    if (authError) return authError
 
     const { data: wallets, error } = await supabaseAdmin.from('wallet').select('user_id, balance, deposit_balance')
     if (error) {

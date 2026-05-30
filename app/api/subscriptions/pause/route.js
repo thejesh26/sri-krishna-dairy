@@ -6,8 +6,8 @@ import { notifyAdmin } from '../../../lib/whatsapp'
 
 export async function POST(request) {
   try {
-    const { user, error } = await requireAuth(request)
-    if (error) return error
+    const { user, error: authError } = await requireAuth(request)
+    if (authError) return authError
 
     const { subscription_id, pause_date } = await request.json()
 
@@ -63,7 +63,7 @@ export async function POST(request) {
     if (sub.subscription_type === 'fixed' && sub.end_date) {
       const newEndDate = new Date(sub.end_date + 'T00:00:00')
       newEndDate.setDate(newEndDate.getDate() + 1)
-      await supabase
+      await supabaseAdmin
         .from('subscriptions')
         .update({ end_date: newEndDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) })
         .eq('id', subscription_id)

@@ -6,8 +6,8 @@ import { notifyOrderCancelled } from '../../../lib/whatsapp'
 
 export async function POST(request) {
   try {
-    const { user, error } = await requireAuth(request)
-    if (error) return error
+    const { user, error: authError } = await requireAuth(request)
+    if (authError) return authError
 
     const { order_id, reason } = await request.json()
     if (!order_id) {
@@ -47,14 +47,14 @@ export async function POST(request) {
     if (order.payment_method !== 'COD') {
       refundAmount = order.total_price || 0
       if (refundAmount > 0) {
-        const { data: wallet } = await supabase
+        const { data: wallet } = await supabaseAdmin
           .from('wallet')
           .select('id, balance')
           .eq('user_id', user.id)
           .maybeSingle()
 
         if (wallet) {
-          await supabase
+          await supabaseAdmin
             .from('wallet')
             .update({ balance: (wallet.balance || 0) + refundAmount })
             .eq('user_id', user.id)
@@ -71,7 +71,7 @@ export async function POST(request) {
 
     // Send notifications — non-blocking
     try {
-      const { data: profile } = await supabase
+      const { data: profile } = await supabaseAdmin
         .from('profiles')
         .select('full_name, phone')
         .eq('id', user.id)

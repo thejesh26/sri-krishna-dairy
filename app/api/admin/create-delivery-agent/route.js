@@ -4,8 +4,8 @@ import { sendWhatsAppMessage } from '../../../lib/whatsapp'
 
 export async function POST(request) {
   try {
-    const { error } = await requireAdmin(request)
-    if (error) return error
+    const { error: authError } = await requireAdmin(request)
+    if (authError) return authError
 
     const { full_name, phone, email, password, address, dl_number, bike_number, photo_url, document_url } = await request.json()
     if (!full_name || !phone || !email || !password) {

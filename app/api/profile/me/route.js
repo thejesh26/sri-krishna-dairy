@@ -4,8 +4,8 @@ import { requireAuth } from '../../../lib/auth'
 
 export async function GET(request) {
   try {
-    const { user, error } = await requireAuth(request)
-    if (error) return error
+    const { user, error: authError } = await requireAuth(request)
+    if (authError) return authError
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')

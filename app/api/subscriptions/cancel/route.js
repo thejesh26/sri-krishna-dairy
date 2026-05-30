@@ -6,8 +6,8 @@ import { sendWhatsAppToAdmin } from '../../../lib/whatsapp'
 
 export async function POST(request) {
   try {
-    const { user, error } = await requireAuth(request)
-    if (error) return error
+    const { user, error: authError } = await requireAuth(request)
+    if (authError) return authError
 
     const { subscription_id, reason, details } = await request.json()
     if (!subscription_id) {

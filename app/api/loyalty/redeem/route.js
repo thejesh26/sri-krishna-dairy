@@ -9,8 +9,8 @@ import { getTomorrowISTDate } from '../../../lib/pricing'
  * Deducts 100 points from the user's profile and creates a zero-cost order.
  */
 export async function POST(request) {
-  const { user, error } = await requireAuth(request)
-  if (error) return error
+  const { user, error: authError } = await requireAuth(request)
+  if (authError) return authError
 
   // Fetch profile to check points
   const { data: profile, error: profileError } = await supabaseAdmin
@@ -83,7 +83,7 @@ export async function POST(request) {
 
   if (orderError) {
     // Rollback: restore the deducted points
-    await supabase
+    await supabaseAdmin
       .from('profiles')
       .update({ loyalty_points: profile.loyalty_points })
       .eq('id', user.id)

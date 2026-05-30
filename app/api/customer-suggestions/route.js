@@ -4,8 +4,8 @@ import { requireAuth } from '../../lib/auth'
 
 export async function POST(request) {
   try {
-    const { user, error } = await requireAuth(request)
-    if (error) return error
+    const { user, error: authError } = await requireAuth(request)
+    if (authError) return authError
     const { message, type } = await request.json()
     if (!message?.trim()) return NextResponse.json({ error: 'Message required.' }, { status: 400 })
     await supabaseAdmin.from('customer_suggestions').insert({
