@@ -80,6 +80,7 @@ export default function AdminDashboard() {
     monthlyRevenue: 0,
   })
   // Settings tab state
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [appSettings, setAppSettings] = useState({
     max_subscribers: '',
     delivery_cutoff_time: '18:00',
@@ -627,6 +628,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
       result.settings.forEach(row => { map[row.key] = row.value })
       setAppSettings(prev => ({ ...prev, ...map }))
     }
+    setSettingsLoaded(true)
   }
 
   const loadWaitlist = async () => {
@@ -3209,6 +3211,9 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
     {/* ── Settings Tab ── */}
     {activeTab === 'settings' && (
       <div className="flex flex-col gap-6">
+        {!settingsLoaded ? (
+          <div className="text-center py-12 text-gray-400 text-sm">Loading settings...</div>
+        ) : (<>
 
         {/* WhatsApp template cleanup warning */}
         {process.env.NEXT_PUBLIC_WHATSAPP_CLEANUP_DONE !== 'true' && (
@@ -3705,6 +3710,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           )}
         </div>
 
+        </>)}
       </div>
     )}
 
