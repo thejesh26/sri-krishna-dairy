@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ToastContext'
 import Footer from '../components/Footer'
+import Header from '../components/Header'
+import { Button, Card, CardSection, EmptyState } from '../components/ui'
 
 export default function Wallet() {
   const router = useRouter()
@@ -14,8 +16,7 @@ export default function Wallet() {
   const [loading, setLoading] = useState(true)
   const [rechargeLoading, setRechargeLoading] = useState(false)
   const [rechargeAmount, setRechargeAmount] = useState('')
-  const { showSuccess, showError, showInfo } = useToast()
-  const [customAmount, setCustomAmount] = useState('')
+  const { showSuccess, showError } = useToast()
   const [selectedAmount, setSelectedAmount] = useState(null)
 
   useEffect(() => { getUser() }, [])
@@ -32,18 +33,14 @@ export default function Wallet() {
   }
 
   const loadWallet = async (userId) => {
-    // Get or create wallet
     let { data: wallet } = await supabase
       .from('wallet').select('*').eq('user_id', userId).single()
-
     if (!wallet) {
       const { data: newWallet } = await supabase
         .from('wallet').insert({ user_id: userId, balance: 0 }).select().single()
       wallet = newWallet
     }
     setWallet(wallet)
-
-    // Get transactions
     const { data: transactions } = await supabase
       .from('wallet_transactions').select('*')
       .eq('user_id', userId)
@@ -55,38 +52,24 @@ export default function Wallet() {
   const handleRecharge = async (amount) => {
     try {
       setRechargeLoading(true)
-
-      // Get current user
       const { data: { session } } = await supabase.auth.getSession()
       const userId = session.user.id
-
-      // Get customer profile
       const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name, phone')
-        .eq('id', userId)
-        .single()
-
-      // Sanitize phone
+        .from('profiles').select('full_name, phone').eq('id', userId).single()
       const rawPhone = profile?.phone || ''
       const digits = rawPhone.replace(/\D/g, '').slice(-10)
       const phone = digits.length === 10 ? '+91' + digits : ''
-
-      // Create Razorpay order
       const orderRes = await fetch('/api/razorpay/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount })
+        body: JSON.stringify({ amount }),
       })
       const orderData = await orderRes.json()
-
       if (!orderData.orderId) {
         showError('Failed to create payment order')
         setRechargeLoading(false)
         return
       }
-
-      // Open Razorpay
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: orderData.amount,
@@ -95,43 +78,32 @@ export default function Wallet() {
         description: 'Wallet Recharge',
         image: '/Logo.jpg',
         order_id: orderData.orderId,
-        prefill: {
-          name: profile?.full_name || '',
-          contact: phone,
-        },
+        prefill: { name: profile?.full_name || '', contact: phone },
         theme: { color: '#1a5c38' },
         handler: async function (response) {
           const verifyRes = await fetch('/api/wallet/recharge', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
             body: JSON.stringify({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-              userId: userId,
-              amount: amount
-            })
+              userId,
+              amount,
+            }),
           })
           const verifyData = await verifyRes.json()
           if (verifyData.success) {
             showSuccess('Wallet recharged successfully!')
-            setTimeout(() => {
-              window.location.reload()
-            }, 1500)
+            setTimeout(() => window.location.reload(), 1500)
           } else {
             showError('Payment verification failed!')
           }
         },
-        modal: {
-          ondismiss: function () {
-            setRechargeLoading(false)
-          }
-        }
+        modal: { ondismiss: () => setRechargeLoading(false) },
       }
-
       const rzp = new window.Razorpay(options)
       rzp.open()
-
     } catch (error) {
       console.error('Recharge error:', error)
       showError('Something went wrong!')
@@ -141,26 +113,13 @@ export default function Wallet() {
 
   if (loading) return (
     <div className="min-h-screen bg-[#fdfbf7] flex items-center justify-center">
-      <p className="text-[#1a5c38] font-semibold">Loading wallet...</p>
+      <EmptyState loading />
     </div>
   )
 
   return (
     <div className="min-h-screen bg-[#fdfbf7]">
-
-      {/* Header */}
-      <header className="bg-white px-6 py-4 flex items-center justify-between shadow-sm border-b border-[#e8e0d0] sticky top-0 z-50">
-        <a href="/" className="flex items-center gap-3">
-          <img src="/Logo.jpg" alt="Sri Krishnaa Dairy" className="h-12 w-12 rounded-full object-cover border-2 border-[#d4a017] shadow-sm" />
-          <div>
-            <h1 className="text-base font-bold text-[#1a5c38] font-[family-name:var(--font-playfair)]">Sri Krishnaa Dairy</h1>
-            <p className="text-xs text-[#d4a017] font-medium">Farm Fresh - Pure - Natural</p>
-          </div>
-        </a>
-        <a href="/dashboard" className="border border-[#1a5c38] text-[#1a5c38] font-semibold px-4 py-2 rounded text-sm hover:bg-[#1a5c38] hover:text-white transition">
-          Back to Dashboard
-        </a>
-      </header>
+      <Header showBack backUrl="/dashboard" />
 
       <div className="max-w-2xl mx-auto px-6 py-8">
 
@@ -172,40 +131,54 @@ export default function Wallet() {
         </div>
 
         {/* Low Balance Warnings */}
-        {wallet && wallet.balance === 0 && (
+        {wallet?.balance === 0 && (
           <div className="bg-red-50 border-2 border-red-400 rounded-xl p-4 mb-5 flex items-start gap-3">
             <span className="text-2xl flex-shrink-0">🚨</span>
             <div>
               <p className="text-red-700 font-bold text-sm">Wallet Empty — Deliveries Paused!</p>
               <p className="text-red-600 text-xs mt-1">Your wallet balance is ₹0. All subscription deliveries are on hold. Please add balance immediately to resume.</p>
-              <button onClick={() => document.getElementById('add-money')?.scrollIntoView({ behavior: 'smooth' })}
-                className="inline-block mt-2 bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-red-700 transition">
+              <Button
+                variant="danger"
+                size="sm"
+                className="mt-2"
+                onClick={() => document.getElementById('add-money')?.scrollIntoView({ behavior: 'smooth' })}
+              >
                 Add Balance Now →
-              </button>
+              </Button>
             </div>
           </div>
         )}
-        {wallet && wallet.balance > 0 && wallet.balance < 300 && (
+        {wallet?.balance > 0 && wallet?.balance < 300 && (
           <div className="bg-orange-50 border-2 border-orange-300 rounded-xl p-4 mb-5 flex items-start gap-3">
             <span className="text-2xl flex-shrink-0">⚠️</span>
             <div>
               <p className="text-orange-700 font-bold text-sm">Low Balance — Top Up Soon!</p>
               <p className="text-orange-600 text-xs mt-1">Your balance (₹{wallet.balance}) is below the minimum ₹300 required. Deliveries may be paused if not topped up.</p>
-              <button onClick={() => document.getElementById('add-money')?.scrollIntoView({ behavior: 'smooth' })}
-                className="inline-block mt-2 bg-orange-500 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-orange-600 transition">
+              <button
+                onClick={() => document.getElementById('add-money')?.scrollIntoView({ behavior: 'smooth' })}
+                className="inline-block mt-2 bg-orange-500 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-orange-600 transition"
+              >
                 Add Balance →
               </button>
             </div>
           </div>
         )}
 
-        {/* Wallet Balance Card */}
-        <div className="rounded-2xl p-8 mb-4 text-white relative overflow-hidden shadow-xl"
-          style={{background: wallet?.balance === 0 ? 'linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%)' : wallet?.balance < 300 ? 'linear-gradient(135deg, #78350f 0%, #b45309 100%)' : 'linear-gradient(135deg, #0d3320 0%, #1a5c38 100%)'}}>
+        {/* Wallet Balance Card — custom gradient, kept as-is */}
+        <div
+          className="rounded-2xl p-8 mb-4 text-white relative overflow-hidden shadow-xl"
+          style={{
+            background: wallet?.balance === 0
+              ? 'linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%)'
+              : wallet?.balance < 300
+                ? 'linear-gradient(135deg, #78350f 0%, #b45309 100%)'
+                : 'linear-gradient(135deg, #0d3320 0%, #1a5c38 100%)',
+          }}
+        >
           <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full opacity-10"
-            style={{background:'radial-gradient(circle, #d4a017, transparent)'}}></div>
+            style={{ background: 'radial-gradient(circle, #d4a017, transparent)' }} />
           <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl"
-            style={{background:'linear-gradient(90deg, transparent, #d4a017, transparent)'}}></div>
+            style={{ background: 'linear-gradient(90deg, transparent, #d4a017, transparent)' }} />
           <div className="relative z-10">
             <p className="text-green-300 text-xs font-medium uppercase tracking-widest mb-2">Available Balance</p>
             <p className="font-[family-name:var(--font-playfair)] text-5xl font-bold text-white mb-1">
@@ -235,103 +208,108 @@ export default function Wallet() {
           </div>
         </div>
 
-        {/* Add Money to Wallet */}
-        <div id="add-money" className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm mb-6">
-          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-4">
-            Add Money to Wallet
-          </h3>
-
-          {/* Preset amounts */}
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            {[500, 1000, 2000].map(amount => (
-              <button
-                key={amount}
-                onClick={() => handleRecharge(amount)}
-                disabled={rechargeLoading}
-                className="border-2 border-[#1a5c38] text-[#1a5c38] font-bold py-3 rounded-xl hover:bg-[#1a5c38] hover:text-white transition">
-                Rs.{amount}
-              </button>
-            ))}
-          </div>
-
-          {/* Custom amount */}
-          <div className="flex gap-3">
-            <input
-              type="number"
-              placeholder="Enter custom amount"
-              value={rechargeAmount}
-              onChange={(e) => setRechargeAmount(e.target.value)}
-              className="flex-1 border border-[#e8e0d0] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
-            />
-            <button
-              onClick={() => handleRecharge(parseFloat(rechargeAmount))}
-              disabled={rechargeLoading || !rechargeAmount}
-              className="text-white px-6 py-3 rounded-xl font-bold hover:opacity-90 transition"
-              style={{background: 'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
-              {rechargeLoading ? 'Processing...' : 'Pay'}
-            </button>
-          </div>
-        </div>
+        {/* Add Money */}
+        <Card id="add-money" className="mb-6">
+          <CardSection title="Add Money to Wallet">
+            {/* Preset amounts */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              {[500, 1000, 2000].map(amount => (
+                <Button
+                  key={amount}
+                  variant="secondary"
+                  fullWidth
+                  disabled={rechargeLoading}
+                  onClick={() => handleRecharge(amount)}
+                  className="py-3"
+                >
+                  Rs.{amount}
+                </Button>
+              ))}
+            </div>
+            {/* Custom amount */}
+            <div className="flex gap-3">
+              <input
+                type="number"
+                placeholder="Enter custom amount"
+                value={rechargeAmount}
+                onChange={(e) => setRechargeAmount(e.target.value)}
+                className="flex-1 border border-[#e8e0d0] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
+              />
+              <Button
+                variant="primary"
+                loading={rechargeLoading}
+                disabled={!rechargeAmount}
+                onClick={() => handleRecharge(parseFloat(rechargeAmount))}
+                className="px-6"
+              >
+                Pay
+              </Button>
+            </div>
+          </CardSection>
+        </Card>
 
         {/* Wallet Benefits */}
-        <div className="bg-white rounded-xl p-5 mb-6 border border-[#e8e0d0] shadow-sm">
-          <p className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c] mb-4">Wallet Benefits</p>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { icon: '⚡', title: 'Instant Deduction', desc: 'Auto-deducted daily' },
-              { icon: '🎁', title: 'Bonus Credits', desc: 'Rewards for loyalty' },
-              { icon: '🔄', title: 'Easy Refund', desc: 'Refundable anytime' },
-              { icon: '📱', title: 'No Cash Needed', desc: 'Hassle-free payments' },
-            ].map(({ icon, title, desc }) => (
-              <div key={title} className="flex items-start gap-3 p-3 bg-[#fdfbf7] rounded-lg border border-[#e8e0d0]">
-                <span className="text-xl">{icon}</span>
-                <div>
-                  <p className="font-semibold text-[#1c1c1c] text-xs">{title}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+        <Card className="mb-6">
+          <CardSection title="Wallet Benefits">
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { icon: '⚡', title: 'Instant Deduction', desc: 'Auto-deducted daily' },
+                { icon: '🎁', title: 'Bonus Credits',     desc: 'Rewards for loyalty' },
+                { icon: '🔄', title: 'Easy Refund',       desc: 'Refundable anytime' },
+                { icon: '📱', title: 'No Cash Needed',    desc: 'Hassle-free payments' },
+              ].map(({ icon, title, desc }) => (
+                <div key={title} className="flex items-start gap-3 p-3 bg-[#fdfbf7] rounded-lg border border-[#e8e0d0]">
+                  <span className="text-xl">{icon}</span>
+                  <div>
+                    <p className="font-semibold text-[#1c1c1c] text-xs">{title}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
+              ))}
+            </div>
+          </CardSection>
+        </Card>
 
         {/* Transaction History */}
-        <div className="bg-white rounded-xl border border-[#e8e0d0] overflow-hidden shadow-sm">
-          <div className="px-5 py-4 border-b border-[#f5f0e8]">
-            <p className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c]">Transaction History</p>
-          </div>
-          {transactions.length === 0 ? (
-            <div className="px-5 py-12 text-center">
-              <div className="text-5xl mb-3">📋</div>
-              <p className="text-gray-400 text-sm">No transactions yet</p>
-              <p className="text-gray-400 text-xs mt-1">Add balance to get started</p>
-            </div>
-          ) : (
-            transactions.map((txn, index) => (
-              <div key={txn.id}
-                className={`px-5 py-4 flex items-center justify-between ${index !== transactions.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${
-                    txn.type === 'credit' ? 'bg-[#f0faf4]' : 'bg-red-50'
-                  }`}>
-                    {txn.type === 'credit' ? '💰' : <img src="/bottle.png" alt="Milk" className="w-6 h-6 object-contain" />}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-[#1c1c1c] text-sm">{txn.description}</p>
-                    <p className="text-xs text-gray-400">
-                      {new Date(txn.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+        <Card padding="none">
+          <CardSection title="Transaction History">
+            {transactions.length === 0 ? (
+              <EmptyState
+                icon="📋"
+                title="No transactions yet"
+                description="Add balance to get started"
+                compact
+              />
+            ) : (
+              <div className="-mx-5 sm:-mx-6 divide-y divide-[#f5f0e8]">
+                {transactions.map((txn) => (
+                  <div key={txn.id} className="px-5 sm:px-6 py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${
+                        txn.type === 'credit' ? 'bg-[#f0faf4]' : 'bg-red-50'
+                      }`}>
+                        {txn.type === 'credit'
+                          ? '💰'
+                          : <img src="/bottle.png" alt="Milk" className="w-6 h-6 object-contain" />}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-[#1c1c1c] text-sm">{txn.description}</p>
+                        <p className="text-xs text-gray-400">
+                          {new Date(txn.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </p>
+                      </div>
+                    </div>
+                    <p className={`font-bold ${txn.type === 'credit' ? 'text-[#1a5c38]' : 'text-red-500'}`}>
+                      {txn.type === 'credit' ? '+' : '-'}Rs.{txn.amount}
                     </p>
                   </div>
-                </div>
-                <p className={`font-bold ${txn.type === 'credit' ? 'text-[#1a5c38]' : 'text-red-500'}`}>
-                  {txn.type === 'credit' ? '+' : '-'}Rs.{txn.amount}
-                </p>
+                ))}
               </div>
-            ))
-          )}
-        </div>
+            )}
+          </CardSection>
+        </Card>
 
       </div>
-
       <Footer variant="app" />
     </div>
   )

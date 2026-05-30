@@ -2,10 +2,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
+import { useToast } from '../components/ToastContext'
 import DisclaimerPopup from '../components/DisclaimerPopup'
 import PushNotificationPrompt from '../components/PushNotificationPrompt'
 import { SkeletonCard, SkeletonStatCard } from '../components/Skeleton'
 import Footer from '../components/Footer'
+import { Avatar, Button, Card, CardSection, EmptyState, Modal, StatusBadge, TabBar } from '../components/ui'
 
 const BADGE_INFO = {
   fresh_start:    { emoji: '🥛', label: 'Fresh Start',      days: 7,   color: '#d4a017' },
@@ -16,6 +18,7 @@ const BADGE_INFO = {
 
 export default function Dashboard() {
   const router = useRouter()
+  const { showSuccess, showError } = useToast()
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [orders, setOrders] = useState([])
@@ -300,16 +303,18 @@ export default function Dashboard() {
         </a>
         <div className="flex items-center gap-4">
           <a href="/profile"
-            className="flex items-center gap-2 border border-[#e8e0d0] rounded-full px-4 py-2 hover:border-[#d4a017] transition">
-            <div className="w-7 h-7 rounded-full bg-[#1a5c38] flex items-center justify-center text-white text-xs font-bold">
-              {firstName[0]}
-            </div>
+            className="flex items-center gap-2 border border-[#e8e0d0] rounded-full px-3 py-1.5 hover:border-[#d4a017] transition">
+            <Avatar name={profile?.full_name || firstName} size="xs" />
             <span className="text-sm font-medium text-[#1c1c1c]">{firstName}</span>
           </a>
-          <button onClick={handleLogout}
-            className="border border-red-200 text-red-400 font-medium px-4 py-2 rounded-full text-sm hover:bg-red-50 transition">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="rounded-full border border-red-200 text-red-400 hover:bg-red-50 hover:text-red-600"
+          >
             Logout
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -378,23 +383,19 @@ export default function Dashboard() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-white border border-[#e8e0d0] rounded-xl p-1 shadow-sm overflow-x-auto">
-          {[
-            { id: 'overview', label: '🏠 Overview' },
-            { id: 'rewards',  label: '⭐ Rewards' },
-            { id: 'history',  label: '📋 History' },
-            { id: 'report',   label: '📊 Report' },
-          ].map(({ id, label }) => (
-            <button key={id} onClick={() => setActiveTab(id)}
-              className={`flex-1 px-3 py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
-                activeTab === id
-                  ? 'bg-[#1a5c38] text-white shadow'
-                  : 'text-gray-500 hover:text-[#1a5c38]'
-              }`}>
-              {label}
-            </button>
-          ))}
-        </div>
+        <TabBar
+          tabs={[
+            { id: 'overview', label: 'Overview', icon: '🏠' },
+            { id: 'rewards',  label: 'Rewards',  icon: '⭐' },
+            { id: 'history',  label: 'History',  icon: '📋' },
+            { id: 'report',   label: 'Report',   icon: '📊' },
+          ]}
+          active={activeTab}
+          onChange={setActiveTab}
+          variant="box"
+          scrollable
+          className="mb-6 shadow-sm"
+        />
 
         {/* ─── OVERVIEW TAB ─── */}
         {activeTab === 'overview' && (
@@ -460,13 +461,12 @@ export default function Dashboard() {
                 </a>
               </div>
               {subscriptions.filter(s => s.is_active).length === 0 ? (
-                <div className="px-6 py-10 text-center">
-                  <div className="flex justify-center mb-3"><img src="/bottle.png" alt="Milk" className="h-20 object-contain opacity-40 drop-shadow" /></div>
-                  <p className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-2">No Active Subscriptions</p>
-                  <p className="text-gray-400 text-sm mb-5">Subscribe for daily fresh milk delivery</p>
-                  <a href="/subscribe" className="inline-block text-white px-8 py-3 rounded-xl font-semibold hover:opacity-90 transition shadow"
-                    style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>Subscribe Now</a>
-                </div>
+                <EmptyState
+                  icon="🥛"
+                  title="No Active Subscriptions"
+                  description="Subscribe for daily fresh milk delivery"
+                  action={{ label: 'Subscribe Now', href: '/subscribe' }}
+                />
               ) : (
                 <>
                   {subCancelMsg && (
@@ -564,13 +564,15 @@ export default function Dashboard() {
                                 ✅ Tomorrow Skipped — No charge
                               </div>
                             ) : (
-                              <button
+                              <Button
+                                variant="ghost"
+                                fullWidth
+                                loading={pausingSubId === sub.id}
                                 onClick={() => handlePauseTomorrow(sub)}
-                                disabled={pausingSubId === sub.id}
-                                className="w-full py-2.5 rounded-xl text-sm font-semibold border border-[#e8e0d0] text-gray-600 hover:border-[#d4a017] hover:text-[#d4a017] transition disabled:opacity-50"
+                                className="border border-[#e8e0d0] text-gray-600 hover:border-[#d4a017] hover:text-[#d4a017]"
                               >
-                                {pausingSubId === sub.id ? 'Skipping...' : '⏸ Skip Tomorrow\'s Delivery'}
-                              </button>
+                                ⏸ Skip Tomorrow's Delivery
+                              </Button>
                             )}
                             {pauseResult && pauseResult !== 'success' && (
                               <p className="text-xs text-red-500 mt-1.5 text-center">{pauseResult}</p>
@@ -623,12 +625,14 @@ export default function Dashboard() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         {canReactivate ? (
-                          <button
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            loading={reactivatingId === sub.id}
                             onClick={() => handleReactivate(sub.id)}
-                            disabled={reactivatingId === sub.id}
-                            className="bg-[#1a5c38] text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-[#14472c] transition disabled:opacity-50">
-                            {reactivatingId === sub.id ? 'Reactivating...' : 'Reactivate'}
-                          </button>
+                          >
+                            Reactivate
+                          </Button>
                         ) : (
                           <div className="text-right">
                             <p className="text-xs text-red-500 font-semibold mb-1">Need ₹{dailyCost} balance</p>
@@ -652,12 +656,12 @@ export default function Dashboard() {
                 </button>
               </div>
               {orders.length === 0 ? (
-                <div className="px-6 py-10 text-center">
-                  <div className="text-5xl mb-3">📦</div>
-                  <p className="text-gray-400 text-sm mb-4">No orders yet. Place your first order today!</p>
-                  <a href="/order" className="inline-block text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition shadow text-sm"
-                    style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>Order Now</a>
-                </div>
+                <EmptyState
+                  icon="📦"
+                  title="No orders yet"
+                  description="Place your first order today!"
+                  action={{ label: 'Order Now', href: '/order' }}
+                />
               ) : (
                 orders.map((order, index) => (
                   <div key={order.id}
@@ -671,11 +675,7 @@ export default function Dashboard() {
                       <p className="text-xs text-gray-400 mt-1">{new Date(order.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
                     </div>
                     <div className="text-right flex flex-col items-end gap-1">
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                        order.status === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' :
-                        order.status === 'pending'   ? 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]' :
-                        'bg-gray-50 text-gray-500 border border-gray-200'
-                      }`}>{order.status}</span>
+                      <StatusBadge status={order.status} size="sm" />
                       <p className="font-bold text-[#1a5c38] text-base">₹{order.total_price}</p>
                       <button onClick={async () => {
                         const { data: { session } } = await supabase.auth.getSession()
@@ -847,11 +847,15 @@ export default function Dashboard() {
                 </div>
                 <p className="text-gray-500 text-xs mt-2">Every ₹100 spent = 1 point • 100 points = 1 litre free milk</p>
               </div>
-              <button onClick={handleRedeemPoints} disabled={redeemLoading || (profile?.loyalty_points || 0) < 100}
-                className="w-full text-white font-bold py-3 rounded-xl transition disabled:opacity-50"
-                style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
-                {redeemLoading ? 'Redeeming...' : `🥛 Redeem 100 Points for Free 1L Milk`}
-              </button>
+              <Button
+                variant="primary"
+                fullWidth
+                loading={redeemLoading}
+                disabled={(profile?.loyalty_points || 0) < 100}
+                onClick={handleRedeemPoints}
+              >
+                🥛 Redeem 100 Points for Free 1L Milk
+              </Button>
               {redeemMsg && <p className="text-center text-sm mt-3 font-medium">{redeemMsg}</p>}
             </div>
 
@@ -1004,7 +1008,7 @@ export default function Dashboard() {
                 </a>
               </div>
               {transactions.length === 0 ? (
-                <div className="px-6 py-10 text-center text-gray-400 text-sm">No transactions yet.</div>
+                <EmptyState icon="💳" title="No transactions yet" compact />
               ) : (
                 transactions.slice(0, 20).map((txn, index) => (
                   <div key={txn.id}
@@ -1033,7 +1037,7 @@ export default function Dashboard() {
                 <p className="text-xs text-gray-400 mt-0.5">{allOrders.length} total orders</p>
               </div>
               {allOrders.length === 0 ? (
-                <div className="px-6 py-10 text-center text-gray-400 text-sm">No orders placed yet.</div>
+                <EmptyState icon="📦" title="No orders placed yet" compact />
               ) : (
                 allOrders.map((order, index) => (
                   <div key={order.id}
@@ -1054,12 +1058,7 @@ export default function Dashboard() {
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0 flex flex-col items-end gap-1">
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                        order.status === 'delivered'  ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' :
-                        order.status === 'pending'    ? 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]' :
-                        order.status === 'cancelled'  ? 'bg-red-50 text-red-500 border border-red-200' :
-                        'bg-gray-50 text-gray-500 border border-gray-200'
-                      }`}>{order.status}</span>
+                      <StatusBadge status={order.status} size="sm" />
                       <p className="font-bold text-[#1a5c38] text-sm">₹{order.total_price}</p>
                       {order.status === 'pending' && (() => {
                         const cutoff = new Date(`${order.delivery_date}T06:00:00+05:30`)
@@ -1196,172 +1195,154 @@ export default function Dashboard() {
       <PushNotificationPrompt />
 
       {/* Cancel Subscription Modal */}
-      {subCancelPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-            <h3 className="font-bold text-lg text-[#1c1c1c] mb-1">Cancel Subscription?</h3>
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
-              <p className="text-sm text-amber-800">Your wallet balance of <strong>₹{walletBalance.toFixed(2)}</strong> will remain and can be used when you resubscribe.</p>
-            </div>
-            <div className="mb-3">
-              <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Reason for cancelling <span className="text-red-400">*</span></label>
-              <select value={subCancelReason} onChange={e => setSubCancelReason(e.target.value)}
-                className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]">
-                <option value="">Select a reason</option>
-                <option value="Too expensive">Too expensive</option>
-                <option value="Travelling">Travelling</option>
-                <option value="Quality issue">Quality issue</option>
-                <option value="Switching provider">Switching provider</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div className="mb-4">
-              <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Tell us more <span className="text-gray-400 font-normal">(optional)</span></label>
-              <textarea value={subCancelDetails} onChange={e => setSubCancelDetails(e.target.value)}
-                placeholder="Any feedback helps us improve..."
-                rows={2}
-                maxLength={300}
-                className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] resize-none"
-              />
-            </div>
-            {subCancelMsg && (
-              <p className="text-sm text-red-600 mb-3">{subCancelMsg}</p>
-            )}
-            <div className="flex gap-3">
-              <button onClick={() => setSubCancelPopup(null)}
-                className="flex-1 border border-[#e8e0d0] text-gray-600 font-semibold py-3 rounded-xl text-sm hover:bg-gray-50 transition">
-                Keep Subscription
-              </button>
-              <button
-                disabled={subCancelLoading || !subCancelReason}
-                onClick={handleSubCancel}
-                className="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl text-sm hover:bg-red-600 transition disabled:opacity-50">
-                {subCancelLoading ? 'Cancelling...' : 'Yes, Cancel'}
-              </button>
-            </div>
+      <Modal
+        open={!!subCancelPopup}
+        onClose={() => setSubCancelPopup(null)}
+        title="Cancel Subscription?"
+        footer={
+          <div className="flex gap-3 w-full">
+            <Button variant="ghost" fullWidth onClick={() => setSubCancelPopup(null)}>Keep Subscription</Button>
+            <Button variant="danger" fullWidth disabled={!subCancelReason} loading={subCancelLoading} onClick={handleSubCancel}>
+              Yes, Cancel
+            </Button>
           </div>
+        }
+      >
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+          <p className="text-sm text-amber-800">Your wallet balance of <strong>₹{walletBalance.toFixed(2)}</strong> will remain and can be used when you resubscribe.</p>
         </div>
-      )}
+        <div className="mb-3">
+          <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Reason for cancelling <span className="text-red-400">*</span></label>
+          <select value={subCancelReason} onChange={e => setSubCancelReason(e.target.value)}
+            className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]">
+            <option value="">Select a reason</option>
+            <option value="Too expensive">Too expensive</option>
+            <option value="Travelling">Travelling</option>
+            <option value="Quality issue">Quality issue</option>
+            <option value="Switching provider">Switching provider</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Tell us more <span className="text-gray-400 font-normal">(optional)</span></label>
+          <textarea value={subCancelDetails} onChange={e => setSubCancelDetails(e.target.value)}
+            placeholder="Any feedback helps us improve..."
+            rows={2} maxLength={300}
+            className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] resize-none"
+          />
+        </div>
+        {subCancelMsg && <p className="text-sm text-red-600 mt-2">{subCancelMsg}</p>}
+      </Modal>
 
       {/* Report Issue Modal */}
-      {reportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-            <h3 className="font-bold text-lg text-[#1c1c1c] mb-4">Report an Issue</h3>
-            <div className="flex flex-col gap-3 mb-4">
-              {[
-                { value: 'missed', label: '📭 Delivery not received' },
-                { value: 'quality', label: '👎 Quality issue with milk' },
-                { value: 'suggestion', label: '💡 Suggestion or feedback' },
-              ].map(({ value, label }) => (
-                <button key={value} onClick={() => setReportType(value)}
-                  className={`text-left px-4 py-3 rounded-xl border-2 text-sm font-medium transition ${reportType === value ? 'border-[#1a5c38] bg-[#f0faf4] text-[#1a5c38]' : 'border-[#e8e0d0] text-gray-600'}`}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            <textarea value={reportDescription} onChange={e => setReportDescription(e.target.value)}
-              placeholder={reportType === 'missed' ? 'Any additional details...' : reportType === 'quality' ? 'Describe the quality issue...' : 'Share your suggestion...'}
-              rows={3} className="w-full border border-[#e8e0d0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38] resize-none mb-4" />
-            <div className="flex gap-3">
-              <button onClick={() => setReportModal(null)}
-                className="flex-1 border border-[#e8e0d0] text-gray-600 font-semibold py-2.5 rounded-xl text-sm hover:bg-gray-50 transition">
-                Cancel
-              </button>
-              <button disabled={reportSubmitting}
-                onClick={async () => {
-                  setReportSubmitting(true)
-                  const { data: { session } } = await supabase.auth.getSession()
-                  let endpoint, body
-                  if (reportType === 'missed') {
-                    endpoint = '/api/missed-delivery'
-                    body = { order_id: reportModal.orderId, description: reportDescription || 'Delivery not received' }
-                  } else if (reportType === 'quality') {
-                    endpoint = '/api/quality-feedback'
-                    body = { order_id: reportModal.orderId, issue: reportDescription || 'Quality issue reported' }
-                  } else {
-                    endpoint = '/api/customer-suggestions'
-                    body = { message: reportDescription, type: 'suggestion' }
-                  }
-                  const res = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-                    body: JSON.stringify(body),
-                  })
-                  if (res.ok) {
-                    setReportedOrders(prev => new Set([...prev, reportModal.orderId]))
-                    setReportModal(null)
-                    showSuccess('Report submitted. We will look into this!')
-                  } else {
-                    showError('Failed to submit report. Please try again.')
-                  }
-                  setReportSubmitting(false)
-                }}
-                className="flex-1 bg-[#1a5c38] text-white font-bold py-2.5 rounded-xl text-sm hover:bg-[#14472c] transition disabled:opacity-50">
-                {reportSubmitting ? 'Submitting...' : 'Submit'}
-              </button>
-            </div>
+      <Modal
+        open={!!reportModal}
+        onClose={() => setReportModal(null)}
+        title="Report an Issue"
+        footer={
+          <div className="flex gap-3 w-full">
+            <Button variant="ghost" fullWidth onClick={() => setReportModal(null)}>Cancel</Button>
+            <Button variant="primary" fullWidth loading={reportSubmitting}
+              onClick={async () => {
+                setReportSubmitting(true)
+                const { data: { session } } = await supabase.auth.getSession()
+                let endpoint, body
+                if (reportType === 'missed') {
+                  endpoint = '/api/missed-delivery'
+                  body = { order_id: reportModal.orderId, description: reportDescription || 'Delivery not received' }
+                } else if (reportType === 'quality') {
+                  endpoint = '/api/quality-feedback'
+                  body = { order_id: reportModal.orderId, issue: reportDescription || 'Quality issue reported' }
+                } else {
+                  endpoint = '/api/customer-suggestions'
+                  body = { message: reportDescription, type: 'suggestion' }
+                }
+                const res = await fetch(endpoint, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                  body: JSON.stringify(body),
+                })
+                if (res.ok) {
+                  setReportedOrders(prev => new Set([...prev, reportModal.orderId]))
+                  setReportModal(null)
+                  showSuccess('Report submitted. We will look into this!')
+                } else {
+                  showError('Failed to submit report. Please try again.')
+                }
+                setReportSubmitting(false)
+              }}
+            >
+              Submit
+            </Button>
           </div>
+        }
+      >
+        <div className="flex flex-col gap-3 mb-4">
+          {[
+            { value: 'missed',     label: '📭 Delivery not received' },
+            { value: 'quality',    label: '👎 Quality issue with milk' },
+            { value: 'suggestion', label: '💡 Suggestion or feedback' },
+          ].map(({ value, label }) => (
+            <button key={value} onClick={() => setReportType(value)}
+              className={`text-left px-4 py-3 rounded-xl border-2 text-sm font-medium transition ${reportType === value ? 'border-[#1a5c38] bg-[#f0faf4] text-[#1a5c38]' : 'border-[#e8e0d0] text-gray-600'}`}>
+              {label}
+            </button>
+          ))}
         </div>
-      )}
+        <textarea value={reportDescription} onChange={e => setReportDescription(e.target.value)}
+          placeholder={reportType === 'missed' ? 'Any additional details...' : reportType === 'quality' ? 'Describe the quality issue...' : 'Share your suggestion...'}
+          rows={3} className="w-full border border-[#e8e0d0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38] resize-none" />
+      </Modal>
 
       {/* Cancel Order Confirmation Modal */}
-      {cancelPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-            <h3 className="font-bold text-lg text-[#1c1c1c] mb-2">Cancel Order?</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Are you sure you want to cancel your order for{' '}
-              <strong>{new Date(cancelPopup.delivery_date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</strong>?<br/>
-              <span className="text-xs text-gray-400">Cancellations are only allowed before 6AM on delivery day.</span>
-            </p>
-            <div className="mb-4">
-              <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Reason</label>
-              <select value={cancelReason} onChange={e => setCancelReason(e.target.value)}
-                className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]">
-                <option value="">Select a reason</option>
-                <option value="Changed my mind">Changed my mind</option>
-                <option value="Wrong date selected">Wrong date selected</option>
-                <option value="Other plans">Other plans</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            {cancelPopup.payment_method !== 'COD' && (
-              <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-xl p-3 mb-4">
-                <p className="text-xs text-[#1a5c38] font-semibold">₹{cancelPopup.total_price} will be refunded to your wallet</p>
-              </div>
-            )}
-            <div className="flex gap-3">
-              <button onClick={() => setCancelPopup(null)}
-                className="flex-1 border border-[#e8e0d0] text-gray-600 font-semibold py-3 rounded-xl text-sm hover:bg-gray-50 transition">
-                Keep Order
-              </button>
-              <button
-                disabled={cancelLoading}
-                onClick={async () => {
-                  setCancelLoading(true)
-                  const { data: { session } } = await supabase.auth.getSession()
-                  const res = await fetch('/api/orders/cancel', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-                    body: JSON.stringify({ order_id: cancelPopup.id, reason: cancelReason }),
-                  })
-                  if (res.ok) {
-                    setAllOrders(prev => prev.map(o => o.id === cancelPopup.id ? { ...o, status: 'cancelled' } : o))
-                    setCancelPopup(null)
-                    // Refresh wallet balance after refund
-                    const { data: walletData } = await supabase.from('wallet').select('balance').eq('user_id', session.user.id).limit(1)
-                    if (walletData?.[0]) setWalletBalance(walletData[0].balance)
-                  }
-                  setCancelLoading(false)
-                }}
-                className="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl text-sm hover:bg-red-600 transition disabled:opacity-50">
-                {cancelLoading ? 'Cancelling...' : 'Yes, Cancel'}
-              </button>
-            </div>
+      <Modal
+        open={!!cancelPopup}
+        onClose={() => setCancelPopup(null)}
+        title="Cancel Order?"
+        description={cancelPopup ? `Cancel your order for ${new Date(cancelPopup.delivery_date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}? Cancellations are only allowed before 6AM on delivery day.` : ''}
+        footer={
+          <div className="flex gap-3 w-full">
+            <Button variant="ghost" fullWidth onClick={() => setCancelPopup(null)}>Keep Order</Button>
+            <Button variant="danger" fullWidth loading={cancelLoading}
+              onClick={async () => {
+                setCancelLoading(true)
+                const { data: { session } } = await supabase.auth.getSession()
+                const res = await fetch('/api/orders/cancel', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                  body: JSON.stringify({ order_id: cancelPopup.id, reason: cancelReason }),
+                })
+                if (res.ok) {
+                  setAllOrders(prev => prev.map(o => o.id === cancelPopup.id ? { ...o, status: 'cancelled' } : o))
+                  setCancelPopup(null)
+                  const { data: walletData } = await supabase.from('wallet').select('balance').eq('user_id', session.user.id).limit(1)
+                  if (walletData?.[0]) setWalletBalance(walletData[0].balance)
+                }
+                setCancelLoading(false)
+              }}
+            >
+              Yes, Cancel
+            </Button>
           </div>
+        }
+      >
+        <div className="mb-3">
+          <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Reason</label>
+          <select value={cancelReason} onChange={e => setCancelReason(e.target.value)}
+            className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]">
+            <option value="">Select a reason</option>
+            <option value="Changed my mind">Changed my mind</option>
+            <option value="Wrong date selected">Wrong date selected</option>
+            <option value="Other plans">Other plans</option>
+            <option value="Other">Other</option>
+          </select>
         </div>
-      )}
+        {cancelPopup?.payment_method !== 'COD' && (
+          <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-xl p-3">
+            <p className="text-xs text-[#1a5c38] font-semibold">₹{cancelPopup?.total_price} will be refunded to your wallet</p>
+          </div>
+        )}
+      </Modal>
 
     </div>
   )
