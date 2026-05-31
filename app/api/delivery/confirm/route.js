@@ -103,6 +103,22 @@ export async function POST(request) {
         console.error('[DeliveryConfirm] Notification failed:', notifyErr?.message)
       }
 
+      // Wallet deduction for trial (COD) orders — deduct if customer has balance, skip otherwise.
+      // Uses deduct_wallet for atomicity + idempotency; the RPC raises if insufficient balance
+      // which we intentionally ignore (COD means cash was collected instead).
+      try {
+        const { data: orderWallet } = await supabaseAdmin
+          .from('wallet').select('balance').eq('user_id', orderRow.user_id).maybeSingle()
+        const orderPrice = orderRow.total_price ?? 0
+        if (orderWallet && (orderWallet.balance || 0) >= orderPrice && orderPrice > 0) {
+          await supabaseAdmin.rpc('deduct_wallet', {
+            p_user_id: orderRow.user_id,
+            p_amount: orderPrice,
+            p_description: `Trial order delivery [${order_id}]`,
+          })
+        }
+      } catch { /* non-blocking — insufficient balance is expected for cash COD orders */ }
+
       // Schedule review request (non-blocking)
       try {
         const today = getISTDate()
@@ -371,20 +387,17 @@ export async function POST(request) {
 
       if (!addonOrder) return NextResponse.json({ error: 'Addon order not found' }, { status: 404 })
 
-      const { data: wallet } = await supabaseAdmin
-        .from('wallet').select('id, balance').eq('user_id', addonOrder.user_id).maybeSingle()
-
-      const balance = wallet?.balance || 0
       const amount = addonOrder.total_price || 0
-
-      if (wallet && balance >= amount) {
-        await supabaseAdmin.from('wallet').update({ balance: balance - amount }).eq('user_id', addonOrder.user_id)
-        await supabaseAdmin.from('wallet_transactions').insert({
-          user_id: addonOrder.user_id,
-          amount,
-          type: 'debit',
-          description: `Add-on delivery [${addonOrder.delivery_date}]`,
-        })
+      if (amount > 0) {
+        // Atomic deduction via DB function — raises on insufficient balance which we ignore
+        // (delivery still counts; admin can resolve payment separately)
+        try {
+          await supabaseAdmin.rpc('deduct_wallet', {
+            p_user_id: addonOrder.user_id,
+            p_amount: amount,
+            p_description: `Add-on delivery [${addon_id}] [${addonOrder.delivery_date}]`,
+          })
+        } catch { /* non-blocking — low balance does not block delivery confirmation */ }
       }
 
       return NextResponse.json({ success: true })

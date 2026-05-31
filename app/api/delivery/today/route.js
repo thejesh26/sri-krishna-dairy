@@ -15,17 +15,21 @@ export async function GET(request) {
 
   const today = getISTDate()
 
-  // Orders assigned to this agent (or all orders for admin)
+  // Orders: show all pending orders for today.
+  // For non-admins: prefer rows assigned to this agent; fall back to all unassigned rows so
+  // agents always see work even when admin hasn't explicitly assigned everything.
   let ordersQuery = supabaseAdmin
     .from('orders')
     .select('*, products(*), profiles(full_name, phone, apartment_name, flat_number, area, landmark, pincode)')
     .eq('delivery_date', today)
     .in('status', ['pending', 'out_for_delivery'])
     .order('delivery_slot', { ascending: true })
-  if (!isAdmin) ordersQuery = ordersQuery.eq('assigned_to', user.id)
+  if (!isAdmin) {
+    ordersQuery = ordersQuery.or(`assigned_to.eq.${user.id},assigned_to.is.null`)
+  }
   const { data: orders } = await ordersQuery
 
-  // Active subscriptions assigned to this agent (or all for admin)
+  // Subscriptions: same fallback — assigned-to-agent OR unassigned.
   let subsQuery = supabaseAdmin
     .from('subscriptions')
     .select('*, products(*), profiles(full_name, phone, apartment_name, flat_number, area, landmark, pincode)')
@@ -33,7 +37,9 @@ export async function GET(request) {
     .lte('start_date', today)
     .or(`end_date.is.null,end_date.gte.${today}`)
     .order('delivery_slot', { ascending: true })
-  if (!isAdmin) subsQuery = subsQuery.eq('assigned_to', user.id)
+  if (!isAdmin) {
+    subsQuery = subsQuery.or(`assigned_to.eq.${user.id},assigned_to.is.null`)
+  }
   const { data: allSubs } = await subsQuery
 
   // Filter out paused and non-delivery days client-side

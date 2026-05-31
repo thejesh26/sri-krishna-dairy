@@ -183,6 +183,8 @@ export default function AdminDashboard() {
   const [addOrderEndDate, setAddOrderEndDate] = useState('')
   const [addOrderDiscount, setAddOrderDiscount] = useState(0)
   const [addOrderLoading, setAddOrderLoading] = useState(false)
+  const [addOrderExtraDates, setAddOrderExtraDates] = useState([])
+  const [addOrderExtraDateInput, setAddOrderExtraDateInput] = useState('')
 
   useEffect(() => { checkAdmin() }, [])
   useEffect(() => {
@@ -3873,6 +3875,24 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
             if (!res.ok) { showError(data.error || 'Failed to place order'); return }
             showSuccess(`Trial order placed for ${addOrderCustomer.full_name}!`)
             setAddOrderCustomer(null); setAddOrderProduct(null); setAddOrderDate('')
+          } else if (addOrderType === 'extra') {
+            if (addOrderExtraDates.length === 0) { showError('Select at least one date.'); return }
+            const res = await fetch('/api/admin/place-addon-order', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+              body: JSON.stringify({
+                target_user_id: addOrderCustomer.id,
+                product_id: addOrderProduct,
+                quantity: addOrderQuantity,
+                delivery_slot: addOrderSlot,
+                dates: addOrderExtraDates,
+              }),
+            })
+            const data = await res.json()
+            if (!res.ok) { showError(data.error || 'Failed to place extra orders'); return }
+            const selectedProduct = products.find(p => p.id === addOrderProduct)
+            showSuccess(`${data.order_count} extra order${data.order_count !== 1 ? 's' : ''} placed for ${addOrderCustomer.full_name}! Total: ₹${data.total_amount}`)
+            setAddOrderCustomer(null); setAddOrderProduct(null); setAddOrderExtraDates([]); setAddOrderExtraDateInput('')
           } else {
             const res = await fetch('/api/admin/place-subscription', {
               method: 'POST',
@@ -3951,8 +3971,12 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
             {/* Section 2 — Order type */}
             <div className="px-6 py-5 border-b border-[#f5f0e8]">
               <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-3 block">Order Type</label>
-              <div className="flex gap-3">
-                {[{ id: 'trial', label: '🎁 Trial Order' }, { id: 'subscription', label: '📅 Subscription' }].map(({ id, label }) => (
+              <div className="flex gap-2">
+                {[
+                  { id: 'trial',        label: '🎁 Trial Order'  },
+                  { id: 'subscription', label: '📅 Subscription'  },
+                  { id: 'extra',        label: '➕ Extra Order'   },
+                ].map(({ id, label }) => (
                   <button key={id} onClick={() => setAddOrderType(id)}
                     className={`flex-1 py-3 rounded-xl font-semibold text-sm transition border ${
                       addOrderType === id
@@ -3963,6 +3987,11 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
                   </button>
                 ))}
               </div>
+              {addOrderType === 'extra' && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3">
+                  Extra (add-on) orders — placed on top of existing subscription. No subscription check. Wallet deducted on delivery.
+                </p>
+              )}
             </div>
 
             {/* Section 3 — Order details */}
@@ -4002,6 +4031,74 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
                   <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Delivery Date</label>
                   <input type="date" min={todayStr} value={addOrderDate} onChange={e => setAddOrderDate(e.target.value)}
                     className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]" />
+                </div>
+              )}
+
+              {/* Extra order — multi-date picker */}
+              {addOrderType === 'extra' && (
+                <div>
+                  <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">
+                    Delivery Dates <span className="text-gray-400 normal-case font-normal ml-1">({addOrderExtraDates.length} selected)</span>
+                  </label>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="date"
+                      min={todayStr}
+                      value={addOrderExtraDateInput}
+                      onChange={e => setAddOrderExtraDateInput(e.target.value)}
+                      className="flex-1 border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]"
+                    />
+                    <button
+                      onClick={() => {
+                        const d = addOrderExtraDateInput
+                        if (!d || addOrderExtraDates.includes(d)) return
+                        setAddOrderExtraDates(prev => [...prev, d].sort())
+                        setAddOrderExtraDateInput('')
+                      }}
+                      disabled={!addOrderExtraDateInput || addOrderExtraDates.includes(addOrderExtraDateInput)}
+                      className="bg-[#1a5c38] text-white font-bold px-4 py-2 rounded-lg text-sm hover:bg-[#14472c] transition disabled:opacity-40">
+                      + Add
+                    </button>
+                  </div>
+                  {/* Quick-add: next 7 days */}
+                  <div className="flex gap-1.5 flex-wrap mb-2">
+                    {Array.from({ length: 7 }, (_, i) => {
+                      const d = new Date()
+                      d.setDate(d.getDate() + i + 1)
+                      const str = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+                      const label = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
+                      const selected = addOrderExtraDates.includes(str)
+                      return (
+                        <button key={str}
+                          onClick={() => setAddOrderExtraDates(prev => selected ? prev.filter(x => x !== str) : [...prev, str].sort())}
+                          className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition ${selected ? 'bg-[#1a5c38] text-white border-[#1a5c38]' : 'bg-white text-gray-600 border-[#e8e0d0] hover:border-[#1a5c38]'}`}>
+                          {label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {addOrderExtraDates.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 p-3 bg-[#f5f0e8] rounded-xl">
+                      {addOrderExtraDates.map(d => (
+                        <span key={d} className="inline-flex items-center gap-1 bg-white border border-[#e8e0d0] text-xs px-2.5 py-1 rounded-full font-medium text-[#1c1c1c]">
+                          {new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                          <button onClick={() => setAddOrderExtraDates(prev => prev.filter(x => x !== d))}
+                            className="text-gray-400 hover:text-red-500 transition leading-none ml-0.5">×</button>
+                        </span>
+                      ))}
+                      <button onClick={() => setAddOrderExtraDates([])}
+                        className="text-xs text-red-400 hover:text-red-600 underline ml-1">Clear all</button>
+                    </div>
+                  )}
+                  {addOrderExtraDates.length > 0 && addOrderProduct && (() => {
+                    const p = products.find(pr => pr.id === addOrderProduct)
+                    const total = p ? Math.round(p.price * addOrderQuantity) * addOrderExtraDates.length : 0
+                    return total > 0 ? (
+                      <p className="text-xs text-[#1a5c38] font-semibold mt-2">
+                        Total: ₹{total} ({addOrderExtraDates.length} × ₹{Math.round((p?.price || 0) * addOrderQuantity)})
+                      </p>
+                    ) : null
+                  })()}
                 </div>
               )}
 
@@ -4087,16 +4184,22 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
             <div className="px-6 py-5">
               <button
                 disabled={
-                  addOrderLoading || !addOrderCustomer || !addOrderProduct || !addOrderDate ||
-                  (addOrderType === 'subscription' && addOrderSubType === 'fixed' && !addOrderEndDate)
+                  addOrderLoading || !addOrderCustomer || !addOrderProduct ||
+                  (addOrderType === 'trial' && !addOrderDate) ||
+                  (addOrderType === 'subscription' && (!addOrderDate || (addOrderSubType === 'fixed' && !addOrderEndDate))) ||
+                  (addOrderType === 'extra' && addOrderExtraDates.length === 0)
                 }
                 onClick={handleAddOrderSubmit}
                 className="w-full bg-[#1a5c38] text-white font-bold py-3.5 rounded-xl hover:bg-[#14472c] transition disabled:opacity-40 text-sm">
                 {addOrderLoading
                   ? 'Placing...'
-                  : addOrderCustomer
-                    ? `Place ${addOrderType === 'trial' ? 'Trial Order' : 'Subscription'} for ${addOrderCustomer.full_name}`
-                    : 'Select a customer first'}
+                  : !addOrderCustomer
+                    ? 'Select a customer first'
+                    : addOrderType === 'trial'
+                      ? `Place Trial Order for ${addOrderCustomer.full_name}`
+                      : addOrderType === 'extra'
+                        ? `Place ${addOrderExtraDates.length} Extra Order${addOrderExtraDates.length !== 1 ? 's' : ''} for ${addOrderCustomer.full_name}`
+                        : `Activate Subscription for ${addOrderCustomer.full_name}`}
               </button>
             </div>
           </div>
