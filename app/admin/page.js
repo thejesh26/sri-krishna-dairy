@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react'
 function isDeliveryDay(sub) {
   const freq = sub.delivery_frequency || 'daily'
   if (freq === 'daily') return true
-  const start = new Date(sub.start_date)
-  const today = new Date()
-  const daysDiff = Math.floor((today - start) / (1000 * 60 * 60 * 24))
+  const start = new Date(sub.start_date + 'T00:00:00+05:30')
+const todayIST = new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) + 'T00:00:00+05:30')
+const daysDiff = Math.round((todayIST - start) / (1000 * 60 * 60 * 24))
   if (freq === 'alternate') return daysDiff % 2 === 0
   if (freq === 'weekly') return daysDiff % 7 === 0
   return true
