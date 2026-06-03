@@ -524,65 +524,60 @@ export default function AdminDashboard() {
     setHistoryLoading(false)
   }
 
-  const loadUpcomingDeliveries = async () => {
-    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+ const loadUpcomingDeliveries = async () => {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  const in7Days = new Date()
+  in7Days.setDate(in7Days.getDate() + 7)
+  const endDate = in7Days.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  const { data: { session } } = await supabase.auth.getSession()
 
-    const { data: activeSubs } = await supabase
-      .from('subscriptions')
-      .select('*, products(*), profiles(*)')
-      .eq('is_active', true)
-      .lte('start_date', (() => {
-        const d = new Date(); d.setDate(d.getDate() + 7)
-        return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-      })())
+  const [subsRes, ordersRes] = await Promise.all([
+    fetch(`/api/admin/upcoming?type=subscriptions&end=${endDate}`, {
+      headers: { Authorization: `Bearer ${session?.access_token}` }
+    }),
+    fetch(`/api/admin/upcoming?type=orders&start=${today}&end=${endDate}`, {
+      headers: { Authorization: `Bearer ${session?.access_token}` }
+    })
+  ])
 
-    const in7Days = new Date()
-    in7Days.setDate(in7Days.getDate() + 7)
-    const endDate = in7Days.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  const { subscriptions: activeSubs = [] } = await subsRes.json()
+  const { orders: futureOrders = [] } = await ordersRes.json()
 
-    const { data: futureOrders } = await supabase
-      .from('orders')
-      .select('*, products(*), profiles(*)')
-      .in('status', ['pending', 'out_for_delivery'])
-      .gt('delivery_date', today)
-      .lte('delivery_date', endDate)
-      .order('delivery_date', { ascending: true })
+  const schedule = {}
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date()
+    d.setDate(d.getDate() + i)
+    const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+    schedule[dateStr] = { subscriptions: [], orders: [] }
+  }
 
-    const schedule = {}
+  for (const sub of activeSubs) {
     for (let i = 1; i <= 7; i++) {
       const d = new Date()
       d.setDate(d.getDate() + i)
       const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-      schedule[dateStr] = { subscriptions: [], orders: [] }
+      if (sub.start_date > dateStr) continue
+      if (sub.end_date && sub.end_date < dateStr) continue
+      if ((sub.paused_dates || []).includes(dateStr)) continue
+      const start = new Date(sub.start_date + 'T00:00:00+05:30')
+      const day = new Date(dateStr + 'T00:00:00+05:30')
+      const diff = Math.round((day - start) / (1000 * 60 * 60 * 24))
+      const freq = sub.delivery_frequency || 'daily'
+      if (freq === 'alternate' && diff % 2 !== 0) continue
+      if (freq === 'weekly' && diff % 7 !== 0) continue
+      schedule[dateStr].subscriptions.push(sub)
     }
-
-    for (const sub of activeSubs || []) {
-      for (let i = 1; i <= 7; i++) {
-        const d = new Date()
-        d.setDate(d.getDate() + i)
-        const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-        if (sub.start_date > dateStr) continue
-        if (sub.end_date && sub.end_date < dateStr) continue
-        if ((sub.paused_dates || []).includes(dateStr)) continue
-        const start = new Date(sub.start_date + 'T00:00:00+05:30')
-        const day = new Date(dateStr + 'T00:00:00+05:30')
-        const diff = Math.round((day - start) / (1000 * 60 * 60 * 24))
-        const freq = sub.delivery_frequency || 'daily'
-        if (freq === 'alternate' && diff % 2 !== 0) continue
-        if (freq === 'weekly' && diff % 7 !== 0) continue
-        schedule[dateStr].subscriptions.push(sub)
-      }
-    }
-
-    for (const order of futureOrders || []) {
-      if (schedule[order.delivery_date]) {
-        schedule[order.delivery_date].orders.push(order)
-      }
-    }
-
-    setUpcomingDeliveries(schedule)
-    setUpcomingLoaded(true)
   }
+
+  for (const order of futureOrders) {
+    if (schedule[order.delivery_date]) {
+      schedule[order.delivery_date].orders.push(order)
+    }
+  }
+
+  setUpcomingDeliveries(schedule)
+  setUpcomingLoaded(true)
+}
 
   const loadCustomerDetails = async (userId) => {
     if (customerDetails[userId]) return
