@@ -31,6 +31,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
   const [overviewSubTab, setOverviewSubTab] = useState('today')
+  const [upcomingDeliveries, setUpcomingDeliveries] = useState({ subscriptions: [], orders: [] })
+  const [upcomingLoaded, setUpcomingLoaded] = useState(false)
   const [ordersSubTab, setOrdersSubTab] = useState('pending')
   const [orders, setOrders] = useState([])
   const [subscriptions, setSubscriptions] = useState([])
@@ -520,6 +522,36 @@ export default function AdminDashboard() {
     setDeliveryHistory(combined)
     setHistoryLoaded(true)
     setHistoryLoading(false)
+  }
+
+  const loadUpcomingDeliveries = async () => {
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+    const in7Days = new Date()
+    in7Days.setDate(in7Days.getDate() + 7)
+    const endDate = in7Days.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+
+    const [{ data: futureSubs }, { data: futureOrders }] = await Promise.all([
+      supabase
+        .from('subscriptions')
+        .select('*, products(*), profiles(*)')
+        .eq('is_active', true)
+        .gt('start_date', today)
+        .lte('start_date', endDate)
+        .order('start_date', { ascending: true }),
+      supabase
+        .from('orders')
+        .select('*, products(*), profiles(*)')
+        .in('status', ['pending', 'out_for_delivery'])
+        .gt('delivery_date', today)
+        .lte('delivery_date', endDate)
+        .order('delivery_date', { ascending: true }),
+    ])
+
+    setUpcomingDeliveries({
+      subscriptions: futureSubs || [],
+      orders: futureOrders || [],
+    })
+    setUpcomingLoaded(true)
   }
 
   const loadCustomerDetails = async (userId) => {
@@ -1111,12 +1143,14 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           <div className="flex gap-2 bg-white border border-[#e8e0d0] rounded-xl p-1 shadow-sm">
             {[
               { id: 'today', label: "Today's List", icon: '📋' },
+              { id: 'upcoming', label: 'Upcoming (7 days)', icon: '📅' },
               { id: 'history', label: 'History (7 days)', icon: '📊' },
             ].map(({ id, label, icon }) => (
               <button key={id}
                 onClick={() => {
                   setOverviewSubTab(id)
                   if (id === 'history' && !historyLoaded) loadDeliveryHistory()
+                  if (id === 'upcoming' && !upcomingLoaded) loadUpcomingDeliveries()
                 }}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition ${
                   overviewSubTab === id ? 'bg-[#1a5c38] text-white shadow' : 'text-gray-500 hover:text-[#1a5c38]'
@@ -1280,6 +1314,107 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
             )}
           </div>
           )}
+
+          {/* Upcoming sub-tab */}
+          {overviewSubTab === 'upcoming' && (() => {
+            const allItems = [
+              ...upcomingDeliveries.subscriptions.map(s => ({
+                key: 'sub-' + s.id,
+                date: s.start_date,
+                type: 'subscription',
+                name: s.profiles?.full_name || 'Unknown',
+                phone: s.profiles?.phone || '',
+                product: s.products?.size || 'Milk',
+                quantity: s.quantity || 1,
+                slot: s.slot || 'morning',
+              })),
+              ...upcomingDeliveries.orders.map(o => ({
+                key: 'ord-' + o.id,
+                date: o.delivery_date,
+                type: o.payment_method === 'COD' ? 'trial' : 'order',
+                name: o.profiles?.full_name || 'Unknown',
+                phone: o.profiles?.phone || '',
+                product: o.products?.size || 'Milk',
+                quantity: o.quantity || 1,
+                slot: o.slot || 'morning',
+              })),
+            ]
+            const byDate = allItems.reduce((acc, item) => {
+              if (!acc[item.date]) acc[item.date] = []
+              acc[item.date].push(item)
+              return acc
+            }, {})
+            const sortedDates = Object.keys(byDate).sort()
+            return (
+              <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+                <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between">
+                  <div>
+                    <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">📅 Upcoming Deliveries</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Next 7 days — new subscriptions and pending orders</p>
+                  </div>
+                  <button onClick={() => { setUpcomingLoaded(false); loadUpcomingDeliveries() }}
+                    className="text-xs border border-[#1a5c38] text-[#1a5c38] px-3 py-2 rounded-lg hover:bg-[#f0faf4] transition font-semibold">
+                    ↻ Refresh
+                  </button>
+                </div>
+                {sortedDates.length === 0 ? (
+                  <div className="px-6 py-12 text-center">
+                    <div className="text-5xl mb-3">📭</div>
+                    <p className="text-gray-400 text-sm">No upcoming deliveries in the next 7 days.</p>
+                  </div>
+                ) : (
+                  <div>
+                    {sortedDates.map(date => {
+                      const items = byDate[date]
+                      const dateObj = new Date(date + 'T00:00:00')
+                      const dateLabel = dateObj.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
+                      return (
+                        <div key={date}>
+                          <div className="px-6 py-3 bg-[#f5f0e8] flex items-center justify-between border-b border-[#e8e0d0]">
+                            <p className="font-semibold text-[#1c1c1c] text-sm">{dateLabel}</p>
+                            <span className="bg-[#e8f4fb] text-[#1a5c38] text-xs font-bold px-2.5 py-1 rounded-full border border-[#c8e6d4]">
+                              📦 {items.length} deliveries
+                            </span>
+                          </div>
+                          <div className="divide-y divide-[#f5f0e8]">
+                            {items.map(item => (
+                              <div key={item.key} className="px-6 py-4 flex flex-wrap items-center gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-semibold text-[#1c1c1c] text-sm truncate">{item.name}</p>
+                                  <p className="text-xs text-gray-400">{item.phone}</p>
+                                </div>
+                                <div className="text-sm text-[#1c1c1c]">
+                                  {item.product} <span className="text-gray-400 text-xs">x{item.quantity}</span>
+                                </div>
+                                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${item.slot === 'evening' ? 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]' : 'bg-[#e8f4fb] text-[#1a6fa3] border-[#c0dff5]'}`}>
+                                  {item.slot === 'evening' ? '🌙 Evening' : '☀️ Morning'}
+                                </span>
+                                {item.type === 'subscription' && (
+                                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]">
+                                    🆕 New subscription
+                                  </span>
+                                )}
+                                {item.type === 'trial' && (
+                                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]">
+                                    🧪 Trial
+                                  </span>
+                                )}
+                                {item.type === 'order' && (
+                                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#f0f0ff] text-[#5c5cc8] border border-[#c8c8f0]">
+                                    🛒 Order
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* History sub-tab */}
           {overviewSubTab === 'history' && (
