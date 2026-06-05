@@ -6,16 +6,27 @@ export async function GET(request) {
   const { error: authError } = await requireAdmin(request)
   if (authError) return authError
 
-  const now = new Date()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  const monthStartIST = new Date()
+  monthStartIST.setDate(1)
+  const monthStartStr = monthStartIST.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 
-  const { data } = await supabaseAdmin
+  const { data: todayTx } = await supabaseAdmin
     .from('wallet_transactions')
     .select('amount')
     .eq('type', 'debit')
     .like('description', 'Daily subscription%')
-    .gte('created_at', monthStart)
+    .gte('created_at', todayIST)
 
-  const total = (data || []).reduce((sum, t) => sum + (t.amount || 0), 0)
-  return NextResponse.json({ monthlySubscriptionRevenue: total })
+  const { data: monthTx } = await supabaseAdmin
+    .from('wallet_transactions')
+    .select('amount')
+    .eq('type', 'debit')
+    .like('description', 'Daily subscription%')
+    .gte('created_at', monthStartStr)
+
+  const todaySubRevenue = (todayTx || []).reduce((s, t) => s + t.amount, 0)
+  const monthSubRevenue = (monthTx || []).reduce((s, t) => s + t.amount, 0)
+
+  return NextResponse.json({ todaySubRevenue, monthSubRevenue })
 }

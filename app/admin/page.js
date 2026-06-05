@@ -376,12 +376,12 @@ export default function AdminDashboard() {
     )
     const ordersMonthlyRevenue = monthOrders.reduce((sum, o) => sum + (o.total_price || 0), 0)
 
-    // Fetch subscription wallet deductions for this month
+    // Fetch subscription wallet deductions (today + this month)
     const revRes = await fetch('/api/admin/revenue', {
       headers: { Authorization: `Bearer ${session?.access_token}` }
     })
-    const { monthlySubscriptionRevenue = 0 } = await revRes.json()
-    const monthlyRevenue = ordersMonthlyRevenue + monthlySubscriptionRevenue
+    const { todaySubRevenue = 0, monthSubRevenue = 0 } = await revRes.json()
+    const monthlyRevenue = ordersMonthlyRevenue + monthSubRevenue
 
     // Load subscription delivery counts for Day X display
     if (todaySubs.length > 0) {
@@ -420,7 +420,7 @@ export default function AdminDashboard() {
       totalOrders: allOrders?.length || 0,
       totalSubscriptions: (allSubs || []).filter(s => s.is_active).length,
       totalCustomers: (allCustomers || []).filter(c => !c.is_admin).length,
-      todayRevenue,
+      todayRevenue: todayRevenue + todaySubRevenue,
       monthlyRevenue,
     })
   }
