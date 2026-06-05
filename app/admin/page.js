@@ -1524,43 +1524,35 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           <div className="flex flex-col gap-4">
           {(() => {
           const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-          const todayPausedSubs = subscriptions.filter(s =>
-            s.is_active &&
-            s.start_date <= todayIST &&
-            (!s.end_date || s.end_date >= todayIST) &&
-            (s.paused_dates || []).includes(todayIST)
-          )
+          // All active subscriptions — not just today's — so every active sub appears in All Orders
           const combined = [
             ...orders.map(o => ({ ...o, _itemType: 'order', orderType: o.payment_method === 'COD' ? 'trial' : 'order', _status: o.status })),
-            ...todaySubscriptions.map(sub => ({
+            ...subscriptions.filter(s => s.is_active).map(sub => ({
               ...sub,
               _itemType: 'subscription',
               orderType: 'subscription',
-              _status: subDeliveryStatuses[sub.id] || 'pending',
-            })),
-            ...todayPausedSubs.map(sub => ({
-              ...sub,
-              _itemType: 'subscription',
-              orderType: 'subscription',
-              _status: 'paused',
+              _status: (sub.paused_dates || []).includes(todayIST) ? 'paused'
+                : subDeliveryStatuses[sub.id] || 'pending',
             })),
           ]
+          const deliveredRows = [
+            ...orders
+              .filter(o => o.status === 'delivered')
+              .map(o => ({ ...o, _itemType: 'order', orderType: o.payment_method === 'COD' ? 'trial' : 'order', _status: 'delivered', _sortDate: o.delivery_date || o.created_at })),
+            ...deliveredSubHistory.map(d => ({
+              ...(d.subscriptions || {}),
+              id: 'subdelivery-' + d.id,
+              _itemType: 'subscription',
+              orderType: 'subscription',
+              _status: 'delivered',
+              delivery_date: d.delivery_date,
+              profiles: d.subscriptions?.profiles || null,
+              products: d.subscriptions?.products || null,
+              _sortDate: d.delivery_date,
+            }))
+          ].sort((a, b) => (b._sortDate || '').localeCompare(a._sortDate || ''))
           const visibleRows = ordersSubTab === 'delivered'
-            ? [
-                ...orders
-                  .filter(o => o.status === 'delivered')
-                  .map(o => ({ ...o, _itemType: 'order', orderType: o.payment_method === 'COD' ? 'trial' : 'order', _status: 'delivered' })),
-                ...deliveredSubHistory.map(d => ({
-                  ...(d.subscriptions || {}),
-                  id: 'subdelivery-' + d.id,
-                  _itemType: 'subscription',
-                  orderType: 'subscription',
-                  _status: 'delivered',
-                  delivery_date: d.delivery_date,
-                  profiles: d.subscriptions?.profiles || null,
-                  products: d.subscriptions?.products || null,
-                }))
-              ]
+            ? deliveredRows
             : combined.filter(item =>
                 ordersSubTab === 'pending' ? item._status === 'pending'
                 : ordersSubTab === 'out_for_delivery' ? item._status === 'out_for_delivery'
