@@ -12,11 +12,23 @@ export async function GET(request) {
 
   const { data } = await supabaseAdmin
     .from('subscription_deliveries')
-    .select('*, subscriptions(*, products(*), profiles(*))')
+    .select('*, subscriptions(*, products(*))')
     .eq('not_delivered', false)
     .gte('delivery_date', fromDate)
     .order('delivery_date', { ascending: false })
     .limit(300)
+
+  if (data && data.length > 0) {
+    const userIds = [...new Set(data.map(d => d.user_id))]
+    const { data: profiles } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .in('id', userIds)
+    const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
+    data.forEach(d => {
+      if (d.subscriptions) d.subscriptions.profiles = profileMap[d.user_id] || null
+    })
+  }
 
   return NextResponse.json({ deliveries: data || [] })
 }

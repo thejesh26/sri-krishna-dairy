@@ -249,28 +249,11 @@ export default function AdminDashboard() {
     const todayO = (allOrders || []).filter(o => o.delivery_date === today)
     setTodayOrders(todayO)
 
-    // Load all subscriptions with profiles
-    const { data: allSubs } = await supabase
-      .from('subscriptions')
-      .select(`
-        *,
-        products(*)
-      `)
-      .order('created_at', { ascending: false })
-
-    // Fetch profiles separately for subscriptions
-    if (allSubs && allSubs.length > 0) {
-      const userIds = allSubs.map(s => s.user_id)
-      const { data: subProfiles } = await supabase
-        .from('profiles')
-        .select('*')
-        .in('id', userIds)
-      
-      allSubs.forEach(sub => {
-        sub.profiles = subProfiles?.find(p => p.id === sub.user_id) || null
-      })
-    }
-    
+    // Load all subscriptions with profiles (service role to bypass RLS)
+    const subsApiRes = await fetch('/api/admin/subscriptions', {
+      headers: { Authorization: `Bearer ${session?.access_token}` }
+    })
+    const { subscriptions: allSubs } = await subsApiRes.json()
     setSubscriptions(allSubs || [])
 
     // Today's active subscription deliveries (respects delivery_frequency)

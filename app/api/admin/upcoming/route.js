@@ -12,22 +12,44 @@ export async function GET(request) {
   const start = searchParams.get('start')
 
   if (type === 'subscriptions') {
-    const { data } = await supabaseAdmin
+    const { data: subs } = await supabaseAdmin
       .from('subscriptions')
-      .select('*, products(*), profiles(*)')
+      .select('*, products(*)')
       .eq('is_active', true)
       .lte('start_date', end)
-    return NextResponse.json({ subscriptions: data || [] })
+
+    if (subs && subs.length > 0) {
+      const userIds = [...new Set(subs.map(s => s.user_id))]
+      const { data: profiles } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .in('id', userIds)
+      const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
+      subs.forEach(sub => { sub.profiles = profileMap[sub.user_id] || null })
+    }
+
+    return NextResponse.json({ subscriptions: subs || [] })
   }
 
   if (type === 'orders') {
-    const { data } = await supabaseAdmin
+    const { data: orders } = await supabaseAdmin
       .from('orders')
-      .select('*, products(*), profiles(*)')
+      .select('*, products(*)')
       .in('status', ['pending', 'out_for_delivery'])
       .gt('delivery_date', start)
       .lte('delivery_date', end)
-    return NextResponse.json({ orders: data || [] })
+
+    if (orders && orders.length > 0) {
+      const userIds = [...new Set(orders.map(o => o.user_id))]
+      const { data: profiles } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .in('id', userIds)
+      const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
+      orders.forEach(o => { o.profiles = profileMap[o.user_id] || null })
+    }
+
+    return NextResponse.json({ orders: orders || [] })
   }
 
   return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
