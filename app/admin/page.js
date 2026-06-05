@@ -377,20 +377,14 @@ export default function AdminDashboard() {
       setSubDeliveryCounts(counts || {})
     }
 
-    // Load today's subscription delivery statuses from DB
+    // Load today's subscription delivery statuses (service role to bypass RLS)
     if (todaySubs.length > 0) {
-      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-      const { data: todayDeliveries } = await supabase
-        .from('subscription_deliveries')
-        .select('subscription_id, not_delivered')
-        .in('subscription_id', todaySubs.map(s => s.id))
-        .eq('delivery_date', today)
-
-      const statusMap = {}
-      ;(todayDeliveries || []).forEach(d => {
-        statusMap[d.subscription_id] = d.not_delivered ? 'missed' : 'delivered'
-      })
-      setSubDeliveryStatuses(statusMap)
+      const statusRes = await fetch(
+        `/api/admin/delivery-statuses?ids=${todaySubs.map(s => s.id).join(',')}&date=${today}`,
+        { headers: { Authorization: `Bearer ${session?.access_token}` } }
+      )
+      const { statuses } = await statusRes.json()
+      setSubDeliveryStatuses(statuses || {})
     }
 
     // Load all wallets via service-role API (bypasses RLS)
@@ -1530,25 +1524,41 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           <div className="flex flex-col gap-4">
           {(() => {
           const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+          const todayPausedSubs = subscriptions.filter(s =>
+            s.is_active &&
+            s.start_date <= todayIST &&
+            (!s.end_date || s.end_date >= todayIST) &&
+            (s.paused_dates || []).includes(todayIST)
+          )
           const combined = [
             ...orders.map(o => ({ ...o, _itemType: 'order', orderType: o.payment_method === 'COD' ? 'trial' : 'order', _status: o.status })),
-            ...subscriptions.filter(s => s.is_active).map(sub => ({
+            ...todaySubscriptions.map(sub => ({
               ...sub,
               _itemType: 'subscription',
               orderType: 'subscription',
-              _status: (sub.paused_dates || []).includes(todayIST) ? 'paused' : subDeliveryStatuses[sub.id] || 'pending',
+              _status: subDeliveryStatuses[sub.id] || 'pending',
+            })),
+            ...todayPausedSubs.map(sub => ({
+              ...sub,
+              _itemType: 'subscription',
+              orderType: 'subscription',
+              _status: 'paused',
             })),
           ]
           const visibleRows = ordersSubTab === 'delivered'
             ? [
-                ...combined.filter(i => i._status === 'delivered'),
+                ...orders
+                  .filter(o => o.status === 'delivered')
+                  .map(o => ({ ...o, _itemType: 'order', orderType: o.payment_method === 'COD' ? 'trial' : 'order', _status: 'delivered' })),
                 ...deliveredSubHistory.map(d => ({
-                  ...d.subscriptions,
+                  ...(d.subscriptions || {}),
                   id: 'subdelivery-' + d.id,
                   _itemType: 'subscription',
                   orderType: 'subscription',
                   _status: 'delivered',
                   delivery_date: d.delivery_date,
+                  profiles: d.subscriptions?.profiles || null,
+                  products: d.subscriptions?.products || null,
                 }))
               ]
             : combined.filter(item =>
@@ -1560,7 +1570,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           const subTabCounts = {
             pending: combined.filter(i => i._status === 'pending').length,
             out_for_delivery: combined.filter(i => i._status === 'out_for_delivery').length,
-            delivered: combined.filter(i => i._status === 'delivered').length + deliveredSubHistory.length,
+            delivered: orders.filter(o => o.status === 'delivered').length + deliveredSubHistory.length,
             paused: combined.filter(i => i._status === 'paused').length,
             cancelled: combined.filter(i => i._status === 'cancelled' || i._status === 'missed').length,
           }
