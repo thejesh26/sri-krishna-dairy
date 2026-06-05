@@ -75,10 +75,11 @@ export async function POST(request) {
     }
     const freq = VALID_FREQUENCIES.includes(delivery_frequency) ? delivery_frequency : 'daily'
 
-    // Parse as IST midnight to avoid rejecting valid evening signups (new Date('YYYY-MM-DD') is UTC midnight = 5:30AM IST)
-    const startMs = new Date(start_date + 'T00:00:00+05:30').getTime()
-    if ((startMs - Date.now()) / (1000 * 60 * 60) < 12) {
-      return NextResponse.json({ error: 'Subscription must start at least 12 hours from now.' }, { status: 400 })
+    const tomorrowIST = new Date()
+    tomorrowIST.setDate(tomorrowIST.getDate() + 1)
+    const tomorrowStr = tomorrowIST.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+    if (start_date < tomorrowStr) {
+      return NextResponse.json({ error: 'Orders must be placed by midnight for next day delivery.' }, { status: 400 })
     }
 
     let resolvedEndDate = null

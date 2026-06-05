@@ -76,14 +76,11 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid delivery mode.' }, { status: 400 })
     }
 
-    // Must be at least 12 hours in the future (compare in IST to match delivery slot times)
-    const deliveryMs = new Date(delivery_date + 'T00:00:00+05:30').getTime()
-    const nowMs = Date.now()
-    if ((deliveryMs - nowMs) / (1000 * 60 * 60) < 12) {
-      return NextResponse.json(
-        { error: 'Delivery must be booked at least 12 hours in advance.' },
-        { status: 400 }
-      )
+    const tomorrowIST = new Date()
+    tomorrowIST.setDate(tomorrowIST.getDate() + 1)
+    const tomorrowStr = tomorrowIST.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+    if (delivery_date < tomorrowStr) {
+      return NextResponse.json({ error: 'Orders must be placed by midnight for next day delivery.' }, { status: 400 })
     }
 
     // ── 3. Check COD trial eligibility ─────────────────────────────────────

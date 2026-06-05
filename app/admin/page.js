@@ -235,15 +235,12 @@ export default function AdminDashboard() {
   const loadAllData = async () => {
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 
-    // Load all orders with profiles
-    const { data: allOrders } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        products(*),
-        profiles(*)
-      `)
-      .order('created_at', { ascending: false })
+    // Load all orders with profiles (service role to bypass RLS)
+    const { data: { session } } = await supabase.auth.getSession()
+    const ordersRes = await fetch('/api/admin/orders', {
+      headers: { Authorization: `Bearer ${session?.access_token}` }
+    })
+    const { orders: allOrders } = await ordersRes.json()
     setOrders(allOrders || [])
 
     // Today's orders
@@ -612,10 +609,11 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
 
   const loadLeads = async () => {
     setLeadsLoading(true)
-    const { data } = await supabase
-      .from('leads')
-      .select('*')
-      .order('created_at', { ascending: false })
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/leads', {
+      headers: { Authorization: `Bearer ${session?.access_token}` }
+    })
+    const { leads: data } = await res.json()
     setLeads(data || [])
     setLeadsLoading(false)
   }
@@ -857,10 +855,16 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
     const count = subDeliveryCounts[sub.id] || 0
     const dayX = count + 1
     if (sub.subscription_type === 'ongoing' || !sub.end_date) return `Day ${dayX}`
-    const totalDays = Math.round(
+    const calendarDays = Math.round(
       (new Date(sub.end_date) - new Date(sub.start_date)) / (1000 * 60 * 60 * 24)
     ) + 1
-    return `Day ${dayX} of ${totalDays}`
+    const freq = sub.delivery_frequency || 'daily'
+    const totalDeliveries = freq === 'alternate'
+      ? Math.ceil(calendarDays / 2)
+      : freq === 'weekly'
+        ? Math.ceil(calendarDays / 7)
+        : calendarDays
+    return `Day ${dayX} of ${totalDeliveries}`
   }
 
   const getSubPlanLabel = (sub) => {
@@ -1721,12 +1725,17 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                           {(() => {
                             const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
                             const dayLabel = getSubDayLabel(sub)
+                            const freq = sub.delivery_frequency || 'daily'
                             const daysLeft = sub.end_date
                               ? Math.max(0, Math.round((new Date(sub.end_date) - new Date(today)) / (1000 * 60 * 60 * 24)))
                               : null
+                            const deliveryDaysLeft = daysLeft === null ? null
+                              : freq === 'alternate' ? Math.ceil(daysLeft / 2)
+                              : freq === 'weekly' ? Math.ceil(daysLeft / 7)
+                              : daysLeft
                             return (
                               <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-medium px-2 py-0.5 rounded-full border border-[#f0dfa0]">
-                                {dayLabel}{daysLeft !== null ? ` · ${daysLeft}d left` : ''}
+                                {dayLabel}{deliveryDaysLeft !== null ? ` · ${deliveryDaysLeft}d left` : ''}
                               </span>
                             )
                           })()}
@@ -1742,8 +1751,8 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                           )}
                         </div>
                         <p className="text-xs text-gray-400 mt-1.5">
-                          Since {new Date(sub.start_date).toLocaleDateString('en-IN')}
-                          {sub.end_date ? ` · Ends ${new Date(sub.end_date).toLocaleDateString('en-IN')}` : ''}
+                          Since {new Date(sub.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {sub.end_date ? ` · Ends ${new Date(sub.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
                         </p>
                       </div>
                       <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
