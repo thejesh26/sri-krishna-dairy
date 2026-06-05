@@ -383,19 +383,15 @@ export default function AdminDashboard() {
     const { todaySubRevenue = 0, monthSubRevenue = 0 } = await revRes.json()
     const monthlyRevenue = ordersMonthlyRevenue + monthSubRevenue
 
-    // Load subscription delivery counts for Day X display
-    if (todaySubs.length > 0) {
-      const subIds = todaySubs.map(s => s.id)
-      const { data: deliveryRows } = await supabase
-        .from('subscription_deliveries')
-        .select('subscription_id')
-        .in('subscription_id', subIds)
-        .eq('not_delivered', false)
-      const counts = {}
-      ;(deliveryRows || []).forEach(d => {
-        counts[d.subscription_id] = (counts[d.subscription_id] || 0) + 1
+    // Load subscription delivery counts for Day X display (all active subs, service role)
+    const allActiveSubs = (allSubs || []).filter(s => s.is_active)
+    if (allActiveSubs.length > 0) {
+      const subIds = allActiveSubs.map(s => s.id)
+      const countsRes = await fetch(`/api/admin/delivery-counts?ids=${subIds.join(',')}`, {
+        headers: { Authorization: `Bearer ${session?.access_token}` }
       })
-      setSubDeliveryCounts(counts)
+      const { counts } = await countsRes.json()
+      setSubDeliveryCounts(counts || {})
     }
 
     // Load today's subscription delivery statuses from DB
