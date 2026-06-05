@@ -34,6 +34,8 @@ export default function AdminDashboard() {
   const [upcomingDeliveries, setUpcomingDeliveries] = useState({})
   const [upcomingLoaded, setUpcomingLoaded] = useState(false)
   const [ordersSubTab, setOrdersSubTab] = useState('pending')
+  const [deliveredSubHistory, setDeliveredSubHistory] = useState([])
+  const [deliveredSubHistoryLoaded, setDeliveredSubHistoryLoaded] = useState(false)
   const [orders, setOrders] = useState([])
   const [subscriptions, setSubscriptions] = useState([])
   const [customers, setCustomers] = useState([])
@@ -368,10 +370,18 @@ export default function AdminDashboard() {
     const todayRevenue = todayO.reduce((sum, o) => sum + (o.total_price || 0), 0)
     const monthStart = new Date()
     monthStart.setDate(1)
+    monthStart.setHours(0, 0, 0, 0)
     const monthOrders = (allOrders || []).filter(o =>
       new Date(o.created_at) >= monthStart
     )
-    const monthlyRevenue = monthOrders.reduce((sum, o) => sum + (o.total_price || 0), 0)
+    const ordersMonthlyRevenue = monthOrders.reduce((sum, o) => sum + (o.total_price || 0), 0)
+
+    // Fetch subscription wallet deductions for this month
+    const revRes = await fetch('/api/admin/revenue', {
+      headers: { Authorization: `Bearer ${session?.access_token}` }
+    })
+    const { monthlySubscriptionRevenue = 0 } = await revRes.json()
+    const monthlyRevenue = ordersMonthlyRevenue + monthlySubscriptionRevenue
 
     // Load subscription delivery counts for Day X display
     if (todaySubs.length > 0) {
@@ -539,6 +549,7 @@ export default function AdminDashboard() {
 
   const { subscriptions: activeSubs = [] } = await subsRes.json()
   const { orders: futureOrders = [] } = await ordersRes.json()
+  console.log('[Upcoming] activeSubs:', activeSubs.length, 'futureOrders:', futureOrders.length)
 
   const schedule = {}
   for (let i = 1; i <= 7; i++) {
@@ -575,6 +586,16 @@ export default function AdminDashboard() {
   setUpcomingDeliveries(schedule)
   setUpcomingLoaded(true)
 }
+
+  const loadDeliveredSubHistory = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/delivered-subs', {
+      headers: { Authorization: `Bearer ${session?.access_token}` }
+    })
+    const { deliveries } = await res.json()
+    setDeliveredSubHistory(deliveries || [])
+    setDeliveredSubHistoryLoaded(true)
+  }
 
   const loadCustomerDetails = async (userId) => {
     if (customerDetails[userId]) return
@@ -1532,18 +1553,36 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
           const combined = [
             ...orders.map(o => ({ ...o, _itemType: 'order', orderType: o.payment_method === 'COD' ? 'trial' : 'order', _status: o.status })),
-            ...todaySubscriptions.map(sub => ({ ...sub, _itemType: 'subscription', orderType: 'subscription', _status: subDeliveryStatuses[sub.id] || 'pending' })),
+            ...subscriptions.filter(s => s.is_active).map(sub => ({
+              ...sub,
+              _itemType: 'subscription',
+              orderType: 'subscription',
+              _status: (sub.paused_dates || []).includes(todayIST) ? 'paused' : subDeliveryStatuses[sub.id] || 'pending',
+            })),
           ]
-          const visibleRows = combined.filter(item =>
-            ordersSubTab === 'pending' ? item._status === 'pending'
-            : ordersSubTab === 'out_for_delivery' ? item._status === 'out_for_delivery'
-            : ordersSubTab === 'delivered' ? item._status === 'delivered'
-            : item._status === 'cancelled' || item._status === 'missed'
-          )
+          const visibleRows = ordersSubTab === 'delivered'
+            ? [
+                ...combined.filter(i => i._status === 'delivered'),
+                ...deliveredSubHistory.map(d => ({
+                  ...d.subscriptions,
+                  id: 'subdelivery-' + d.id,
+                  _itemType: 'subscription',
+                  orderType: 'subscription',
+                  _status: 'delivered',
+                  delivery_date: d.delivery_date,
+                }))
+              ]
+            : combined.filter(item =>
+                ordersSubTab === 'pending' ? item._status === 'pending'
+                : ordersSubTab === 'out_for_delivery' ? item._status === 'out_for_delivery'
+                : ordersSubTab === 'paused' ? item._status === 'paused'
+                : item._status === 'cancelled' || item._status === 'missed'
+              )
           const subTabCounts = {
             pending: combined.filter(i => i._status === 'pending').length,
             out_for_delivery: combined.filter(i => i._status === 'out_for_delivery').length,
-            delivered: combined.filter(i => i._status === 'delivered').length,
+            delivered: combined.filter(i => i._status === 'delivered').length + deliveredSubHistory.length,
+            paused: combined.filter(i => i._status === 'paused').length,
             cancelled: combined.filter(i => i._status === 'cancelled' || i._status === 'missed').length,
           }
           return (
@@ -1554,9 +1593,13 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 { id: 'pending', label: 'Pending' },
                 { id: 'out_for_delivery', label: 'Out for Delivery' },
                 { id: 'delivered', label: 'Delivered' },
+                { id: 'paused', label: 'Paused' },
                 { id: 'cancelled', label: 'Cancelled' },
               ].map(({ id, label }) => (
-                <button key={id} onClick={() => setOrdersSubTab(id)}
+                <button key={id} onClick={() => {
+                  setOrdersSubTab(id)
+                  if (id === 'delivered' && !deliveredSubHistoryLoaded) loadDeliveredSubHistory()
+                }}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
                     ordersSubTab === id ? 'bg-[#1a5c38] text-white shadow' : 'text-gray-500 hover:text-[#1a5c38]'
                   }`}>
@@ -1593,7 +1636,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
 
             <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
               <div className="px-6 py-4 border-b border-[#f5f0e8]">
-                <p className="text-xs text-gray-400">{visibleRows.length} {ordersSubTab.replace('_', ' ')} · orders + today&apos;s subscriptions combined</p>
+                <p className="text-xs text-gray-400">{visibleRows.length} {ordersSubTab.replace('_', ' ')} · orders + all active subscriptions combined</p>
               </div>
               {visibleRows.length === 0 ? (
                 <div className="px-6 py-12 text-center">
@@ -1606,11 +1649,14 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                   : item._status === 'out_for_delivery' ? 'bg-blue-50 text-blue-600 border-blue-200'
                   : item._status === 'missed' ? 'bg-orange-50 text-orange-500 border-orange-200'
                   : item._status === 'cancelled' ? 'bg-red-50 text-red-500 border-red-200'
+                  : item._status === 'paused' ? 'bg-purple-50 text-purple-600 border-purple-200'
                   : 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'
                 const statusLabel = item._status === 'delivered' ? '✅ Delivered'
                   : item._status === 'out_for_delivery' ? '🚴 Out'
                   : item._status === 'missed' ? '⚠️ Missed'
-                  : item._status === 'cancelled' ? '❌ Cancelled' : '🕐 Pending'
+                  : item._status === 'cancelled' ? '❌ Cancelled'
+                  : item._status === 'paused' ? '⏸ Paused'
+                  : '🕐 Pending'
                 return (
                   <div key={(isSub ? 'sub-' : 'ord-') + item.id}
                     className={`px-6 py-4 flex items-start gap-4 ${index !== visibleRows.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
@@ -1637,7 +1683,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       <p className="text-xs text-gray-400">📞 {item.profiles?.phone}</p>
                       <p className="text-xs text-[#1a5c38] font-medium mt-0.5">
                         {item.products?.size} × {item.quantity} · {item.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
-                        {!isSub && item.delivery_date && (
+                        {item.delivery_date && (
                           <span className="text-gray-400 ml-1">
                             · {new Date(item.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                           </span>
