@@ -236,166 +236,116 @@ export default function AdminDashboard() {
 
   const loadAllData = async () => {
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-
-    // Load all orders with profiles (service role to bypass RLS)
     const { data: { session } } = await supabase.auth.getSession()
-    const ordersRes = await fetch('/api/admin/orders', {
-      headers: { Authorization: `Bearer ${session?.access_token}` }
-    })
-    const { orders: allOrders } = await ordersRes.json()
-    setOrders(allOrders || [])
+    const authHeader = { Authorization: `Bearer ${session?.access_token}` }
 
-    // Today's orders
-    const todayO = (allOrders || []).filter(o => o.delivery_date === today)
-    setTodayOrders(todayO)
+    try {
+      // Round 1: all independent fetches in parallel
+      const [
+        { orders: allOrders = [] },
+        { subscriptions: allSubs = [] },
+        { todaySubRevenue = 0, monthSubRevenue = 0 },
+        { data: allProducts },
+        { data: allReviews },
+        { data: allReports },
+        { data: enquiries },
+        { data: custSuggestions },
+        { data: agentIssues },
+        { data: qFeedback },
+        { data: codes },
+        { data: failedDeds },
+        { data: walletReqs },
+        { data: allCustomers },
+        { data: daRecords },
+      ] = await Promise.all([
+        fetch('/api/admin/orders', { headers: authHeader }).then(r => r.json()),
+        fetch('/api/admin/subscriptions', { headers: authHeader }).then(r => r.json()),
+        fetch('/api/admin/revenue', { headers: authHeader }).then(r => r.json()),
+        supabase.from('products').select('*').order('size'),
+        supabase.from('reviews').select('*, profiles(full_name, phone)').order('created_at', { ascending: false }),
+        supabase.from('missed_delivery_reports').select('*, profiles(full_name, phone, apartment_name, flat_number, area), orders(delivery_date, delivery_slot, products(size))').order('reported_at', { ascending: false }),
+        supabase.from('bulk_enquiries').select('*').order('created_at', { ascending: false }),
+        supabase.from('customer_suggestions').select('*, profiles(full_name, phone)').order('created_at', { ascending: false }),
+        supabase.from('delivery_issues').select('*').order('created_at', { ascending: false }),
+        supabase.from('quality_feedback').select('*, profiles(full_name, phone), orders(delivery_date, products(size))').order('reported_at', { ascending: false }),
+        supabase.from('discount_codes').select('*').order('created_at', { ascending: false }),
+        supabase.from('failed_deductions').select('*').order('created_at', { ascending: false }),
+        supabase.from('wallet_requests').select('*, requester:profiles!wallet_requests_requested_by_fkey(full_name, phone), target:profiles!wallet_requests_target_user_id_fkey(full_name, phone)').order('created_at', { ascending: false }),
+        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+        supabase.from('delivery_agents').select('*'),
+      ])
 
-    // Load all subscriptions with profiles (service role to bypass RLS)
-    const subsApiRes = await fetch('/api/admin/subscriptions', {
-      headers: { Authorization: `Bearer ${session?.access_token}` }
-    })
-    const { subscriptions: allSubs } = await subsApiRes.json()
-    setSubscriptions(allSubs || [])
+      // Set state for all round 1 results
+      setOrders(allOrders)
+      setSubscriptions(allSubs)
+      setProducts(allProducts || [])
+      setReviews(allReviews || [])
+      setMissedReports(allReports || [])
+      setBulkEnquiries(enquiries || [])
+      setSuggestions(custSuggestions || [])
+      setDeliveryIssues(agentIssues || [])
+      setQualityReports(qFeedback || [])
+      setDiscountCodes(codes || [])
+      setFailedDeductions(failedDeds || [])
+      setWalletRequests(walletReqs || [])
+      setCustomers((allCustomers || []).filter(c => !c.is_admin))
+      setDeliveryAgents((allCustomers || []).filter(c => c.is_delivery))
+      setDeliveryAgentRecords(daRecords || [])
 
-    // Today's active subscription deliveries (respects delivery_frequency)
-    const todaySubs = (allSubs || []).filter(sub =>
-      sub.is_active === true &&
-      sub.start_date <= today &&
-      (!sub.end_date || sub.end_date >= today) &&
-      !(sub.paused_dates || []).includes(today) &&
-      isDeliveryDay(sub)
-    )
-    setTodaySubscriptions(todaySubs)
+      // Compute derived values
+      const todayO = allOrders.filter(o => o.delivery_date === today)
+      setTodayOrders(todayO)
 
-    // Load products
-    const { data: allProducts } = await supabase.from('products').select('*').order('size')
-    setProducts(allProducts || [])
-
-    // Load reviews
-    const { data: allReviews } = await supabase
-      .from('reviews')
-      .select('*, profiles(full_name, phone)')
-      .order('created_at', { ascending: false })
-    setReviews(allReviews || [])
-
-    // Load missed delivery reports
-    const { data: allReports } = await supabase
-      .from('missed_delivery_reports')
-      .select('*, profiles(full_name, phone, apartment_name, flat_number, area), orders(delivery_date, delivery_slot, products(size))')
-      .order('reported_at', { ascending: false })
-    setMissedReports(allReports || [])
-
-    // Load bulk enquiries
-    const { data: enquiries } = await supabase
-      .from('bulk_enquiries')
-      .select('*')
-      .order('created_at', { ascending: false })
-    setBulkEnquiries(enquiries || [])
-
-    // Load customer suggestions
-    const { data: custSuggestions } = await supabase
-      .from('customer_suggestions')
-      .select('*, profiles(full_name, phone)')
-      .order('created_at', { ascending: false })
-    setSuggestions(custSuggestions || [])
-
-    // Load delivery agent issues
-    const { data: agentIssues } = await supabase
-      .from('delivery_issues')
-      .select('*')
-      .order('created_at', { ascending: false })
-    setDeliveryIssues(agentIssues || [])
-
-    // Load quality feedback
-    const { data: qFeedback } = await supabase
-      .from('quality_feedback')
-      .select('*, profiles(full_name, phone), orders(delivery_date, products(size))')
-      .order('reported_at', { ascending: false })
-    setQualityReports(qFeedback || [])
-
-    // Load discount codes
-    const { data: codes } = await supabase
-      .from('discount_codes')
-      .select('*')
-      .order('created_at', { ascending: false })
-    setDiscountCodes(codes || [])
-
-    // Load all failed deductions
-    const { data: failedDeds } = await supabase
-      .from('failed_deductions')
-      .select('*')
-      .order('created_at', { ascending: false })
-    setFailedDeductions(failedDeds || [])
-
-    // Load wallet requests (agent-submitted top-up/deduct requests)
-    const { data: walletReqs } = await supabase
-      .from('wallet_requests')
-      .select(`
-        *,
-        requester:profiles!wallet_requests_requested_by_fkey(full_name, phone),
-        target:profiles!wallet_requests_target_user_id_fkey(full_name, phone)
-      `)
-      .order('created_at', { ascending: false })
-    setWalletRequests(walletReqs || [])
-
-    // Load all customers
-    const { data: allCustomers } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false })
-    setCustomers((allCustomers || []).filter(c => !c.is_admin))
-    setDeliveryAgents((allCustomers || []).filter(c => c.is_delivery))
-
-    // Load delivery_agents table for extra fields (DL, bike, photo, active status)
-    const { data: daRecords } = await supabase.from('delivery_agents').select('*')
-    setDeliveryAgentRecords(daRecords || [])
-
-    // Calculate stats
-    const todayRevenue = todayO.reduce((sum, o) => sum + (o.total_price || 0), 0)
-    const monthStart = new Date()
-    monthStart.setDate(1)
-    monthStart.setHours(0, 0, 0, 0)
-    const monthOrders = (allOrders || []).filter(o =>
-      new Date(o.created_at) >= monthStart
-    )
-    const ordersMonthlyRevenue = monthOrders.reduce((sum, o) => sum + (o.total_price || 0), 0)
-
-    // Fetch subscription wallet deductions (today + this month)
-    const revRes = await fetch('/api/admin/revenue', {
-      headers: { Authorization: `Bearer ${session?.access_token}` }
-    })
-    const { todaySubRevenue = 0, monthSubRevenue = 0 } = await revRes.json()
-    const monthlyRevenue = ordersMonthlyRevenue + monthSubRevenue
-
-    // Load subscription delivery counts for Day X display (all active subs, service role)
-    const allActiveSubs = (allSubs || []).filter(s => s.is_active)
-    if (allActiveSubs.length > 0) {
-      const subIds = allActiveSubs.map(s => s.id)
-      const countsRes = await fetch(`/api/admin/delivery-counts?ids=${subIds.join(',')}`, {
-        headers: { Authorization: `Bearer ${session?.access_token}` }
-      })
-      const { counts } = await countsRes.json()
-      setSubDeliveryCounts(counts || {})
-    }
-
-    // Load today's subscription delivery statuses (service role to bypass RLS)
-    if (todaySubs.length > 0) {
-      const statusRes = await fetch(
-        `/api/admin/delivery-statuses?ids=${todaySubs.map(s => s.id).join(',')}&date=${today}`,
-        { headers: { Authorization: `Bearer ${session?.access_token}` } }
+      const todaySubs = allSubs.filter(sub =>
+        sub.is_active === true &&
+        sub.start_date <= today &&
+        (!sub.end_date || sub.end_date >= today) &&
+        !(sub.paused_dates || []).includes(today) &&
+        isDeliveryDay(sub)
       )
-      const { statuses } = await statusRes.json()
-      setSubDeliveryStatuses(statuses || {})
-    }
+      setTodaySubscriptions(todaySubs)
 
-    // Load all wallets via service-role API (bypasses RLS)
-    await loadWallets()
-    setStats({
-      totalOrders: allOrders?.length || 0,
-      totalSubscriptions: (allSubs || []).filter(s => s.is_active).length,
-      totalCustomers: (allCustomers || []).filter(c => !c.is_admin).length,
-      todayRevenue: todayRevenue + todaySubRevenue,
-      monthlyRevenue,
-    })
+      const allActiveSubs = allSubs.filter(s => s.is_active)
+      const todayRevenue = todayO.reduce((sum, o) => sum + (o.total_price || 0), 0)
+      const monthStart = new Date()
+      monthStart.setDate(1)
+      monthStart.setHours(0, 0, 0, 0)
+      const ordersMonthlyRevenue = allOrders
+        .filter(o => new Date(o.created_at) >= monthStart)
+        .reduce((sum, o) => sum + (o.total_price || 0), 0)
+
+      // Round 2: dependent fetches + wallets in parallel
+      const round2 = [loadWallets()]
+
+      if (allActiveSubs.length > 0) {
+        round2.push(
+          fetch(`/api/admin/delivery-counts?ids=${allActiveSubs.map(s => s.id).join(',')}`, { headers: authHeader })
+            .then(r => r.json())
+            .then(({ counts }) => setSubDeliveryCounts(counts || {}))
+        )
+      }
+
+      if (todaySubs.length > 0) {
+        round2.push(
+          fetch(`/api/admin/delivery-statuses?ids=${todaySubs.map(s => s.id).join(',')}&date=${today}`, { headers: authHeader })
+            .then(r => r.json())
+            .then(({ statuses }) => setSubDeliveryStatuses(statuses || {}))
+        )
+      }
+
+      await Promise.all(round2)
+
+      setStats({
+        totalOrders: allOrders.length,
+        totalSubscriptions: allActiveSubs.length,
+        totalCustomers: (allCustomers || []).filter(c => !c.is_admin).length,
+        todayRevenue: todayRevenue + todaySubRevenue,
+        monthlyRevenue: ordersMonthlyRevenue + monthSubRevenue,
+      })
+    } catch (err) {
+      console.error('[loadAllData] error:', err)
+      showError('Failed to load dashboard data. Please refresh.')
+    }
   }
 
   const loadWallets = async () => {
@@ -1524,15 +1474,15 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           <div className="flex flex-col gap-4">
           {(() => {
           const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-          // All active subscriptions — not just today's — so every active sub appears in All Orders
+          // All active subscriptions — subscriptions are always 'pending' (ongoing commitments),
+          // delivery history is tracked separately in the Delivered tab via deliveredSubHistory
           const combined = [
             ...orders.map(o => ({ ...o, _itemType: 'order', orderType: o.payment_method === 'COD' ? 'trial' : 'order', _status: o.status })),
             ...subscriptions.filter(s => s.is_active).map(sub => ({
               ...sub,
               _itemType: 'subscription',
               orderType: 'subscription',
-              _status: (sub.paused_dates || []).includes(todayIST) ? 'paused'
-                : subDeliveryStatuses[sub.id] || 'pending',
+              _status: (sub.paused_dates || []).includes(todayIST) ? 'paused' : 'pending',
             })),
           ]
           const deliveredRows = [
@@ -1579,7 +1529,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               ].map(({ id, label }) => (
                 <button key={id} onClick={() => {
                   setOrdersSubTab(id)
-                  if (id === 'delivered' && !deliveredSubHistoryLoaded) loadDeliveredSubHistory()
+                  if (id === 'delivered') loadDeliveredSubHistory()
                 }}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
                     ordersSubTab === id ? 'bg-[#1a5c38] text-white shadow' : 'text-gray-500 hover:text-[#1a5c38]'

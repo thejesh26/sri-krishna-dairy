@@ -3,13 +3,19 @@ import { supabaseAdmin } from '../../../lib/db'
 import { requireAdmin } from '../../../lib/auth'
 
 export async function GET(request) {
-  const { error: authError } = await requireAdmin(request)
-  if (authError) return authError
+  try {
+    const { error: authError } = await requireAdmin(request)
+    if (authError) return authError
 
-  const { data } = await supabaseAdmin
-    .from('leads')
-    .select('*')
-    .order('created_at', { ascending: false })
+    const { data, error } = await supabaseAdmin
+      .from('leads')
+      .select('*')
+      .order('created_at', { ascending: false })
 
-  return NextResponse.json({ leads: data || [] })
+    if (error) throw error
+    return NextResponse.json({ leads: data || [] })
+  } catch (err) {
+    console.error('[admin/leads] error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 }
