@@ -296,6 +296,13 @@ async function notifyWalletDebited(phone, name, amount, newBalance) {
   return sendTemplate(phone, 'wallet_debited', [name, String(amount), String(newBalance)])
 }
 
+async function notifyTrialEnded({ phone, name }) {
+  return sendTemplate(phone, 'trial_ended_subscribe', [
+    (name || 'there').split(' ')[0],
+    'srikrishnaadairy.in/subscribe',
+  ])
+}
+
 export {
   sendWhatsAppMessage,
   sendWhatsAppToAdmin,
@@ -324,4 +331,5 @@ export {
   notifyWelcome,
   notifyWalletCredited,
   notifyWalletDebited,
+  notifyTrialEnded,
 }

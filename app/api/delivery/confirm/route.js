@@ -2,7 +2,7 @@
 import { supabaseAdmin } from '../../../lib/db'
 import { requireDelivery } from '../../../lib/auth'
 import { calcDailyAmount, getISTDate } from '../../../lib/pricing'
-import { sendDeliveryConfirmed, notifyCodUpsell, sendLowBalanceAlert, sendWhatsAppMessage, sendWhatsAppToAdmin, notifySubscriptionStopped, notifyAdmin } from '../../../lib/whatsapp'
+import { sendDeliveryConfirmed, notifyCodUpsell, sendLowBalanceAlert, sendWhatsAppMessage, sendWhatsAppToAdmin, notifySubscriptionStopped, notifyAdmin, notifyTrialEnded } from '../../../lib/whatsapp'
 import { sendLowBalanceEmail, sendOrderConfirmationEmail, sendEmail } from '../../../lib/email'
 
 const SUPABASE_STORAGE_HOST = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -82,6 +82,25 @@ export async function POST(request) {
           console.log('[DeliveryConfirm] WA delivery result:', waResult)
           if (orderRow.payment_method === 'COD') {
             await notifyCodUpsell({ phone: customerProfile.phone, name: customerName })
+          }
+          // Check if all 3 trial days are now delivered — send subscribe prompt
+          const TRIAL_METHODS = ['COD', 'wallet', 'razorpay']
+          if (TRIAL_METHODS.includes(orderRow.payment_method)) {
+            try {
+              const threeDaysAgo = new Date()
+              threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+              const sinceStr = threeDaysAgo.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+              const { data: recentDelivered } = await supabaseAdmin
+                .from('orders')
+                .select('id')
+                .eq('user_id', orderRow.user_id)
+                .eq('status', 'delivered')
+                .in('payment_method', TRIAL_METHODS)
+                .gte('delivery_date', sinceStr)
+              if (recentDelivered?.length === 3) {
+                await notifyTrialEnded({ phone: customerProfile.phone, name: customerName })
+              }
+            } catch { /* non-blocking */ }
           }
         }
 

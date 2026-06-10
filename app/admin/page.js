@@ -1221,7 +1221,20 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 })}
                 {/* One-time orders */}
                 {todayOrders.map((order, index) => {
-                  const isTrial = order.payment_method === 'COD'
+                  const TRIAL_METHODS = ['COD', 'wallet', 'razorpay']
+                  const isTrial = TRIAL_METHODS.includes(order.payment_method)
+                  const trialDay = isTrial ? (() => {
+                    const d0 = new Date(order.delivery_date + 'T00:00:00+05:30')
+                    const start = new Date(d0); start.setDate(start.getDate() - 2)
+                    const end = new Date(d0); end.setDate(end.getDate() + 2)
+                    const startStr = start.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+                    const endStr = end.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+                    const siblings = orders
+                      .filter(o => o.user_id === order.user_id && TRIAL_METHODS.includes(o.payment_method) && o.delivery_date >= startStr && o.delivery_date <= endStr)
+                      .map(o => o.delivery_date).sort()
+                    const idx = siblings.indexOf(order.delivery_date)
+                    return idx >= 0 ? idx + 1 : 1
+                  })() : null
                   const ordCls = order.status === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
                     : order.status === 'out_for_delivery' ? 'bg-blue-50 text-blue-600 border-blue-200'
                     : order.status === 'cancelled' ? 'bg-red-50 text-red-500 border-red-200'
@@ -1236,7 +1249,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       <div className="flex items-center gap-2 flex-wrap mb-0.5">
                         <p className="font-semibold text-[#1c1c1c]">{order.profiles?.full_name}</p>
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${isTrial ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'}`}>
-                          {isTrial ? '🎁 Trial' : '🛒 Order'}
+                          {isTrial ? `🎁 Trial Day ${trialDay}/3` : '🛒 Order'}
                         </span>
                       </div>
                       <p className="text-sm text-gray-400">{order.profiles?.apartment_name}, Flat {order.profiles?.flat_number}</p>
@@ -1325,7 +1338,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                           <div>
                             <div className="flex items-center gap-2 mb-0.5">
                               <p className="font-semibold text-[#1c1c1c] text-sm">{order.profiles?.full_name}</p>
-                              <span className="text-xs bg-orange-50 text-orange-600 border border-orange-200 px-2 py-0.5 rounded-full font-semibold">🎁 {order.payment_method === 'COD' ? 'Trial' : 'Order'}</span>
+                              <span className="text-xs bg-orange-50 text-orange-600 border border-orange-200 px-2 py-0.5 rounded-full font-semibold">🎁 {['COD', 'wallet', 'razorpay'].includes(order.payment_method) ? 'Trial' : 'Order'}</span>
                             </div>
                             <p className="text-xs text-gray-400">{order.profiles?.phone} · {order.profiles?.area}</p>
                             <p className="text-xs text-[#1a5c38] font-medium mt-0.5">{order.products?.size} × {order.quantity} · {order.delivery_slot === 'morning' ? '🌅 7–9AM' : '🌆 5–7PM'}</p>
@@ -1477,7 +1490,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           // All active subscriptions — subscriptions are always 'pending' (ongoing commitments),
           // delivery history is tracked separately in the Delivered tab via deliveredSubHistory
           const combined = [
-            ...orders.map(o => ({ ...o, _itemType: 'order', orderType: o.payment_method === 'COD' ? 'trial' : 'order', _status: o.status })),
+            ...orders.map(o => ({ ...o, _itemType: 'order', orderType: ['COD', 'wallet', 'razorpay'].includes(o.payment_method) ? 'trial' : 'order', _status: o.status })),
             ...subscriptions.filter(s => s.is_active).map(sub => ({
               ...sub,
               _itemType: 'subscription',
@@ -1488,7 +1501,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           const deliveredRows = [
             ...orders
               .filter(o => o.status === 'delivered')
-              .map(o => ({ ...o, _itemType: 'order', orderType: o.payment_method === 'COD' ? 'trial' : 'order', _status: 'delivered', _sortDate: o.delivery_date || o.created_at })),
+              .map(o => ({ ...o, _itemType: 'order', orderType: ['COD', 'wallet', 'razorpay'].includes(o.payment_method) ? 'trial' : 'order', _status: 'delivered', _sortDate: o.delivery_date || o.created_at })),
             ...deliveredSubHistory.map(d => ({
               ...(d.subscriptions || {}),
               id: 'subdelivery-' + d.id,
@@ -3022,7 +3035,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
       const combined = [
         ...orders.map(o => ({
           ...o,
-          _type: o.payment_method === 'COD' ? 'trial' : 'order',
+          _type: ['COD', 'wallet', 'razorpay'].includes(o.payment_method) ? 'trial' : 'order',
           _date: o.delivery_date || '',
           _profile: o.profiles,
         })),
@@ -3968,11 +3981,12 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
                 quantity: addOrderQuantity,
                 delivery_date: addOrderDate,
                 delivery_slot: addOrderSlot,
+                is_trial: true,
               }),
             })
             const data = await res.json()
             if (!res.ok) { showError(data.error || 'Failed to place order'); return }
-            showSuccess(`Trial order placed for ${addOrderCustomer.full_name}!`)
+            showSuccess(`3-day trial placed for ${addOrderCustomer.full_name}! (${data.order_count || 3} orders)`)
             setAddOrderCustomer(null); setAddOrderProduct(null); setAddOrderDate('')
           } else if (addOrderType === 'extra') {
             if (addOrderExtraDates.length === 0) { showError('Select at least one date.'); return }
@@ -4127,9 +4141,26 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
               {/* Trial-specific */}
               {addOrderType === 'trial' && (
                 <div>
-                  <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Delivery Date</label>
+                  <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Trial Start Date</label>
                   <input type="date" min={todayStr} value={addOrderDate} onChange={e => setAddOrderDate(e.target.value)}
                     className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]" />
+                  {addOrderDate && (() => {
+                    const d1 = addOrderDate
+                    const d2 = (() => { const d = new Date(d1 + 'T00:00:00+05:30'); d.setDate(d.getDate() + 1); return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) })()
+                    const d3 = (() => { const d = new Date(d1 + 'T00:00:00+05:30'); d.setDate(d.getDate() + 2); return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) })()
+                    const fmt = s => new Date(s + 'T00:00:00+05:30').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
+                    return (
+                      <div className="mt-2 bg-[#f0faf4] rounded-lg p-3 space-y-1">
+                        <p className="text-xs font-semibold text-[#1a5c38] mb-1.5">3 delivery days:</p>
+                        {[d1, d2, d3].map((d, i) => (
+                          <div key={d} className="flex items-center gap-2">
+                            <span className="w-12 text-[10px] font-bold text-white bg-[#1a5c38] px-1.5 py-0.5 rounded text-center">Day {i + 1}</span>
+                            <span className="text-xs text-[#1c1c1c]">{fmt(d)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
 

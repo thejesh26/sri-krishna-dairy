@@ -691,82 +691,143 @@ export default function Dashboard() {
                   description="Place your first order today!"
                   action={{ label: 'Order Now', href: '/order' }}
                 />
-              ) : (
-                orders.map((order, index) => (
-                  <div key={order.id}
-                    className={`${index !== orders.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
-                    <div className="px-6 py-5 flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-[#f5f0e8] flex items-center justify-center flex-shrink-0 p-2">
-                      <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-[#1c1c1c] text-sm">{order.products?.size} Fresh Cow Milk</p>
-                      <p className="text-xs text-gray-400 mt-1">{new Date(order.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
-                    </div>
-                    <div className="text-right flex flex-col items-end gap-1">
-                      <StatusBadge status={order.status} size="sm" />
-                      <p className="font-bold text-[#1a5c38] text-base">₹{order.total_price}</p>
-                      <button onClick={async () => {
-                        const { data: { session } } = await supabase.auth.getSession()
-                        const res = await fetch(`/api/invoice/${order.id}`, { headers: { Authorization: `Bearer ${session?.access_token}` } })
-                        const html = await res.text()
-                        const blob = new Blob([html], { type: 'text/html' })
-                        const url = URL.createObjectURL(blob)
-                        const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.click()
-                        setTimeout(() => URL.revokeObjectURL(url), 5000)
-                      }} className="text-[10px] text-[#1a5c38] underline underline-offset-2 hover:text-[#14472c]">
-                        Invoice
-                      </button>
-                      {order.status === 'delivered' && !reportedOrders.has(order.id) && (
-                        <button onClick={() => { setReportModal({ orderId: order.id }); setReportType('missed'); setReportDescription('') }}
-                          className="text-[10px] text-red-500 underline underline-offset-2 hover:text-red-700">
-                          Report Issue
-                        </button>
+              ) : (() => {
+                // Group consecutive trial orders (same product, dates within 3-day window) into one card
+                const TRIAL_METHODS = ['COD', 'wallet', 'razorpay']
+                const trialOrders = orders.filter(o => TRIAL_METHODS.includes(o.payment_method)).sort((a, b) => a.delivery_date.localeCompare(b.delivery_date))
+                const nonTrialOrders = orders.filter(o => !TRIAL_METHODS.includes(o.payment_method))
+                // Group trial orders by product — find sets of 3 consecutive dates
+                const trialGroups = []
+                const usedIds = new Set()
+                for (const o of trialOrders) {
+                  if (usedIds.has(o.id)) continue
+                  const siblings = trialOrders.filter(x =>
+                    !usedIds.has(x.id) &&
+                    x.products?.id === o.products?.id &&
+                    Math.abs(new Date(x.delivery_date) - new Date(o.delivery_date)) <= 2 * 86400 * 1000
+                  ).sort((a, b) => a.delivery_date.localeCompare(b.delivery_date))
+                  if (siblings.length > 0) {
+                    siblings.forEach(s => usedIds.add(s.id))
+                    trialGroups.push(siblings)
+                  }
+                }
+                const allTrialDelivered = trialGroups.length > 0 && trialGroups.every(g => g.every(o => o.status === 'delivered'))
+
+                return (
+                  <>
+                    {/* Trial group cards */}
+                    {trialGroups.map((group, gi) => {
+                      const allDone = group.every(o => o.status === 'delivered')
+                      const product = group[0]?.products
+                      return (
+                        <div key={`trial-${gi}`} className="border-b border-[#f5f0e8]">
+                          <div className="px-6 py-4 bg-orange-50 border-b border-orange-100">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">🎁</span>
+                              <p className="font-bold text-[#1c1c1c] text-sm">3-Day Trial</p>
+                              <span className="text-xs font-semibold text-orange-600 bg-orange-100 border border-orange-200 px-2 py-0.5 rounded-full">{product?.size}</span>
+                              {allDone && <span className="ml-auto text-xs text-[#1a5c38] font-bold bg-[#f0faf4] border border-[#c8e6d4] px-2 py-0.5 rounded-full">✅ Complete</span>}
+                            </div>
+                          </div>
+                          {group.map((order, i) => (
+                            <div key={order.id} className={`px-6 py-3 flex items-center gap-3 ${i !== group.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                              <span className="w-12 text-[10px] font-bold text-white bg-[#1a5c38] px-1.5 py-0.5 rounded text-center flex-shrink-0">Day {i + 1}</span>
+                              <div className="flex-1">
+                                <p className="text-xs text-gray-500">{new Date(order.delivery_date + 'T00:00:00+05:30').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}</p>
+                              </div>
+                              <StatusBadge status={order.status} size="sm" />
+                            </div>
+                          ))}
+                          {allDone && (
+                            <div className="px-6 py-4 bg-[#f0faf4] border-t border-[#c8e6d4] text-center">
+                              <p className="text-sm font-bold text-[#1a5c38] mb-1">Loved the fresh milk? 🥛</p>
+                              <p className="text-xs text-gray-500 mb-3">Subscribe now for daily delivery, wallet-based payment, and no hassle.</p>
+                              <a href="/subscribe" className="inline-block bg-[#1a5c38] text-white font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-[#14472c] transition">
+                                Subscribe Now →
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                    {/* Non-trial orders */}
+                    {nonTrialOrders.map((order, index) => (
+                      <div key={order.id}
+                        className={`${index !== nonTrialOrders.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
+                        <div className="px-6 py-5 flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-2xl bg-[#f5f0e8] flex items-center justify-center flex-shrink-0 p-2">
+                          <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-[#1c1c1c] text-sm">{order.products?.size} Fresh Cow Milk</p>
+                          <p className="text-xs text-gray-400 mt-1">{new Date(order.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                        </div>
+                        <div className="text-right flex flex-col items-end gap-1">
+                          <StatusBadge status={order.status} size="sm" />
+                          <p className="font-bold text-[#1a5c38] text-base">₹{order.total_price}</p>
+                          <button onClick={async () => {
+                            const { data: { session } } = await supabase.auth.getSession()
+                            const res = await fetch(`/api/invoice/${order.id}`, { headers: { Authorization: `Bearer ${session?.access_token}` } })
+                            const html = await res.text()
+                            const blob = new Blob([html], { type: 'text/html' })
+                            const url = URL.createObjectURL(blob)
+                            const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.click()
+                            setTimeout(() => URL.revokeObjectURL(url), 5000)
+                          }} className="text-[10px] text-[#1a5c38] underline underline-offset-2 hover:text-[#14472c]">
+                            Invoice
+                          </button>
+                          {order.status === 'delivered' && !reportedOrders.has(order.id) && (
+                            <button onClick={() => { setReportModal({ orderId: order.id }); setReportType('missed'); setReportDescription('') }}
+                              className="text-[10px] text-red-500 underline underline-offset-2 hover:text-red-700">
+                              Report Issue
+                            </button>
+                          )}
+                          {reportedOrders.has(order.id) && (
+                            <span className="text-[10px] text-gray-400">Reported ✓</span>
+                          )}
+                          {order.status === 'delivered' && !qualitySubmitted.has(order.id) && (
+                            <button onClick={() => setQualityFeedbackOpen(qualityFeedbackOpen === order.id ? null : order.id)}
+                              className="text-[10px] text-orange-500 underline underline-offset-2 hover:text-orange-700">
+                              👎 Quality Issue
+                            </button>
+                          )}
+                          {qualitySubmitted.has(order.id) && (
+                            <span className="text-[10px] text-gray-400">Feedback sent ✓</span>
+                          )}
+                        </div>
+                        </div>
+                      {qualityFeedbackOpen === order.id && (
+                        <div className="mx-6 mb-4 bg-orange-50 border border-orange-200 rounded-xl p-3 flex flex-col gap-2">
+                          <p className="text-xs font-semibold text-orange-700">Describe the quality issue</p>
+                          <textarea rows={2} placeholder="e.g. Milk smelled off, bottle was cracked..."
+                            value={qualityIssue}
+                            onChange={e => setQualityIssue(e.target.value)}
+                            className="w-full border border-orange-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-orange-400 resize-none bg-white" />
+                          <div className="flex gap-2 justify-end">
+                            <button onClick={() => { setQualityFeedbackOpen(null); setQualityIssue('') }}
+                              className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1">Cancel</button>
+                            <button onClick={async () => {
+                              if (!qualityIssue.trim()) return
+                              const { data: { session } } = await supabase.auth.getSession()
+                              await fetch('/api/quality-feedback', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                                body: JSON.stringify({ order_id: order.id, issue: qualityIssue }),
+                              })
+                              setQualitySubmitted(prev => new Set([...prev, order.id]))
+                              setQualityFeedbackOpen(null)
+                              setQualityIssue('')
+                            }} className="text-xs bg-orange-500 text-white font-bold px-3 py-1 rounded-lg hover:bg-orange-600 transition">
+                              Submit
+                            </button>
+                          </div>
+                        </div>
                       )}
-                      {reportedOrders.has(order.id) && (
-                        <span className="text-[10px] text-gray-400">Reported ✓</span>
-                      )}
-                      {order.status === 'delivered' && !qualitySubmitted.has(order.id) && (
-                        <button onClick={() => setQualityFeedbackOpen(qualityFeedbackOpen === order.id ? null : order.id)}
-                          className="text-[10px] text-orange-500 underline underline-offset-2 hover:text-orange-700">
-                          👎 Quality Issue
-                        </button>
-                      )}
-                      {qualitySubmitted.has(order.id) && (
-                        <span className="text-[10px] text-gray-400">Feedback sent ✓</span>
-                      )}
-                    </div>
-                    </div>
-                  {qualityFeedbackOpen === order.id && (
-                    <div className="mx-6 mb-4 bg-orange-50 border border-orange-200 rounded-xl p-3 flex flex-col gap-2">
-                      <p className="text-xs font-semibold text-orange-700">Describe the quality issue</p>
-                      <textarea rows={2} placeholder="e.g. Milk smelled off, bottle was cracked..."
-                        value={qualityIssue}
-                        onChange={e => setQualityIssue(e.target.value)}
-                        className="w-full border border-orange-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-orange-400 resize-none bg-white" />
-                      <div className="flex gap-2 justify-end">
-                        <button onClick={() => { setQualityFeedbackOpen(null); setQualityIssue('') }}
-                          className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1">Cancel</button>
-                        <button onClick={async () => {
-                          if (!qualityIssue.trim()) return
-                          const { data: { session } } = await supabase.auth.getSession()
-                          await fetch('/api/quality-feedback', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-                            body: JSON.stringify({ order_id: order.id, issue: qualityIssue }),
-                          })
-                          setQualitySubmitted(prev => new Set([...prev, order.id]))
-                          setQualityFeedbackOpen(null)
-                          setQualityIssue('')
-                        }} className="text-xs bg-orange-500 text-white font-bold px-3 py-1 rounded-lg hover:bg-orange-600 transition">
-                          Submit
-                        </button>
                       </div>
-                    </div>
-                  )}
-                  </div>
-                ))
-              )}
+                    ))}
+                  </>
+                )
+              })()}
             </div>
 
             {/* FAQ */}
