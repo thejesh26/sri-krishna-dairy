@@ -56,8 +56,11 @@ export async function POST(request) {
         return NextResponse.json({ error: insertError.message }, { status: 500 })
       }
 
-      // Mark has_used_cod — non-blocking
-      await supabaseAdmin.from('profiles').update({ has_used_cod: true }).eq('id', target_user_id).catch(() => {})
+     // Mark has_used_cod — non-blocking
+try {
+  await supabaseAdmin.from('profiles').update({ has_used_cod: true }).eq('id', target_user_id)
+} catch {}
+
 
       try {
         const { data: customerProfile } = await supabaseAdmin
