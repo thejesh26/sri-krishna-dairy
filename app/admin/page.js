@@ -331,7 +331,18 @@ export default function AdminDashboard() {
         round2.push(
           fetch(`/api/admin/delivery-statuses?ids=${todaySubs.map(s => s.id).join(',')}&date=${today}`, { headers: authHeader })
             .then(r => r.json())
-            .then(({ statuses }) => setSubDeliveryStatuses(statuses || {}))
+            .then(({ statuses }) => {
+              // Merge DB statuses (delivered/missed) with localStorage (out_for_delivery + others)
+              // DB always wins for terminal states; localStorage fills in non-terminal ephemeral state
+              let merged = {}
+              try {
+                const storageKey = `sub_delivery_statuses_${today}`
+                merged = JSON.parse(localStorage.getItem(storageKey) || '{}')
+              } catch { /* ignore */ }
+              // DB delivered/missed overrides localStorage
+              Object.entries(statuses || {}).forEach(([id, status]) => { merged[id] = status })
+              setSubDeliveryStatuses(merged)
+            })
         )
       }
 
@@ -774,9 +785,22 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
   }
 
  const handleSubStatusChange = async (subId, newStatus) => {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
   setSubDeliveryStatuses(prev => ({ ...prev, [subId]: newStatus }))
+
+  // Persist all statuses (including out_for_delivery) to localStorage, keyed by date
+  try {
+    const storageKey = `sub_delivery_statuses_${today}`
+    const stored = JSON.parse(localStorage.getItem(storageKey) || '{}')
+    if (newStatus === 'pending') {
+      delete stored[subId]
+    } else {
+      stored[subId] = newStatus
+    }
+    localStorage.setItem(storageKey, JSON.stringify(stored))
+  } catch { /* non-blocking */ }
+
   if (newStatus === 'delivered' || newStatus === 'missed') {
-    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/delivery/confirm', {
       method: 'POST',
@@ -1493,12 +1517,16 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           // delivery history is tracked separately in the Delivered tab via deliveredSubHistory
           const combined = [
             ...orders.map(o => ({ ...o, _itemType: 'order', orderType: ['COD', 'wallet', 'razorpay'].includes(o.payment_method) ? 'trial' : 'order', _status: o.status })),
-            ...subscriptions.filter(s => s.is_active).map(sub => ({
-              ...sub,
-              _itemType: 'subscription',
-              orderType: 'subscription',
-              _status: (sub.paused_dates || []).includes(todayIST) ? 'paused' : 'pending',
-            })),
+            ...subscriptions.filter(s => s.is_active).map(sub => {
+              const dbStatus = subDeliveryStatuses[sub.id]
+              const isPaused = (sub.paused_dates || []).includes(todayIST)
+              const _status = isPaused ? 'paused'
+                : dbStatus === 'delivered' ? 'delivered'
+                : dbStatus === 'missed' ? 'missed'
+                : dbStatus === 'out_for_delivery' ? 'out_for_delivery'
+                : 'pending'
+              return { ...sub, _itemType: 'subscription', orderType: 'subscription', _status }
+            }),
           ]
           const deliveredRows = [
             ...orders
@@ -1641,15 +1669,37 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                         ₹{isSub ? (item.products?.price || 0) * item.quantity : item.total_price}
                       </p>
                       <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${statusCls}`}>{statusLabel}</span>
-                      <select
-                        value={item._status}
-                        onChange={(e) => isSub ? handleSubStatusChange(item.id, e.target.value) : updateOrderStatus(item.id, e.target.value)}
-                        className={`text-xs font-semibold px-3 py-1.5 rounded-full border cursor-pointer ${statusCls}`}>
-                        <option value="pending">Pending</option>
-                        <option value="out_for_delivery">Out for Delivery</option>
-                        <option value="delivered">Delivered</option>
-                        {isSub ? <option value="missed">Missed</option> : <option value="cancelled">Cancelled</option>}
-                      </select>
+                      {isSub && item._status === 'paused' ? (
+                        <button
+                          onClick={async () => {
+                            const { data: { session } } = await supabase.auth.getSession()
+                            const res = await fetch('/api/admin/unpause', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                              body: JSON.stringify({ subscription_id: item.id, pause_date: todayIST }),
+                            })
+                            const data = await res.json()
+                            if (res.ok) {
+                              setSubscriptions(prev => prev.map(s => s.id === item.id ? { ...s, paused_dates: data.paused_dates } : s))
+                              showSuccess('Pause removed — delivery will proceed today.')
+                            } else {
+                              showError(data.error || 'Failed to remove pause.')
+                            }
+                          }}
+                          className="text-xs bg-purple-50 border border-purple-200 text-purple-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-purple-100 transition">
+                          ▶ Remove Pause
+                        </button>
+                      ) : (
+                        <select
+                          value={item._status === 'paused' ? 'pending' : item._status}
+                          onChange={(e) => isSub ? handleSubStatusChange(item.id, e.target.value) : updateOrderStatus(item.id, e.target.value)}
+                          className={`text-xs font-semibold px-3 py-1.5 rounded-full border cursor-pointer ${statusCls}`}>
+                          <option value="pending">Pending</option>
+                          <option value="out_for_delivery">Out for Delivery</option>
+                          <option value="delivered">Delivered</option>
+                          {isSub ? <option value="missed">Missed</option> : <option value="cancelled">Cancelled</option>}
+                        </select>
+                      )}
                     </div>
                   </div>
                 )
