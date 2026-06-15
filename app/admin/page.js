@@ -112,6 +112,8 @@ export default function AdminDashboard() {
   const [broadcastMessage, setBroadcastMessage] = useState('')
   const [broadcastLoading, setBroadcastLoading] = useState(false)
   const [broadcastConfirm, setBroadcastConfirm] = useState(false)
+  const [referralCheckLoading, setReferralCheckLoading] = useState(false)
+  const [referralCheckResult, setReferralCheckResult] = useState(null)
   const [waitlistEntries, setWaitlistEntries] = useState([])
   const [newHoliday, setNewHoliday] = useState('')
   const [invitingId, setInvitingId] = useState(null)
@@ -2172,6 +2174,11 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                                 {activeSub.products?.size} × {activeSub.quantity} · {getSubDayLabel(activeSub)}
                               </p>
                             )}
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {(customer.loyalty_points || 0) > 0 && <span className="text-[10px] font-semibold bg-yellow-50 text-yellow-700 border border-yellow-200 px-1.5 py-0.5 rounded-full">⭐ {customer.loyalty_points} pts</span>}
+                              {(customer.streak_count || 0) > 1 && <span className="text-[10px] font-semibold bg-orange-50 text-orange-600 border border-orange-200 px-1.5 py-0.5 rounded-full">🔥 {customer.streak_count}d</span>}
+                              {customer.referral_code && <span className="text-[10px] font-semibold bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4] px-1.5 py-0.5 rounded-full font-mono">🔗 {customer.referral_code}</span>}
+                            </div>
                             {iw.open && (
                               <div className="mt-2 flex flex-wrap gap-2 items-center">
                                 <input type="number" placeholder="Amount" value={iw.amount}
@@ -3666,8 +3673,13 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               <div className="mb-3">
                 <p className="font-bold text-[#1c1c1c]">{customer.full_name}</p>
                 <p className="text-xs text-gray-500">📞 {customer.phone} · {customer.area}</p>
-                {customer.is_banned && <span className="inline-block mt-1 text-xs bg-red-100 text-red-700 font-semibold px-2 py-0.5 rounded-full">Banned</span>}
-                {customer.has_used_cod && <span className="inline-block mt-1 ml-1 text-xs bg-orange-100 text-orange-700 font-semibold px-2 py-0.5 rounded-full">COD used</span>}
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {customer.is_banned && <span className="text-xs bg-red-100 text-red-700 font-semibold px-2 py-0.5 rounded-full">Banned</span>}
+                  {customer.has_used_cod && <span className="text-xs bg-orange-100 text-orange-700 font-semibold px-2 py-0.5 rounded-full">Trial used</span>}
+                  {(customer.loyalty_points || 0) > 0 && <span className="text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 font-semibold px-2 py-0.5 rounded-full">⭐ {customer.loyalty_points} pts</span>}
+                  {(customer.streak_count || 0) > 0 && <span className="text-xs bg-orange-50 text-orange-600 border border-orange-200 font-semibold px-2 py-0.5 rounded-full">🔥 {customer.streak_count}d streak</span>}
+                  {customer.referral_code && <span className="text-xs bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4] font-semibold px-2 py-0.5 rounded-full font-mono">🔗 {customer.referral_code}</span>}
+                </div>
               </div>
               <div className="flex flex-wrap gap-2 mb-3">
                 <button onClick={() => resetCod(customer.id, customer.full_name)}
@@ -3917,7 +3929,35 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           )}
         </div>
 
-        {/* H. Bulk Enquiries */}
+        {/* H. Referral Check */}
+        <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-2">🎁 Referral Activation Check</h3>
+          <p className="text-sm text-gray-500 mb-4">Manually check pending referrals and award 100 points to both parties when the referred friend has completed 30+ subscription deliveries.</p>
+          {referralCheckResult && (
+            <div className={`mb-4 p-3 rounded-xl text-sm font-medium ${referralCheckResult.success ? 'bg-[#f0faf4] border border-[#c8e6d4] text-[#1a5c38]' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+              {referralCheckResult.message || referralCheckResult.error}
+            </div>
+          )}
+          <button
+            disabled={referralCheckLoading}
+            onClick={async () => {
+              setReferralCheckLoading(true)
+              setReferralCheckResult(null)
+              const { data: { session } } = await supabase.auth.getSession()
+              const res = await fetch('/api/admin/check-referrals', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${session?.access_token}` },
+              })
+              const data = await res.json()
+              setReferralCheckResult(data)
+              setReferralCheckLoading(false)
+            }}
+            className="bg-[#1a5c38] text-white font-bold px-6 py-3 rounded-xl text-sm hover:bg-[#14472c] transition disabled:opacity-50">
+            {referralCheckLoading ? 'Checking...' : '🔍 Check & Activate Referrals'}
+          </button>
+        </div>
+
+        {/* I. Bulk Enquiries */}
         <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
           <div className="px-6 py-5 border-b border-[#f5f0e8]">
             <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">📦 Bulk Enquiries</h3>
