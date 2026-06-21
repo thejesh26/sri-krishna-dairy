@@ -12,6 +12,48 @@ const daysDiff = Math.round((todayIST - start) / (1000 * 60 * 60 * 24))
   return true
 }
 
+function parseAddress(addressText) {
+  if (!addressText) return { tower: null, flat: null }
+  const text = addressText.toLowerCase()
+  const towerMatch = text.match(/tower[\s-]*(\d+[a-z]?)|(?:^|\s)t(\d+)\b|block[\s-]*([a-z0-9]+)/i)
+  const tower = towerMatch ? (towerMatch[1] || towerMatch[2] || towerMatch[3]) : null
+  const numbers = text.match(/\d+/g) || []
+  const flat = numbers.length > 0 ? numbers.reduce((a, b) => b.length >= a.length ? b : a) : null
+  return { tower, flat: flat ? String(flat) : null }
+}
+
+function parseFilterQuery(query) {
+  const match = query.trim().match(/^t?(\d+)\s+(\d+)$/i)
+  if (match) return { tower: match[1], flatPrefix: match[2] }
+  const towerOnly = query.trim().match(/^t?(\d+)$/i)
+  if (towerOnly) return { tower: towerOnly[1], flatPrefix: null }
+  return null
+}
+
+function matchesAddressFilter(item, query) {
+  if (!query.trim()) return true
+  const parsed = parseFilterQuery(query)
+  if (!parsed) return false
+  const addr = parseAddress((item.profiles?.apartment_name || '') + ' ' + (item.profiles?.flat_number || ''))
+  if (addr.tower !== parsed.tower) return false
+  if (parsed.flatPrefix && !addr.flat?.startsWith(parsed.flatPrefix)) return false
+  return true
+}
+
+function AddressBadge({ profile }) {
+  const combined = [profile?.apartment_name, profile?.flat_number].filter(Boolean).join(' ')
+  const { tower, flat } = parseAddress(combined)
+  if (!tower && !flat) return null
+  const parts = []
+  if (tower) parts.push(`T${tower.toUpperCase()}`)
+  if (flat) parts.push(flat)
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+      🏢 {parts.join(' · ')}
+    </span>
+  )
+}
+
 function FreqBadge({ freq }) {
   if (!freq || freq === 'daily') return null
   return freq === 'alternate'
@@ -145,6 +187,8 @@ export default function AdminDashboard() {
   const [customersSubTab, setCustomersSubTab] = useState('all')
   const [areaFilter, setAreaFilter] = useState('all')
   const [customerListSearch, setCustomerListSearch] = useState('')
+  const [todayAddressFilter, setTodayAddressFilter] = useState('')
+  const [ordersAddressFilter, setOrdersAddressFilter] = useState('')
   const [showAddCustomer, setShowAddCustomer] = useState(false)
   const [addCustomerForm, setAddCustomerForm] = useState({ full_name: '', phone: '', apartment_name: '', flat_number: '', area: '', landmark: '' })
   const [addCustomerLoading, setAddCustomerLoading] = useState(false)
@@ -1184,6 +1228,15 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
               </span>
             </div>
+            <div className="px-6 py-3 border-b border-[#f5f0e8]">
+              <input
+                type="text"
+                placeholder="Filter by Tower + Flat (e.g. T1 1, T2 4)..."
+                value={todayAddressFilter}
+                onChange={e => setTodayAddressFilter(e.target.value)}
+                className="w-full text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
+              />
+            </div>
 
             {todayOrders.length === 0 && todaySubscriptions.length === 0 && todayAddons.length === 0 ? (
               <div className="px-6 py-12 text-center">
@@ -1193,7 +1246,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
             ) : (
               <div>
                 {/* Subscription deliveries */}
-                {todaySubscriptions.map((sub) => {
+                {todaySubscriptions.filter(s => matchesAddressFilter(s, todayAddressFilter)).map((sub) => {
                   const subStatus = subDeliveryStatuses[sub.id] || 'pending'
                   const statusCls = subStatus === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
                     : subStatus === 'out_for_delivery' ? 'bg-blue-50 text-blue-600 border-blue-200'
@@ -1211,6 +1264,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]">📅 Subscription</span>
                         <FreqBadge freq={sub.delivery_frequency} />
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]">{getSubDayLabel(sub)}</span>
+                        <AddressBadge profile={sub.profiles} />
                       </div>
                       <p className="text-sm text-gray-400">{sub.profiles?.apartment_name}, Flat {sub.profiles?.flat_number}</p>
                       <p className="text-xs text-gray-400 mt-0.5">{sub.profiles?.area} • 📞 {sub.profiles?.phone}</p>
@@ -1257,7 +1311,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                   )
                 })}
                 {/* Extra (add-on) orders */}
-                {todayAddons.map((addon, index) => {
+                {todayAddons.filter(a => matchesAddressFilter(a, todayAddressFilter)).map((addon, index) => {
                   const addonCls = addon.status === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
                     : addon.status === 'out_for_delivery' ? 'bg-blue-50 text-blue-600 border-blue-200'
                     : addon.status === 'cancelled' ? 'bg-red-50 text-red-500 border-red-200'
@@ -1269,6 +1323,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                         <div className="flex items-center gap-2 flex-wrap mb-0.5">
                           <p className="font-semibold text-[#1c1c1c]">{addon.profiles?.full_name}</p>
                           <span className="text-xs font-semibold px-2 py-0.5 rounded-full border bg-blue-50 text-blue-600 border-blue-200">➕ Extra</span>
+                          <AddressBadge profile={addon.profiles} />
                         </div>
                         <p className="text-sm text-gray-400">{addon.profiles?.apartment_name}, Flat {addon.profiles?.flat_number}</p>
                         <p className="text-xs text-gray-400 mt-0.5">{addon.profiles?.area} • 📞 {addon.profiles?.phone}</p>
@@ -1315,7 +1370,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                   )
                 })}
                 {/* One-time orders */}
-                {todayOrders.map((order, index) => {
+                {todayOrders.filter(o => matchesAddressFilter(o, todayAddressFilter)).map((order, index) => {
                   const TRIAL_METHODS = ['COD', 'wallet', 'razorpay']
                   const isTrial = TRIAL_METHODS.includes(order.payment_method)
                   const trialDay = isTrial ? (() => {
@@ -1346,6 +1401,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${isTrial ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'}`}>
                           {isTrial ? `🎁 Trial Day ${trialDay}/3` : '🛒 Order'}
                         </span>
+                        <AddressBadge profile={order.profiles} />
                       </div>
                       <p className="text-sm text-gray-400">{order.profiles?.apartment_name}, Flat {order.profiles?.flat_number}</p>
                       <p className="text-xs text-gray-400 mt-0.5">{order.profiles?.area} • 📞 {order.profiles?.phone}</p>
@@ -1681,16 +1737,24 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               </button>
             </div>
 
+            <input
+              type="text"
+              placeholder="Filter by Tower + Flat (e.g. T1 1, T2 4)..."
+              value={ordersAddressFilter}
+              onChange={e => setOrdersAddressFilter(e.target.value)}
+              className="w-full text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-white shadow-sm"
+            />
+
             <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
               <div className="px-6 py-4 border-b border-[#f5f0e8]">
-                <p className="text-xs text-gray-400">{visibleRows.length} {ordersSubTab.replace('_', ' ')} · orders + all active subscriptions combined</p>
+                <p className="text-xs text-gray-400">{visibleRows.filter(i => matchesAddressFilter(i, ordersAddressFilter)).length} {ordersSubTab.replace('_', ' ')} · orders + all active subscriptions combined</p>
               </div>
-              {visibleRows.length === 0 ? (
+              {visibleRows.filter(i => matchesAddressFilter(i, ordersAddressFilter)).length === 0 ? (
                 <div className="px-6 py-12 text-center">
                   <div className="text-4xl mb-3">📭</div>
-                  <p className="text-gray-400 text-sm">No {ordersSubTab.replace('_', ' ')} items</p>
+                  <p className="text-gray-400 text-sm">No {ordersSubTab.replace('_', ' ')} items{ordersAddressFilter ? ' matching filter' : ''}</p>
                 </div>
-              ) : visibleRows.map((item, index) => {
+              ) : visibleRows.filter(i => matchesAddressFilter(i, ordersAddressFilter)).map((item, index) => {
                 const isSub = item._itemType === 'subscription'
                 const statusCls = item._status === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
                   : item._status === 'out_for_delivery' ? 'bg-blue-50 text-blue-600 border-blue-200'
@@ -1727,6 +1791,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                             {getSubDayLabel(item)}
                           </span>
                         )}
+                        <AddressBadge profile={item.profiles} />
                       </div>
                       <p className="text-xs text-gray-400">📞 {item.profiles?.phone}</p>
                       <p className="text-xs text-[#1a5c38] font-medium mt-0.5">

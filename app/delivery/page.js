@@ -21,10 +21,26 @@ function parseAddress(addressText) {
   const towerMatch = text.match(/tower[\s-]*(\d+[a-z]?)|(?:^|\s)t(\d+)\b|block[\s-]*([a-z0-9]+)/i)
   const tower = towerMatch ? (towerMatch[1] || towerMatch[2] || towerMatch[3]) : null
   const numbers = text.match(/\d+/g) || []
-  const flat = numbers.length > 0
-    ? numbers.reduce((a, b) => b.length >= a.length ? b : a)
-    : null
-  return { tower, flat: flat ? parseInt(flat, 10) : null }
+  const flat = numbers.length > 0 ? numbers.reduce((a, b) => b.length >= a.length ? b : a) : null
+  return { tower, flat: flat ? String(flat) : null }
+}
+
+function parseFilterQuery(query) {
+  const match = query.trim().match(/^t?(\d+)\s+(\d+)$/i)
+  if (match) return { tower: match[1], flatPrefix: match[2] }
+  const towerOnly = query.trim().match(/^t?(\d+)$/i)
+  if (towerOnly) return { tower: towerOnly[1], flatPrefix: null }
+  return null
+}
+
+function matchesAddressFilter(item, query) {
+  if (!query.trim()) return true
+  const parsed = parseFilterQuery(query)
+  if (!parsed) return false
+  const addr = parseAddress((item.profiles?.apartment_name || '') + ' ' + (item.profiles?.flat_number || ''))
+  if (addr.tower !== parsed.tower) return false
+  if (parsed.flatPrefix && !addr.flat?.startsWith(parsed.flatPrefix)) return false
+  return true
 }
 
 function AddressBadge({ profile }) {
@@ -32,8 +48,8 @@ function AddressBadge({ profile }) {
   const { tower, flat } = parseAddress(combined)
   if (!tower && !flat) return null
   const parts = []
-  if (tower) parts.push(`Tower ${tower.toUpperCase()}`)
-  if (flat) parts.push(`Flat ${flat}`)
+  if (tower) parts.push(`T${tower.toUpperCase()}`)
+  if (flat) parts.push(flat)
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
       🏢 {parts.join(' · ')}
@@ -54,6 +70,7 @@ export default function DeliveryDashboard() {
   const [historySubDeliveries, setHistorySubDeliveries] = useState([])
   const [historyLoaded, setHistoryLoaded] = useState(false)
   const [deliverySort, setDeliverySort] = useState('area')
+  const [addressFilter, setAddressFilter] = useState('')
   const [deliveringId, setDeliveringId] = useState(null)
   const [deliveredSubs, setDeliveredSubs] = useState(new Set())
   const [addonOrders, setAddonOrders] = useState([])
@@ -353,7 +370,7 @@ export default function DeliveryDashboard() {
     : activeTab === 'delivered'
     ? orders.filter(o => o.status === 'delivered')
     : orders
-  ).slice().sort((a, b) => {
+  ).filter(o => matchesAddressFilter(o, addressFilter)).slice().sort((a, b) => {
     const pa = a.profiles, pb = b.profiles
     if (deliverySort === 'area') return (pa?.area || '').localeCompare(pb?.area || '')
     if (deliverySort === 'building') return (pa?.apartment_name || '').localeCompare(pb?.apartment_name || '')
@@ -362,7 +379,7 @@ export default function DeliveryDashboard() {
       const addrB = parseAddress((pb?.apartment_name || '') + ' ' + (pb?.flat_number || ''))
       const towerCmp = (addrA.tower || '').localeCompare(addrB.tower || '')
       if (towerCmp !== 0) return towerCmp
-      return (addrA.flat || 0) - (addrB.flat || 0)
+      return (addrA.flat || '') < (addrB.flat || '') ? -1 : 1
     }
     return (pa?.full_name || '').localeCompare(pb?.full_name || '')
   })
@@ -504,7 +521,7 @@ export default function DeliveryDashboard() {
                 <option value="name">Sort by Name</option>
               </select>
             </div>
-            {[...subscriptions].sort((a, b) => {
+            {[...subscriptions].filter(s => matchesAddressFilter(s, addressFilter)).sort((a, b) => {
               const pa = a.profiles, pb = b.profiles
               if (deliverySort === 'area') return (pa?.area || '').localeCompare(pb?.area || '')
               if (deliverySort === 'building') return (pa?.apartment_name || '').localeCompare(pb?.apartment_name || '')
@@ -513,7 +530,7 @@ export default function DeliveryDashboard() {
                 const addrB = parseAddress((pb?.apartment_name || '') + ' ' + (pb?.flat_number || ''))
                 const towerCmp = (addrA.tower || '').localeCompare(addrB.tower || '')
                 if (towerCmp !== 0) return towerCmp
-                return (addrA.flat || 0) - (addrB.flat || 0)
+                return (addrA.flat || '') < (addrB.flat || '') ? -1 : 1
               }
               return (pa?.full_name || '').localeCompare(pb?.full_name || '')
             }).map((sub, index) => (
@@ -576,7 +593,7 @@ export default function DeliveryDashboard() {
               <h3 className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c]">Extra Orders (Add-ons)</h3>
               <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-bold px-3 py-1 rounded-full border border-[#f0dfa0]">EXTRA</span>
             </div>
-            {addonOrders.map((addon, index) => (
+            {addonOrders.filter(a => matchesAddressFilter(a, addressFilter)).map((addon, index) => (
               <div key={addon.id} className={`px-5 py-4 ${index !== addonOrders.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-full bg-[#d4a017] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
@@ -623,7 +640,16 @@ export default function DeliveryDashboard() {
           </div>
         )}
 
-        {/* Tab Bar */}
+        {/* Address filter + Tab Bar */}
+        <div className="mb-2">
+          <input
+            type="text"
+            placeholder="Filter by Tower + Flat (e.g. T1 1, T2 4)..."
+            value={addressFilter}
+            onChange={e => setAddressFilter(e.target.value)}
+            className="w-full border border-[#e8e0d0] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-white shadow-sm mb-2"
+          />
+        </div>
         <div className="flex items-center gap-2 mb-2 flex-wrap">
           <select value={deliverySort} onChange={e => setDeliverySort(e.target.value)}
             className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 text-[#1c1c1c] bg-white focus:outline-none focus:border-[#1a5c38] shadow-sm">
