@@ -15,6 +15,32 @@ function isDeliveryDay(sub) {
   return true
 }
 
+function parseAddress(addressText) {
+  if (!addressText) return { tower: null, flat: null }
+  const text = addressText.toLowerCase()
+  const towerMatch = text.match(/tower[\s-]*(\d+[a-z]?)|(?:^|\s)t(\d+)\b|block[\s-]*([a-z0-9]+)/i)
+  const tower = towerMatch ? (towerMatch[1] || towerMatch[2] || towerMatch[3]) : null
+  const numbers = text.match(/\d+/g) || []
+  const flat = numbers.length > 0
+    ? numbers.reduce((a, b) => b.length >= a.length ? b : a)
+    : null
+  return { tower, flat: flat ? parseInt(flat, 10) : null }
+}
+
+function AddressBadge({ profile }) {
+  const combined = [profile?.apartment_name, profile?.flat_number].filter(Boolean).join(' ')
+  const { tower, flat } = parseAddress(combined)
+  if (!tower && !flat) return null
+  const parts = []
+  if (tower) parts.push(`Tower ${tower.toUpperCase()}`)
+  if (flat) parts.push(`Flat ${flat}`)
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+      🏢 {parts.join(' · ')}
+    </span>
+  )
+}
+
 export default function DeliveryDashboard() {
   const router = useRouter()
   const [user, setUser] = useState(null)
@@ -331,6 +357,13 @@ export default function DeliveryDashboard() {
     const pa = a.profiles, pb = b.profiles
     if (deliverySort === 'area') return (pa?.area || '').localeCompare(pb?.area || '')
     if (deliverySort === 'building') return (pa?.apartment_name || '').localeCompare(pb?.apartment_name || '')
+    if (deliverySort === 'tower') {
+      const addrA = parseAddress((pa?.apartment_name || '') + ' ' + (pa?.flat_number || ''))
+      const addrB = parseAddress((pb?.apartment_name || '') + ' ' + (pb?.flat_number || ''))
+      const towerCmp = (addrA.tower || '').localeCompare(addrB.tower || '')
+      if (towerCmp !== 0) return towerCmp
+      return (addrA.flat || 0) - (addrB.flat || 0)
+    }
     return (pa?.full_name || '').localeCompare(pb?.full_name || '')
   })
 
@@ -467,6 +500,7 @@ export default function DeliveryDashboard() {
                 className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-1.5 text-[#1c1c1c] bg-[#fdfbf7] focus:outline-none focus:border-[#1a5c38]">
                 <option value="area">Sort by Area</option>
                 <option value="building">Sort by Building</option>
+                <option value="tower">Sort by Tower/Flat</option>
                 <option value="name">Sort by Name</option>
               </select>
             </div>
@@ -474,6 +508,13 @@ export default function DeliveryDashboard() {
               const pa = a.profiles, pb = b.profiles
               if (deliverySort === 'area') return (pa?.area || '').localeCompare(pb?.area || '')
               if (deliverySort === 'building') return (pa?.apartment_name || '').localeCompare(pb?.apartment_name || '')
+              if (deliverySort === 'tower') {
+                const addrA = parseAddress((pa?.apartment_name || '') + ' ' + (pa?.flat_number || ''))
+                const addrB = parseAddress((pb?.apartment_name || '') + ' ' + (pb?.flat_number || ''))
+                const towerCmp = (addrA.tower || '').localeCompare(addrB.tower || '')
+                if (towerCmp !== 0) return towerCmp
+                return (addrA.flat || 0) - (addrB.flat || 0)
+              }
               return (pa?.full_name || '').localeCompare(pb?.full_name || '')
             }).map((sub, index) => (
               <div key={sub.id} className={`px-5 py-4 ${index !== subscriptions.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
@@ -482,7 +523,10 @@ export default function DeliveryDashboard() {
                     {sub.profiles?.full_name?.[0] || '?'}
                   </div>
                   <div className="flex-1">
-                    <p className="font-semibold text-[#1c1c1c] text-sm">{sub.profiles?.full_name}</p>
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <p className="font-semibold text-[#1c1c1c] text-sm">{sub.profiles?.full_name}</p>
+                      <AddressBadge profile={sub.profiles} />
+                    </div>
                     <p className="text-xs text-gray-400">{sub.profiles?.apartment_name}, Flat {sub.profiles?.flat_number}</p>
                     <p className="text-xs text-gray-400">{sub.profiles?.area}{sub.profiles?.pincode ? ` - ${sub.profiles.pincode}` : ''}</p>
                     {sub.profiles?.landmark && <p className="text-xs text-[#d4a017]">📍 Near: {sub.profiles?.landmark}</p>}
@@ -539,9 +583,10 @@ export default function DeliveryDashboard() {
                     {addon.profiles?.full_name?.[0] || '?'}
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
                       <p className="font-semibold text-[#1c1c1c] text-sm">{addon.profiles?.full_name}</p>
                       <span className="bg-[#fdf6e3] text-[#d4a017] text-[10px] font-bold px-2 py-0.5 rounded-full border border-[#f0dfa0]">EXTRA</span>
+                      <AddressBadge profile={addon.profiles} />
                     </div>
                     <p className="text-xs text-gray-400">{addon.profiles?.apartment_name}, Flat {addon.profiles?.flat_number}</p>
                     <p className="text-xs text-gray-400">{addon.profiles?.area}</p>
@@ -584,6 +629,7 @@ export default function DeliveryDashboard() {
             className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 text-[#1c1c1c] bg-white focus:outline-none focus:border-[#1a5c38] shadow-sm">
             <option value="area">Sort by Area</option>
             <option value="building">Sort by Building</option>
+            <option value="tower">🏢 Sort by Tower/Flat</option>
             <option value="name">Sort by Name</option>
           </select>
         </div>
@@ -843,7 +889,10 @@ export default function DeliveryDashboard() {
                       {order.profiles?.full_name?.[0] || '?'}
                     </div>
                     <div className="flex-1">
-                      <p className="font-semibold text-[#1c1c1c] text-sm">{order.profiles?.full_name}</p>
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <p className="font-semibold text-[#1c1c1c] text-sm">{order.profiles?.full_name}</p>
+                        <AddressBadge profile={order.profiles} />
+                      </div>
                       <p className="text-xs text-gray-400">{order.profiles?.apartment_name}, Flat {order.profiles?.flat_number}</p>
                       <p className="text-xs text-gray-400">{order.profiles?.area}{order.profiles?.pincode ? ` - ${order.profiles.pincode}` : ''}</p>
                       {order.profiles?.landmark && <p className="text-xs text-[#d4a017]">📍 Near: {order.profiles?.landmark}</p>}
