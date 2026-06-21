@@ -144,6 +144,10 @@ export default function AdminDashboard() {
   const [stopCancellationReason, setStopCancellationReason] = useState('')
   const [customersSubTab, setCustomersSubTab] = useState('all')
   const [areaFilter, setAreaFilter] = useState('all')
+  const [customerListSearch, setCustomerListSearch] = useState('')
+  const [showAddCustomer, setShowAddCustomer] = useState(false)
+  const [addCustomerForm, setAddCustomerForm] = useState({ full_name: '', phone: '', apartment_name: '', flat_number: '', area: '', landmark: '' })
+  const [addCustomerLoading, setAddCustomerLoading] = useState(false)
   const [leads, setLeads] = useState([])
   const [leadsLoading, setLeadsLoading] = useState(false)
   const [leadsFilter, setLeadsFilter] = useState('all')
@@ -2093,6 +2097,93 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
             </div>
           )}
 
+          {/* Add Customer Modal */}
+          {showAddCustomer && (
+            <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) setShowAddCustomer(false) }}>
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+                <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between">
+                  <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Add New Customer</h3>
+                  <button onClick={() => setShowAddCustomer(false)} className="text-gray-400 hover:text-gray-600 text-xl font-bold">×</button>
+                </div>
+                <form onSubmit={async e => {
+                  e.preventDefault()
+                  setAddCustomerLoading(true)
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession()
+                    const res = await fetch('/api/admin/create-customer', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                      body: JSON.stringify(addCustomerForm),
+                    })
+                    const data = await res.json()
+                    if (!res.ok) {
+                      showError(data.error || 'Failed to create customer.')
+                    } else {
+                      showSuccess(`Customer ${addCustomerForm.full_name} created successfully.`)
+                      setShowAddCustomer(false)
+                      setAddCustomerForm({ full_name: '', phone: '', apartment_name: '', flat_number: '', area: '', landmark: '' })
+                      loadAllData()
+                    }
+                  } catch {
+                    showError('Network error. Please try again.')
+                  } finally {
+                    setAddCustomerLoading(false)
+                  }
+                }} className="px-6 py-5 flex flex-col gap-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <label className="text-xs font-semibold text-gray-500 mb-1 block">Full Name *</label>
+                      <input required value={addCustomerForm.full_name} onChange={e => setAddCustomerForm(f => ({ ...f, full_name: e.target.value }))}
+                        placeholder="e.g. Ramesh Kumar"
+                        className="w-full text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-xs font-semibold text-gray-500 mb-1 block">Phone Number * (10 digits)</label>
+                      <input required value={addCustomerForm.phone} onChange={e => setAddCustomerForm(f => ({ ...f, phone: e.target.value }))}
+                        placeholder="9876543210" maxLength={10} inputMode="numeric"
+                        className="w-full text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 mb-1 block">Apartment / Building</label>
+                      <input value={addCustomerForm.apartment_name} onChange={e => setAddCustomerForm(f => ({ ...f, apartment_name: e.target.value }))}
+                        placeholder="Green Villa"
+                        className="w-full text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 mb-1 block">Flat / House No.</label>
+                      <input value={addCustomerForm.flat_number} onChange={e => setAddCustomerForm(f => ({ ...f, flat_number: e.target.value }))}
+                        placeholder="B-204"
+                        className="w-full text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 mb-1 block">Area</label>
+                      <input value={addCustomerForm.area} onChange={e => setAddCustomerForm(f => ({ ...f, area: e.target.value }))}
+                        placeholder="Koramangala"
+                        className="w-full text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 mb-1 block">Landmark (optional)</label>
+                      <input value={addCustomerForm.landmark} onChange={e => setAddCustomerForm(f => ({ ...f, landmark: e.target.value }))}
+                        placeholder="Near metro station"
+                        className="w-full text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+                    </div>
+                  </div>
+                  <div className="flex gap-3 pt-1">
+                    <button type="button" onClick={() => setShowAddCustomer(false)}
+                      className="flex-1 py-2.5 rounded-xl border border-[#e8e0d0] text-sm font-semibold text-gray-500 hover:bg-gray-50 transition">
+                      Cancel
+                    </button>
+                    <button type="submit" disabled={addCustomerLoading}
+                      className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold disabled:opacity-60 transition"
+                      style={{ background: 'linear-gradient(135deg, #1a5c38, #2d7a50)' }}>
+                      {addCustomerLoading ? 'Creating...' : 'Create Customer'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
           {/* Main customer list card */}
           <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
 
@@ -2103,6 +2194,13 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 <p className="text-xs text-gray-400 mt-0.5">{customers.length} registered customers</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  type="text"
+                  placeholder="Search by name or phone..."
+                  value={customerListSearch}
+                  onChange={e => setCustomerListSearch(e.target.value)}
+                  className="text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] w-52"
+                />
                 <select value={areaFilter} onChange={e => setAreaFilter(e.target.value)}
                   className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]">
                   <option value="all">All Areas</option>
@@ -2110,6 +2208,10 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                     <option key={area} value={area}>{area}</option>
                   ))}
                 </select>
+                <button onClick={() => setShowAddCustomer(true)}
+                  className="text-xs bg-[#1a5c38] text-white px-3 py-2 rounded-lg hover:bg-[#14472c] transition font-semibold">
+                  + Add Customer
+                </button>
                 <button onClick={() => {
                   const headers = ['Name','Phone','Email','Area','Building','Flat Number','Landmark','Joined Date']
                   const rows = customers.map(c => [
@@ -2122,7 +2224,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                   const url = URL.createObjectURL(blob)
                   const a = document.createElement('a'); a.href = url; a.download = `customers_${new Date().toISOString().split('T')[0]}.csv`; a.click()
                   setTimeout(() => URL.revokeObjectURL(url), 5000)
-                }} className="text-xs bg-[#1a5c38] text-white px-3 py-2 rounded-lg hover:bg-[#14472c] transition font-semibold">
+                }} className="text-xs bg-gray-100 text-gray-600 px-3 py-2 rounded-lg hover:bg-gray-200 transition font-semibold">
                   Export CSV
                 </button>
               </div>
@@ -2281,6 +2383,10 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 if (customersSubTab === 'active_subs') return !!activeSubByUser[c.id]
                 if (customersSubTab === 'inactive_subs') return !activeSubByUser[c.id] && inactiveSubUserIds.has(c.id)
                 if (customersSubTab === 'low_balance') return (wallets.find(w => w.user_id === c.id)?.balance ?? 1000) < 300
+                if (customerListSearch.trim()) {
+                  const q = customerListSearch.toLowerCase()
+                  if (!c.full_name?.toLowerCase().includes(q) && !c.phone?.includes(q)) return false
+                }
                 return true
               })
               if (filteredCustomers.length === 0) return (
