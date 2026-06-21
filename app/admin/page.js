@@ -37,9 +37,11 @@ export default function AdminDashboard() {
   const [deliveredSubHistory, setDeliveredSubHistory] = useState([])
   const [deliveredSubHistoryLoaded, setDeliveredSubHistoryLoaded] = useState(false)
   const [orders, setOrders] = useState([])
+  const [addonOrders, setAddonOrders] = useState([])
   const [subscriptions, setSubscriptions] = useState([])
   const [customers, setCustomers] = useState([])
   const [todayOrders, setTodayOrders] = useState([])
+  const [todayAddons, setTodayAddons] = useState([])
   const [todaySubscriptions, setTodaySubscriptions] = useState([])
   const [subDeliveryStatuses, setSubDeliveryStatuses] = useState({})
   const [subDeliveryCounts, setSubDeliveryCounts] = useState({})
@@ -246,6 +248,7 @@ export default function AdminDashboard() {
       const [
         { orders: allOrders = [] },
         { subscriptions: allSubs = [] },
+        { addonOrders: allAddons = [] },
         { todaySubRevenue = 0, monthSubRevenue = 0 },
         { data: allProducts },
         { data: allReviews },
@@ -262,6 +265,7 @@ export default function AdminDashboard() {
       ] = await Promise.all([
         fetch('/api/admin/orders', { headers: authHeader }).then(r => r.json()),
         fetch('/api/admin/subscriptions', { headers: authHeader }).then(r => r.json()),
+        fetch('/api/admin/addon-orders', { headers: authHeader }).then(r => r.json()),
         fetch('/api/admin/revenue', { headers: authHeader }).then(r => r.json()),
         supabase.from('products').select('*').order('size'),
         supabase.from('reviews').select('*, profiles(full_name, phone)').order('created_at', { ascending: false }),
@@ -279,6 +283,7 @@ export default function AdminDashboard() {
 
       // Set state for all round 1 results
       setOrders(allOrders)
+      setAddonOrders(allAddons)
       setSubscriptions(allSubs)
       setProducts(allProducts || [])
       setReviews(allReviews || [])
@@ -297,6 +302,8 @@ export default function AdminDashboard() {
       // Compute derived values
       const todayO = allOrders.filter(o => o.delivery_date === today)
       setTodayOrders(todayO)
+      const todayA = allAddons.filter(a => a.delivery_date === today && a.status !== 'delivered' && a.status !== 'cancelled')
+      setTodayAddons(todayA)
 
       const todaySubs = allSubs.filter(sub =>
         sub.is_active === true &&
@@ -1174,7 +1181,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               </span>
             </div>
 
-            {todayOrders.length === 0 && todaySubscriptions.length === 0 ? (
+            {todayOrders.length === 0 && todaySubscriptions.length === 0 && todayAddons.length === 0 ? (
               <div className="px-6 py-12 text-center">
                 <div className="text-5xl mb-3">📭</div>
                 <p className="text-gray-400">No deliveries scheduled for today</p>
@@ -1243,6 +1250,64 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       )}
                     </div>
                   </div>
+                  )
+                })}
+                {/* Extra (add-on) orders */}
+                {todayAddons.map((addon, index) => {
+                  const addonCls = addon.status === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
+                    : addon.status === 'out_for_delivery' ? 'bg-blue-50 text-blue-600 border-blue-200'
+                    : addon.status === 'cancelled' ? 'bg-red-50 text-red-500 border-red-200'
+                    : 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'
+                  return (
+                    <div key={addon.id} className="px-6 py-5 flex items-center gap-4 border-b border-[#f5f0e8]">
+                      <div className="w-12 h-12 rounded-xl bg-[#f0faf4] flex items-center justify-center text-2xl flex-shrink-0">➕</div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                          <p className="font-semibold text-[#1c1c1c]">{addon.profiles?.full_name}</p>
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full border bg-blue-50 text-blue-600 border-blue-200">➕ Extra</span>
+                        </div>
+                        <p className="text-sm text-gray-400">{addon.profiles?.apartment_name}, Flat {addon.profiles?.flat_number}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{addon.profiles?.area} • 📞 {addon.profiles?.phone}</p>
+                        <p className="text-xs text-[#1a5c38] font-medium mt-1">
+                          {addon.products?.size} x {addon.quantity} • {addon.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
+                        </p>
+                      </div>
+                      <div className="text-right flex-shrink-0 flex flex-col gap-1">
+                        <p className="font-bold text-[#1a5c38] mb-0.5">₹{addon.total_price}</p>
+                        <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border mb-1 inline-block ${addonCls}`}>
+                          {addon.status === 'delivered' ? '✅ Delivered' : addon.status === 'out_for_delivery' ? '🚴 Out' : addon.status === 'cancelled' ? '❌ Cancelled' : '🕐 Pending'}
+                        </span>
+                        <select
+                          value={addon.status}
+                          onChange={async (e) => {
+                            const newStatus = e.target.value
+                            setTodayAddons(prev => prev.map(a => a.id === addon.id ? { ...a, status: newStatus } : a))
+                            setAddonOrders(prev => prev.map(a => a.id === addon.id ? { ...a, status: newStatus } : a))
+                            if (newStatus === 'delivered') {
+                              const { data: { session } } = await supabase.auth.getSession()
+                              const res = await fetch('/api/delivery/confirm', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                                body: JSON.stringify({ type: 'addon', addon_id: addon.id }),
+                              })
+                              if (!res.ok) {
+                                const result = await res.json()
+                                showError('Failed to confirm delivery: ' + (result.error || res.status))
+                                setTodayAddons(prev => prev.map(a => a.id === addon.id ? { ...a, status: addon.status } : a))
+                                setAddonOrders(prev => prev.map(a => a.id === addon.id ? { ...a, status: addon.status } : a))
+                              }
+                            } else {
+                              await supabase.from('addon_orders').update({ status: newStatus }).eq('id', addon.id)
+                            }
+                          }}
+                          className={`text-xs font-semibold px-3 py-1.5 rounded-full border cursor-pointer ${addonCls}`}>
+                          <option value="pending">Pending</option>
+                          <option value="out_for_delivery">Out for Delivery</option>
+                          <option value="delivered">Delivered</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                      </div>
+                    </div>
                   )
                 })}
                 {/* One-time orders */}
@@ -1517,6 +1582,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           // delivery history is tracked separately in the Delivered tab via deliveredSubHistory
           const combined = [
             ...orders.map(o => ({ ...o, _itemType: 'order', orderType: ['COD', 'wallet', 'razorpay'].includes(o.payment_method) ? 'trial' : 'order', _status: o.status })),
+            ...addonOrders.map(a => ({ ...a, _itemType: 'addon', orderType: 'addon', _status: a.status })),
             ...subscriptions.filter(s => s.is_active).map(sub => {
               const dbStatus = subDeliveryStatuses[sub.id]
               const isPaused = (sub.paused_dates || []).includes(todayIST)
@@ -1532,6 +1598,9 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
             ...orders
               .filter(o => o.status === 'delivered')
               .map(o => ({ ...o, _itemType: 'order', orderType: ['COD', 'wallet', 'razorpay'].includes(o.payment_method) ? 'trial' : 'order', _status: 'delivered', _sortDate: o.delivery_date || o.created_at })),
+            ...addonOrders
+              .filter(a => a.status === 'delivered')
+              .map(a => ({ ...a, _itemType: 'addon', orderType: 'addon', _status: 'delivered', _sortDate: a.delivery_date || a.created_at })),
             ...deliveredSubHistory.map(d => ({
               ...(d.subscriptions || {}),
               id: 'subdelivery-' + d.id,
@@ -1555,7 +1624,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           const subTabCounts = {
             pending: combined.filter(i => i._status === 'pending').length,
             out_for_delivery: combined.filter(i => i._status === 'out_for_delivery').length,
-            delivered: orders.filter(o => o.status === 'delivered').length + deliveredSubHistory.length,
+            delivered: orders.filter(o => o.status === 'delivered').length + deliveredSubHistory.length + addonOrders.filter(a => a.status === 'delivered').length,
             paused: combined.filter(i => i._status === 'paused').length,
             cancelled: combined.filter(i => i._status === 'cancelled' || i._status === 'missed').length,
           }
@@ -1587,7 +1656,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 onClick={() => {
                   const headers = ['Type','Customer','Phone','Product','Qty','Date','Slot','Amount','Status']
                   const rows = visibleRows.map(item => [
-                    item.orderType === 'trial' ? 'Trial' : item.orderType === 'subscription' ? 'Subscription' : 'Order',
+                    item.orderType === 'trial' ? 'Trial' : item.orderType === 'subscription' ? 'Subscription' : item._itemType === 'addon' ? 'Extra Order' : 'Order',
                     item.profiles?.full_name || '',
                     item.profiles?.phone || '',
                     item.products?.size || '',
@@ -1632,10 +1701,10 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                   : item._status === 'paused' ? '⏸ Paused'
                   : '🕐 Pending'
                 return (
-                  <div key={(isSub ? 'sub-' : 'ord-') + item.id}
+                  <div key={(isSub ? 'sub-' : item._itemType === 'addon' ? 'addon-' : 'ord-') + item.id}
                     className={`px-6 py-4 flex items-start gap-4 ${index !== visibleRows.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-[#f5f0e8]">
-                      {item.orderType === 'subscription' ? '📅' : item.orderType === 'trial' ? '🎁' : '🛒'}
+                      {item.orderType === 'subscription' ? '📅' : item.orderType === 'trial' ? '🎁' : item._itemType === 'addon' ? '➕' : '🛒'}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-0.5">
@@ -1643,9 +1712,10 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
                           item.orderType === 'subscription' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
                           : item.orderType === 'trial' ? 'bg-orange-50 text-orange-600 border-orange-200'
+                          : item._itemType === 'addon' ? 'bg-blue-50 text-blue-600 border-blue-200'
                           : 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'
                         }`}>
-                          {item.orderType === 'subscription' ? '📅 Subscription' : item.orderType === 'trial' ? '🎁 Trial' : '🛒 Order'}
+                          {item.orderType === 'subscription' ? '📅 Subscription' : item.orderType === 'trial' ? '🎁 Trial' : item._itemType === 'addon' ? '➕ Extra Order' : '🛒 Order'}
                         </span>
                         {isSub && <FreqBadge freq={item.delivery_frequency} />}
                         {isSub && (
@@ -1692,7 +1762,41 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       ) : (
                         <select
                           value={item._status === 'paused' ? 'pending' : item._status}
-                          onChange={(e) => isSub ? handleSubStatusChange(item.id, e.target.value) : updateOrderStatus(item.id, e.target.value)}
+                          onChange={async (e) => {
+                            const newStatus = e.target.value
+                            if (isSub) {
+                              handleSubStatusChange(item.id, newStatus)
+                            } else if (item._itemType === 'addon') {
+                              const { data: { session } } = await supabase.auth.getSession()
+                              if (newStatus === 'delivered') {
+                                const res = await fetch('/api/delivery/confirm', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                                  body: JSON.stringify({ type: 'addon', addon_id: item.id }),
+                                })
+                                if (res.ok) {
+                                  setAddonOrders(prev => prev.map(a => a.id === item.id ? { ...a, status: 'delivered' } : a))
+                                  setTodayAddons(prev => prev.filter(a => a.id !== item.id))
+                                } else {
+                                  showError('Failed to confirm addon delivery.')
+                                }
+                              } else {
+                                const res = await fetch('/api/admin/update-addon-status', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                                  body: JSON.stringify({ addon_id: item.id, status: newStatus }),
+                                })
+                                if (res.ok) {
+                                  setAddonOrders(prev => prev.map(a => a.id === item.id ? { ...a, status: newStatus } : a))
+                                  setTodayAddons(prev => prev.map(a => a.id === item.id ? { ...a, status: newStatus } : a))
+                                } else {
+                                  showError('Failed to update addon status.')
+                                }
+                              }
+                            } else {
+                              updateOrderStatus(item.id, newStatus)
+                            }
+                          }}
                           className={`text-xs font-semibold px-3 py-1.5 rounded-full border cursor-pointer ${statusCls}`}>
                           <option value="pending">Pending</option>
                           <option value="out_for_delivery">Out for Delivery</option>
