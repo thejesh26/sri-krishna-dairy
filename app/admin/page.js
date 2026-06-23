@@ -1,12 +1,14 @@
 'use client'
 import { useState, useEffect } from 'react'
 
-function isDeliveryDay(sub) {
+function isDeliveryDay(sub, dateStr) {
   const freq = sub.delivery_frequency || 'daily'
   if (freq === 'daily') return true
   const start = new Date(sub.start_date + 'T00:00:00+05:30')
-const todayIST = new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) + 'T00:00:00+05:30')
-const daysDiff = Math.round((todayIST - start) / (1000 * 60 * 60 * 24))
+  const checkDate = dateStr
+    ? new Date(dateStr + 'T00:00:00+05:30')
+    : new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) + 'T00:00:00+05:30')
+  const daysDiff = Math.round((checkDate - start) / (1000 * 60 * 60 * 24))
   if (freq === 'alternate') return daysDiff % 2 === 0
   if (freq === 'weekly') return daysDiff % 7 === 0
   return true
