@@ -16,7 +16,7 @@ export async function POST(request) {
     }
 
     // Parse as IST midnight — new Date('YYYY-MM-DD') is UTC midnight which is 5:30AM IST and would reject valid evening requests
-    if ((new Date(pause_date + 'T00:00:00+05:30').getTime() - Date.now()) / (1000 * 60 * 60) < 12) {
+    if ((new Date(pause_date + 'T07:00:00+05:30').getTime() - Date.now()) / (1000 * 60 * 60) < 12) {
       return NextResponse.json({ error: 'Please pause at least 12 hours in advance.' }, { status: 400 })
     }
 
