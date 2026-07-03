@@ -943,12 +943,22 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
 
   const pauseDelivery = async (userId, name, date) => {
     if (!date) return
-    const { data: sub } = await supabase.from('subscriptions').select('id, paused_dates').eq('user_id', userId).eq('is_active', true).maybeSingle()
-    if (!sub) { showError('No active subscription found'); return }
-    const paused = sub.paused_dates || []
-    if (!paused.includes(date)) paused.push(date)
-    await supabase.from('subscriptions').update({ paused_dates: paused }).eq('id', sub.id)
-    showSuccess(`Delivery paused for ${name} on ${date}`)
+    // Fetch ALL active subscriptions — maybeSingle() would silently skip customers with 2+ active subs (e.g. Julie, Amit Chaudhary)
+    const { data: subs } = await supabase.from('subscriptions').select('id, paused_dates').eq('user_id', userId).eq('is_active', true)
+    if (!subs || subs.length === 0) { showError('No active subscription found'); return }
+    let pausedCount = 0
+    for (const sub of subs) {
+      const paused = sub.paused_dates || []
+      if (!paused.includes(date)) {
+        await supabase.from('subscriptions').update({ paused_dates: [...paused, date] }).eq('id', sub.id)
+        pausedCount++
+      }
+    }
+    if (pausedCount === 0) {
+      showSuccess(`${name} already has ${date} paused on all subscriptions`)
+    } else {
+      showSuccess(`Delivery paused for ${name} on ${date}${subs.length > 1 ? ` (${pausedCount}/${subs.length} subscriptions updated)` : ''}`)
+    }
   }
 
   const sendBroadcast = async () => {

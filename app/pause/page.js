@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ToastContext'
-import { getEarliestPauseDate } from '../lib/pricing'
+import { getEarliestPauseDate, formatPauseCutoffTime } from '../lib/pricing'
 import Footer from '../components/Footer'
 
 export default function PauseSubscription() {
@@ -27,9 +27,10 @@ export default function PauseSubscription() {
     const earliest = getEarliestPauseDate()
     setPauseDate(earliest)
     setRangeStart(earliest)
-    const nextDay = new Date(earliest + 'T00:00:00+05:30')
-    nextDay.setDate(nextDay.getDate() + 1)
-    setRangeEnd(nextDay.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))
+    // Pure ms arithmetic: parse IST midnight → add exactly 24h → reformat in IST.
+    // Avoids setDate(getDate()+1) which uses local-browser timezone and can skew in UTC± zones.
+    const nextDayMs = new Date(earliest + 'T00:00:00+05:30').getTime() + 24 * 60 * 60 * 1000
+    setRangeEnd(new Date(nextDayMs).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))
   }, [])
 
   const getUser = async () => {
@@ -63,7 +64,7 @@ export default function PauseSubscription() {
   const handlePause = async () => {
     if (!selectedSub) { showError('Please select a subscription!'); return }
     if (!isValidPauseDate()) {
-      showError('Too late to pause for that date. After 8PM IST, the earliest date is day after tomorrow.')
+      showError(`Too late to pause for that date. After ${formatPauseCutoffTime()} IST, the earliest date is day after tomorrow.`)
       return
     }
     setLoading(true)
@@ -95,19 +96,20 @@ export default function PauseSubscription() {
     if (!rangeStart || !rangeEnd) { showError('Please select both start and end dates.'); return }
     if (rangeEnd < rangeStart) { showError('End date must be after start date.'); return }
 
-    // Generate all dates in range
+    // Generate all dates in range using pure IST ms arithmetic.
+    // toISOString()+setDate(getDate()+1) is local-tz-dependent and misdates in non-IST browsers.
+    const DAY_MS = 24 * 60 * 60 * 1000
+    const startMs = new Date(rangeStart + 'T00:00:00+05:30').getTime()
+    const endMs = new Date(rangeEnd + 'T00:00:00+05:30').getTime()
     const dates = []
-    const current = new Date(rangeStart)
-    const end = new Date(rangeEnd)
-    while (current <= end) {
-      dates.push(current.toISOString().split('T')[0])
-      current.setDate(current.getDate() + 1)
+    for (let ms = startMs; ms <= endMs; ms += DAY_MS) {
+      dates.push(new Date(ms).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))
     }
     if (dates.length > 30) { showError('Range cannot exceed 30 days.'); return }
 
-    // Validate start date respects the 8PM IST cutoff
+    // Validate start date respects the cutoff
     if (rangeStart < getEarliestPauseDate()) {
-      showError('Too late to pause for that date. After 8PM IST, the earliest date is day after tomorrow.')
+      showError(`Too late to pause for that date. After ${formatPauseCutoffTime()} IST, the earliest date is day after tomorrow.`)
       return
     }
 
@@ -258,7 +260,7 @@ export default function PauseSubscription() {
           <span className="text-2xl">⏰</span>
           <div>
             <p className="text-[#d4a017] text-sm font-semibold">Pause at least 12 hours in advance</p>
-            <p className="text-yellow-600 text-xs mt-0.5">Changes made after 8PM apply from day after tomorrow</p>
+            <p className="text-yellow-600 text-xs mt-0.5">Changes made after {formatPauseCutoffTime()} apply from day after tomorrow</p>
           </div>
         </div>
 

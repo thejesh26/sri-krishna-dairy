@@ -3,7 +3,7 @@ import { supabaseAdmin } from '../../../lib/db'
 import { requireAuth } from '../../../lib/auth'
 import { sendSubscriptionPausedEmail } from '../../../lib/email'
 import { notifyAdmin } from '../../../lib/whatsapp'
-import { getEarliestPauseDate } from '../../../lib/pricing'
+import { getEarliestPauseDate, formatPauseCutoffTime } from '../../../lib/pricing'
 
 export async function POST(request) {
   try {
@@ -16,9 +16,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid input.' }, { status: 400 })
     }
 
-    // Enforce 8PM IST cutoff: before 8PM → can pause tomorrow; after 8PM → must be day after tomorrow or later
+    // Enforce cutoff: before cutoff → can pause tomorrow; at/after cutoff → must be day after tomorrow or later
     if (pause_date < getEarliestPauseDate()) {
-      return NextResponse.json({ error: 'Too late to pause for that date. After 8PM IST, the earliest pauseable date is day after tomorrow.' }, { status: 400 })
+      return NextResponse.json({ error: `Too late to pause for that date. After ${formatPauseCutoffTime()} IST, the earliest pauseable date is day after tomorrow.` }, { status: 400 })
     }
 
     // Fetch subscription (ownership enforced by user_id filter)
