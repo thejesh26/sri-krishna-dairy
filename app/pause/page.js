@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ToastContext'
+import { getEarliestPauseDate } from '../lib/pricing'
 import Footer from '../components/Footer'
 
 export default function PauseSubscription() {
@@ -23,14 +24,12 @@ export default function PauseSubscription() {
 
   useEffect(() => {
     getUser()
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const tomorrowStr = tomorrow.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-    setPauseDate(tomorrowStr)
-    setRangeStart(tomorrowStr)
-    const dayAfter = new Date()
-    dayAfter.setDate(dayAfter.getDate() + 2)
-    setRangeEnd(dayAfter.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))
+    const earliest = getEarliestPauseDate()
+    setPauseDate(earliest)
+    setRangeStart(earliest)
+    const nextDay = new Date(earliest + 'T00:00:00+05:30')
+    nextDay.setDate(nextDay.getDate() + 1)
+    setRangeEnd(nextDay.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))
   }, [])
 
   const getUser = async () => {
@@ -59,16 +58,12 @@ export default function PauseSubscription() {
     setAvailableProducts(data || [])
   }
 
-  const isValidPauseDate = () => {
-    const now = new Date()
-    const selected = new Date(pauseDate)
-    return (selected - now) / (1000 * 60 * 60) >= 12
-  }
+  const isValidPauseDate = () => pauseDate >= getEarliestPauseDate()
 
   const handlePause = async () => {
     if (!selectedSub) { showError('Please select a subscription!'); return }
     if (!isValidPauseDate()) {
-      showError('Please pause at least 12 hours in advance!')
+      showError('Too late to pause for that date. After 8PM IST, the earliest date is day after tomorrow.')
       return
     }
     setLoading(true)
@@ -110,9 +105,9 @@ export default function PauseSubscription() {
     }
     if (dates.length > 30) { showError('Range cannot exceed 30 days.'); return }
 
-    // Validate first date is 12h in advance
-    if ((new Date(rangeStart) - new Date()) / (1000 * 60 * 60) < 12) {
-      showError('Start date must be at least 12 hours from now!')
+    // Validate start date respects the 8PM IST cutoff
+    if (rangeStart < getEarliestPauseDate()) {
+      showError('Too late to pause for that date. After 8PM IST, the earliest date is day after tomorrow.')
       return
     }
 
@@ -453,7 +448,7 @@ export default function PauseSubscription() {
                 <div className="flex gap-2">
                   <input type="date" value={pauseDate}
                     onChange={(e) => setPauseDate(e.target.value)}
-                    min={new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                    min={getEarliestPauseDate()}
                     className="flex-1 border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
                   <button type="button" onClick={handlePause} disabled={loading}
                     className="bg-[#d4a017] text-white font-bold px-5 py-2 rounded-lg hover:bg-[#b8860b] transition text-sm">
@@ -467,7 +462,7 @@ export default function PauseSubscription() {
                       <label className="text-xs text-gray-500 mb-1 block">From</label>
                       <input type="date" value={rangeStart}
                         onChange={(e) => setRangeStart(e.target.value)}
-                        min={new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                        min={getEarliestPauseDate()}
                         className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
                     </div>
                     <div>

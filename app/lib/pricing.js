@@ -60,3 +60,23 @@ export function getTomorrowISTDate() {
   d.setDate(d.getDate() + 1)
   return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 }
+
+// Deliveries are dispatched at ~5AM; pause requests after 8PM IST are too late for tomorrow's delivery.
+export const PAUSE_CUTOFF_HOUR_IST = 20
+
+export function isPastPauseCutoff() {
+  const hourIST = parseInt(
+    new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false })
+  )
+  return hourIST >= PAUSE_CUTOFF_HOUR_IST
+}
+
+/**
+ * Earliest date that can still be paused, in IST (YYYY-MM-DD).
+ * Before 8PM → tomorrow; at/after 8PM → day after tomorrow.
+ */
+export function getEarliestPauseDate() {
+  const d = new Date()
+  d.setDate(d.getDate() + (isPastPauseCutoff() ? 2 : 1))
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+}
