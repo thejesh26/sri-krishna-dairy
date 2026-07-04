@@ -1,5 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { parseFilterQuery, getAddress, sortByTowerFlat } from '../lib/address'
+import AddressBadge from '../components/AddressBadge'
 
 function isDeliveryDay(sub, dateStr) {
   const freq = sub.delivery_frequency || 'daily'
@@ -14,46 +16,14 @@ function isDeliveryDay(sub, dateStr) {
   return true
 }
 
-function parseAddress(addressText) {
-  if (!addressText) return { tower: null, flat: null }
-  const text = addressText.toLowerCase()
-  const towerMatch = text.match(/tower[\s-]*(\d+[a-z]?)|(?:^|\s)t(\d+)\b|block[\s-]*([a-z0-9]+)/i)
-  const tower = towerMatch ? (towerMatch[1] || towerMatch[2] || towerMatch[3]) : null
-  const numbers = text.match(/\d+/g) || []
-  const flat = numbers.length > 0 ? numbers.reduce((a, b) => b.length >= a.length ? b : a) : null
-  return { tower, flat: flat ? String(flat) : null }
-}
-
-function parseFilterQuery(query) {
-  const match = query.trim().match(/^t?(\d+)\s+(\d+)$/i)
-  if (match) return { tower: match[1], flatPrefix: match[2] }
-  const towerOnly = query.trim().match(/^t?(\d+)$/i)
-  if (towerOnly) return { tower: towerOnly[1], flatPrefix: null }
-  return null
-}
-
 function matchesAddressFilter(item, query) {
   if (!query.trim()) return true
   const parsed = parseFilterQuery(query)
   if (!parsed) return false
-  const addr = parseAddress((item.profiles?.apartment_name || '') + ' ' + (item.profiles?.flat_number || ''))
+  const addr = getAddress(item.profiles)
   if (addr.tower !== parsed.tower) return false
   if (parsed.flatPrefix && !addr.flat?.startsWith(parsed.flatPrefix)) return false
   return true
-}
-
-function AddressBadge({ profile }) {
-  const combined = [profile?.apartment_name, profile?.flat_number].filter(Boolean).join(' ')
-  const { tower, flat } = parseAddress(combined)
-  if (!tower && !flat) return null
-  const parts = []
-  if (tower) parts.push(`T${tower.toUpperCase()}`)
-  if (flat) parts.push(flat)
-  return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
-      🏢 {parts.join(' · ')}
-    </span>
-  )
 }
 
 function FreqBadge({ freq }) {
@@ -1258,7 +1228,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
             ) : (
               <div>
                 {/* Subscription deliveries */}
-                {todaySubscriptions.filter(s => matchesAddressFilter(s, todayAddressFilter)).map((sub) => {
+                {[...todaySubscriptions].sort(sortByTowerFlat).filter(s => matchesAddressFilter(s, todayAddressFilter)).map((sub) => {
                   const subStatus = subDeliveryStatuses[sub.id] || 'pending'
                   const statusCls = subStatus === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
                     : subStatus === 'out_for_delivery' ? 'bg-blue-50 text-blue-600 border-blue-200'

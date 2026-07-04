@@ -11,6 +11,7 @@ export async function GET(request) {
     const ids = searchParams.get('ids')?.split(',').map(Number).filter(Boolean)
     const date = searchParams.get('date')
     if (!ids?.length || !date) return NextResponse.json({ statuses: {} })
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return NextResponse.json({ statuses: {} })
 
     const { data, error } = await supabaseAdmin
       .from('subscription_deliveries')

@@ -3,12 +3,13 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import Footer from '../components/Footer'
+import { TOWER_OPTIONS, extractFlatNo } from '../lib/address'
 
 export default function SignUp() {
   const router = useRouter()
   const [form, setForm] = useState({
     full_name: '', phone: '', email: '', password: '',
-    area: '', building_name: '', flat_number: '', landmark: '', referral_code: ''
+    area: '', tower: '', building_name: '', flat_number: '', landmark: '', referral_code: ''
   })
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -93,24 +94,23 @@ export default function SignUp() {
       area: form.area,
       landmark: form.landmark,
       referral_code: newReferralCode,
+      tower: form.tower || null,
+      flat_no: extractFlatNo(form.flat_number),
     })
 
     if (profileError) {
       await supabase.auth.signOut()
       setMessage('Account setup failed. Please try signing up again. (' + profileError.message + ')')
     } else {
-      // If referred by someone, record the referral
+      // If referred by someone, record the referral.
+      // Uses validate_referral_code() (SECURITY DEFINER) because the profiles SELECT
+      // policy no longer allows broad reads — a new user can only see their own row.
       if (form.referral_code.trim()) {
         const code = form.referral_code.trim().toUpperCase()
-        const { data: referrer } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('referral_code', code)
-          .maybeSingle()
-        // Validate: referrer exists AND is not the same person signing up
-        if (referrer && referrer.id !== data.user.id) {
+        const { data: referrerId } = await supabase.rpc('validate_referral_code', { p_code: code })
+        if (referrerId && referrerId !== data.user.id) {
           await supabase.from('referrals').insert({
-            referrer_id: referrer.id,
+            referrer_id: referrerId,
             referred_id: data.user.id,
             status: 'pending',
           })
@@ -263,10 +263,22 @@ export default function SignUp() {
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Flat / Door Number</label>
-                  <input name="flat_number" placeholder="Eg: A-101" required
+                  <input name="flat_number" placeholder="Eg: T1-404" required
                     className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
                     onChange={handleChange} />
                 </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Tower (Optional)</label>
+                <select name="tower" onChange={handleChange}
+                  className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] text-[#1c1c1c]">
+                  <option value="">-- No tower / standalone house --</option>
+                  {TOWER_OPTIONS.map(t => (
+                    <option key={t} value={t}>Tower {t}</option>
+                  ))}
+                  <option value="Other">Other</option>
+                </select>
               </div>
 
               <div>

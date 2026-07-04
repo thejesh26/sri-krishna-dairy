@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ToastContext'
 import Footer from '../components/Footer'
+import { TOWER_OPTIONS, extractFlatNo } from '../lib/address'
 import { TabBar, EmptyState, StatusBadge } from '../components/ui'
 
 function ProfileInner() {
@@ -12,7 +13,7 @@ function ProfileInner() {
   const [user, setUser] = useState(null)
   const [form, setForm] = useState({
     full_name: '', phone: '', area: '',
-    apartment_name: '', flat_number: '', landmark: '', pincode: '',
+    tower: '', apartment_name: '', flat_number: '', landmark: '', pincode: '',
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -62,6 +63,7 @@ function ProfileInner() {
         full_name: profile.full_name || '',
         phone: profile.phone || '',
         area: profile.area || '',
+        tower: profile.tower || '',
         apartment_name: profile.apartment_name || '',
         flat_number: profile.flat_number || '',
         landmark: profile.landmark || '',
@@ -124,8 +126,10 @@ function ProfileInner() {
         full_name: form.full_name,
         phone: form.phone,
         area: form.area,
+        tower: form.tower || null,
         apartment_name: form.apartment_name,
         flat_number: form.flat_number,
+        flat_no: extractFlatNo(form.flat_number),
         landmark: form.landmark,
         pincode: form.pincode,
         address: fullAddress,
@@ -245,6 +249,18 @@ function ProfileInner() {
                       autoComplete="address-line2"
                       className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
                   </div>
+                </div>
+
+                <div className="mb-4">
+                  <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Tower (Optional)</label>
+                  <select name="tower" value={form.tower} onChange={handleChange}
+                    className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] text-[#1c1c1c]">
+                    <option value="">-- No tower / standalone house --</option>
+                    {TOWER_OPTIONS.map(t => (
+                      <option key={t} value={t}>Tower {t}</option>
+                    ))}
+                    <option value="Other">Other</option>
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
