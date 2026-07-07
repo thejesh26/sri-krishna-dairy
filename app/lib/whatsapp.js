@@ -1,4 +1,4 @@
-import { sendEmail } from './email'
+﻿import { sendEmail } from './email'
 import { createAdminNotification } from './notify'
 
 const WA_API_URL = `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`
@@ -254,7 +254,7 @@ async function notifyUndelivered({ phone, name }) {
     `Hi ${name}! We couldn't confirm your milk delivery today.\n\n` +
     `You have NOT been charged.\n\n` +
     `If you did receive your milk, please contact us:\n` +
-    `9980166221\n\n` +
+    `8105054473\n\n` +
     `- Sri Krishnaa Dairy Team`
   )
 }
@@ -283,7 +283,7 @@ async function notifyPointsExpiring({ phone, name, points, expiryDate }) {
 }
 
 // NOTE: Requires 'welcome_customer' template approved in Meta WhatsApp Business Manager
-// Template body example: "Welcome to Sri Krishnaa Dairy! 🥛\n\nHi {{1}}, your account is ready.\nTo receive delivery updates, save our number and send 'Hi' on WhatsApp: +91 9980166221.\n\nFarm Fresh · Pure · Natural"
+// Template body example: "Welcome to Sri Krishnaa Dairy! 🥛\n\nHi {{1}}, your account is ready.\nTo receive delivery updates, save our number and send 'Hi' on WhatsApp: +91 8105054473.\n\nFarm Fresh · Pure · Natural"
 async function notifyWelcome(phone, name) {
   return sendTemplate(phone, 'welcome_customer', [name || 'there'])
 }

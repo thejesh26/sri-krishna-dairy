@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -302,7 +302,7 @@ export default function Order() {
         {!trialEnabled && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-5 text-center">
             <p className="font-bold text-red-700">Trial orders are currently unavailable.</p>
-            <p className="text-sm text-red-500 mt-1">Please check back later or contact us at 9980166221.</p>
+            <p className="text-sm text-red-500 mt-1">Please check back later or contact us at 8105054473.</p>
           </div>
         )}
 

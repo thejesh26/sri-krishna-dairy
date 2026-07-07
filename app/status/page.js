@@ -1,4 +1,4 @@
-export const metadata = {
+﻿export const metadata = {
   title: 'System Status — Sri Krishnaa Dairy',
   description: 'Sri Krishnaa Dairy system status page.',
 }
@@ -69,7 +69,7 @@ export default function StatusPage() {
           <p className="mb-3">Having issues? Contact us:</p>
           <p className="flex items-center justify-center gap-2 mb-1">
             <span>📞</span>
-            <a href="tel:9980166221" className="font-semibold text-[#1c1c1c] hover:text-[#1a5c38] transition">9980166221</a>
+            <a href="tel:8105054473" className="font-semibold text-[#1c1c1c] hover:text-[#1a5c38] transition">8105054473</a>
           </p>
           <p className="flex items-center justify-center gap-2">
             <span>📧</span>

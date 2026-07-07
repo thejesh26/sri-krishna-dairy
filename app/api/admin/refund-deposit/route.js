@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../lib/db'
 import { requireAdmin } from '../../../lib/auth'
 import { sendEmail } from '../../../lib/email'
@@ -70,7 +70,7 @@ export async function POST(request) {
           `The amount has been credited to your Sri Krishnaa Dairy wallet.\n` +
           `New wallet balance: ₹${newBalance}\n\n` +
           `If you paid via Razorpay and want a bank transfer instead, contact us:\n` +
-          `📞 9980166221\n\n` +
+          `📞 8105054473\n\n` +
           `Thank you for being a valued customer! 🥛\n` +
           `— Sri Krishnaa Dairy Team`
         )
@@ -91,10 +91,10 @@ export async function POST(request) {
   <div style="background:#f0faf4;border:1px solid #c8e6d4;border-radius:8px;padding:14px 16px;margin-bottom:16px;">
     <p style="margin:0;font-size:13px;color:#1a5c38;">Wallet credits are instant. Bank transfers (if requested) take 3-5 business days.</p>
   </div>
-  <p style="color:#555;font-size:13px;">If you paid via Razorpay and prefer a bank transfer, please call or WhatsApp us at <strong>9980166221</strong>.</p>
+  <p style="color:#555;font-size:13px;">If you paid via Razorpay and prefer a bank transfer, please call or WhatsApp us at <strong>8105054473</strong>.</p>
   <p style="color:#999;font-size:12px;margin-top:16px;">Thank you for being a valued customer! — Sri Krishnaa Dairy Team</p>
 </div>`,
-          text: `Hi ${name},\n\nYour bottle deposit refund of ₹${amount} has been processed.\nNew wallet balance: ₹${newBalance}\n\nWallet credits are instant. Bank transfers (if requested) take 3-5 business days.\n\nQuestions? Call 9980166221\n— Sri Krishnaa Dairy Team`,
+          text: `Hi ${name},\n\nYour bottle deposit refund of ₹${amount} has been processed.\nNew wallet balance: ₹${newBalance}\n\nWallet credits are instant. Bank transfers (if requested) take 3-5 business days.\n\nQuestions? Call 8105054473\n— Sri Krishnaa Dairy Team`,
         })
       }
     } catch {

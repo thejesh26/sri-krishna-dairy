@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../../../lib/db'
+﻿import { supabaseAdmin } from '../../../lib/db'
 import { requireAdmin } from '../../../lib/auth'
 import { sendEmail } from '../../../lib/email'
 import { sendWhatsAppMessage } from '../../../lib/whatsapp'
@@ -49,16 +49,16 @@ export async function POST(request) {
         subject: 'Subscription Stopped - Sri Krishnaa Dairy',
         html: `<p>Hi ${name},</p>
 <p>Your milk subscription has been stopped by the admin.</p>
-<p>For queries, please contact us at <strong>9980166221</strong> or <strong>hello@srikrishnaadairy.in</strong></p>
+<p>For queries, please contact us at <strong>8105054473</strong> or <strong>hello@srikrishnaadairy.in</strong></p>
 <p>— Sri Krishnaa Dairy Team</p>`,
-        text: `Hi ${name}, your milk subscription has been stopped by admin. For queries contact: 9980166221 or hello@srikrishnaadairy.in`,
+        text: `Hi ${name}, your milk subscription has been stopped by admin. For queries contact: 8105054473 or hello@srikrishnaadairy.in`,
       }).catch(() => {})
     }
 
     if (profile?.phone) {
       await sendWhatsAppMessage(
         profile.phone,
-        `Hi ${name}! Your milk subscription has been stopped. Please contact us: 9980166221`
+        `Hi ${name}! Your milk subscription has been stopped. Please contact us: 8105054473`
       ).catch(() => {})
     }
 

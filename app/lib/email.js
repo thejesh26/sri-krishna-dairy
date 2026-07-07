@@ -1,4 +1,4 @@
-import { Resend } from 'resend'
+﻿import { Resend } from 'resend'
 
 const FROM = 'Sri Krishnaa Dairy <orders@srikrishnaadairy.in>'
 const REPLY_TO = 'hello@srikrishnaadairy.in'
@@ -60,7 +60,7 @@ function wrapLayout(title, bodyHtml) {
               <p style="margin:0 0 4px;color:#d4a017;font-size:13px;font-weight:bold;">Sri Krishnaa Dairy Farms</p>
               <p style="margin:0 0 4px;color:#9ca3af;font-size:12px;">Kattigenahalli, Bangalore, Karnataka</p>
               <p style="margin:0 0 8px;color:#9ca3af;font-size:12px;">
-                <a href="tel:9980166221" style="color:#9ca3af;text-decoration:none;">9980166221</a>
+                <a href="tel:8105054473" style="color:#9ca3af;text-decoration:none;">8105054473</a>
                 &nbsp;&bull;&nbsp;
                 <a href="https://srikrishnaadairy.in" style="color:#d4a017;text-decoration:none;">srikrishnaadairy.in</a>
               </p>
@@ -95,7 +95,7 @@ const TEXT_FOOTER = `
 --
 Sri Krishnaa Dairy Farms
 Kattigenahalli, Bangalore, Karnataka
-Phone: 9980166221
+Phone: 8105054473
 Website: https://srikrishnaadairy.in
 FSSAI Lic. No: 21225008004544
 
@@ -133,8 +133,8 @@ export async function sendOrderConfirmationEmail({ to, name, product, quantity, 
 
     <div style="background:#f0faf4;border:1px solid #1a5c38;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
       <p style="margin:0;font-size:13px;color:#1a5c38;font-weight:bold;">📱 Get WhatsApp Updates</p>
-      <p style="margin:6px 0 12px;font-size:13px;color:#4b5563;">Save our number <strong>+91 9980166221</strong> and send <strong>'Hi'</strong> to receive real-time delivery updates on WhatsApp!</p>
-      <a href="https://wa.me/919980166221?text=Hi" style="display:inline-block;background:#25D366;color:#ffffff;text-decoration:none;font-weight:bold;font-size:13px;padding:8px 20px;border-radius:6px;">Send 'Hi' on WhatsApp</a>
+      <p style="margin:6px 0 12px;font-size:13px;color:#4b5563;">Save our number <strong>+91 8105054473</strong> and send <strong>'Hi'</strong> to receive real-time delivery updates on WhatsApp!</p>
+      <a href="https://wa.me/918105054473?text=Hi" style="display:inline-block;background:#25D366;color:#ffffff;text-decoration:none;font-weight:bold;font-size:13px;padding:8px 20px;border-radius:6px;">Send 'Hi' on WhatsApp</a>
     </div>
 
     <div style="text-align:center;">
@@ -198,8 +198,8 @@ export async function sendSubscriptionConfirmationEmail({ to, name, product, qua
 
     <div style="background:#f0faf4;border:1px solid #1a5c38;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
       <p style="margin:0;font-size:13px;color:#1a5c38;font-weight:bold;">📱 Get WhatsApp Updates</p>
-      <p style="margin:6px 0 12px;font-size:13px;color:#4b5563;">Save our number <strong>+91 9980166221</strong> and send <strong>'Hi'</strong> to receive real-time delivery updates on WhatsApp!</p>
-      <a href="https://wa.me/919980166221?text=Hi" style="display:inline-block;background:#25D366;color:#ffffff;text-decoration:none;font-weight:bold;font-size:13px;padding:8px 20px;border-radius:6px;">Send 'Hi' on WhatsApp</a>
+      <p style="margin:6px 0 12px;font-size:13px;color:#4b5563;">Save our number <strong>+91 8105054473</strong> and send <strong>'Hi'</strong> to receive real-time delivery updates on WhatsApp!</p>
+      <a href="https://wa.me/918105054473?text=Hi" style="display:inline-block;background:#25D366;color:#ffffff;text-decoration:none;font-weight:bold;font-size:13px;padding:8px 20px;border-radius:6px;">Send 'Hi' on WhatsApp</a>
     </div>
 
     <div style="text-align:center;">
@@ -351,7 +351,7 @@ Your milk delivery has been paused for ${formattedDate}. All other days remain a
 
 You can resume this date anytime from your dashboard at https://srikrishnaadairy.in/pause
 
-Need help? Contact us at hello@srikrishnaadairy.in or call 9980166221.
+Need help? Contact us at hello@srikrishnaadairy.in or call 8105054473.
 ${TEXT_FOOTER}`
 
   return sendEmail({
@@ -395,7 +395,7 @@ Please return your bottles in good condition to receive your full deposit refund
 
 You can start a new subscription anytime at https://srikrishnaadairy.in/subscribe
 
-Questions? Email hello@srikrishnaadairy.in or call 9980166221.
+Questions? Email hello@srikrishnaadairy.in or call 8105054473.
 ${TEXT_FOOTER}`
 
   return sendEmail({
@@ -625,7 +625,7 @@ export async function sendUndeliveredAlertEmail({ to, name }) {
 
     <div style="background:#f0faf4;border:1px solid #c8e6d4;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
       <p style="margin:0;font-size:13px;color:#1a5c38;font-weight:bold;">Did you receive your milk?</p>
-      <p style="margin:6px 0 0;font-size:13px;color:#1a5c38;">If you did receive your milk today, please contact us at 9980166221 so we can update our records.</p>
+      <p style="margin:6px 0 0;font-size:13px;color:#1a5c38;">If you did receive your milk today, please contact us at 8105054473 so we can update our records.</p>
     </div>
 
     <div style="text-align:center;">
@@ -636,7 +636,7 @@ export async function sendUndeliveredAlertEmail({ to, name }) {
 
 We were unable to confirm your milk delivery today. You have NOT been charged.
 
-If you did receive your milk, please contact us at 9980166221.
+If you did receive your milk, please contact us at 8105054473.
 
 View your dashboard: https://srikrishnaadairy.in/dashboard
 ${TEXT_FOOTER}`

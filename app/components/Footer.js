@@ -1,4 +1,4 @@
-export default function Footer({ variant = 'app' }) {
+﻿export default function Footer({ variant = 'app' }) {
   const appLinks = [
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/subscribe', label: 'Subscribe' },
@@ -60,7 +60,7 @@ export default function Footer({ variant = 'app' }) {
             <ul className="flex flex-col gap-4 text-sm text-gray-400">
               <li className="flex items-start gap-3">
                 <span className="text-[#d4a017] mt-0.5">📞</span>
-                <a href="tel:9980166221" className="hover:text-white transition">9980166221</a>
+                <a href="tel:8105054473" className="hover:text-white transition">8105054473</a>
               </li>
               <li className="flex items-start gap-3">
                 <span className="text-[#d4a017] mt-0.5">✉️</span>

@@ -99,7 +99,7 @@ export async function POST(request) {
   <p><strong>New Balance: ₹${newBalance}</strong></p>
   ${note ? `<p>Note: ${note}</p>` : ''}
   <p>Visit <a href="https://srikrishnaadairy.in/wallet">srikrishnaadairy.in/wallet</a> to check your balance.</p>
-  <p style="color:#999;font-size:12px;">For queries contact 9980166221 — Sri Krishnaa Dairy Team</p>
+  <p style="color:#999;font-size:12px;">For queries contact 8105054473 — Sri Krishnaa Dairy Team</p>
 </div>`,
           text: `Hi ${customerName}, ₹${action === 'add' ? amt : txnAmount} has been ${action === 'add' ? 'added to' : 'deducted from'} your wallet. New balance: ₹${newBalance}. Visit srikrishnaadairy.in/wallet`,
         })

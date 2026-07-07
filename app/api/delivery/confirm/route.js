@@ -112,10 +112,10 @@ export async function POST(request) {
   <h2 style="color:#1a5c38;margin-bottom:8px;">✅ Delivery Confirmed!</h2>
   <p style="color:#555;font-size:14px;">Hi ${customerName},</p>
   <p style="color:#555;font-size:14px;margin-bottom:16px;">Your <strong>${productLabel}</strong> was successfully delivered on <strong>${dateLabel}</strong>.</p>
-  <p style="color:#555;font-size:13px;">Questions? Call or WhatsApp <strong>9980166221</strong></p>
+  <p style="color:#555;font-size:13px;">Questions? Call or WhatsApp <strong>8105054473</strong></p>
   <p style="color:#999;font-size:12px;margin-top:16px;">– Sri Krishnaa Dairy Team</p>
 </div>`,
-            text: `Hi ${customerName},\n\nYour ${productLabel} was delivered on ${dateLabel}.\n\nQuestions? Call 9980166221\n\n– Sri Krishnaa Dairy Team`,
+            text: `Hi ${customerName},\n\nYour ${productLabel} was delivered on ${dateLabel}.\n\nQuestions? Call 8105054473\n\n– Sri Krishnaa Dairy Team`,
           })
         }
       } catch (notifyErr) {
@@ -372,7 +372,7 @@ export async function POST(request) {
             if (profileData?.phone) {
               await sendWhatsAppMessage(
                 profileData.phone,
-                `Your Sri Krishnaa Dairy delivery has been paused as we have not received ${newCount} bottles back. Please return the bottles to resume delivery. Contact us: 9980166221`
+                `Your Sri Krishnaa Dairy delivery has been paused as we have not received ${newCount} bottles back. Please return the bottles to resume delivery. Contact us: 8105054473`
               )
             }
             await notifyAdmin(

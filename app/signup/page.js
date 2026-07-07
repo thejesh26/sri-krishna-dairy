@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
@@ -307,7 +307,7 @@ export default function SignUp() {
               />
               <span className="text-xs text-[#1a5c38] leading-relaxed">
                 I agree to receive order updates, delivery notifications, and alerts on WhatsApp from{' '}
-                <strong>Sri Krishnaa Dairy (9980166221)</strong>. Standard messaging rates may apply.
+                <strong>Sri Krishnaa Dairy (8105054473)</strong>. Standard messaging rates may apply.
               </span>
             </label>
 

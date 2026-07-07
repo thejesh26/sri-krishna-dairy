@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -543,7 +543,7 @@ export default function Home() {
           <div className="text-4xl mb-3">✅</div>
           <p className="font-bold text-[#1a5c38] text-lg">Enquiry Received!</p>
           <p className="text-gray-500 text-sm mt-2">We'll contact you within 24 hours. You can also reach us directly on WhatsApp.</p>
-          <a href="https://wa.me/919980166221" target="_blank"
+          <a href="https://wa.me/918105054473" target="_blank"
             className="inline-flex items-center gap-2 mt-4 text-white text-sm font-bold px-5 py-2.5 rounded-lg hover:opacity-90 transition"
             style={{background:'#25D366'}}>
             WhatsApp Us
@@ -591,7 +591,7 @@ export default function Home() {
             style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
             {bulkSubmitting ? 'Sending...' : '📩 Send Enquiry'}
           </button>
-          <p className="text-xs text-gray-400 text-center">We'll respond within 24 hours. Prefer instant help? <a href="https://wa.me/919980166221" target="_blank" className="text-[#25D366] font-semibold">Chat on WhatsApp</a></p>
+          <p className="text-xs text-gray-400 text-center">We'll respond within 24 hours. Prefer instant help? <a href="https://wa.me/918105054473" target="_blank" className="text-[#25D366] font-semibold">Chat on WhatsApp</a></p>
         </form>
       )}
     </div>
@@ -636,7 +636,7 @@ export default function Home() {
           <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">Where We Deliver</p>
           <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-2">Our Delivery Zones</h3>
           <p className="text-center text-gray-500 text-sm mb-8 max-w-lg mx-auto">
-            We currently serve North Bangalore — Yelahanka and surrounding neighbourhoods. Not sure if we cover your area? <a href="https://wa.me/919980166221" target="_blank" className="text-[#1a5c38] font-semibold hover:underline">WhatsApp us</a>.
+            We currently serve North Bangalore — Yelahanka and surrounding neighbourhoods. Not sure if we cover your area? <a href="https://wa.me/918105054473" target="_blank" className="text-[#1a5c38] font-semibold hover:underline">WhatsApp us</a>.
           </p>
 
           {/* Map-style graphic */}
@@ -753,8 +753,8 @@ export default function Home() {
         <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#1c1c1c] mb-5">Contact Us</h3>
         <p className="text-gray-500 mb-10">Have questions? We're always happy to help!</p>
         <div className="flex flex-wrap justify-center gap-8 text-sm text-gray-600">
-          <span className="flex items-center gap-2">📞 <a href="tel:9980166221" className="text-[#1a5c38] font-semibold hover:underline">9980166221</a> <span className="text-gray-400 text-xs">(Mon–Sun, 6AM–8PM)</span></span>
-          <span className="flex items-center gap-2">💬 <a href="https://wa.me/919980166221" target="_blank" className="text-[#1a5c38] font-semibold hover:underline">WhatsApp Us</a></span>
+          <span className="flex items-center gap-2">📞 <a href="tel:8105054473" className="text-[#1a5c38] font-semibold hover:underline">8105054473</a> <span className="text-gray-400 text-xs">(Mon–Sun, 6AM–8PM)</span></span>
+          <span className="flex items-center gap-2">💬 <a href="https://wa.me/918105054473" target="_blank" className="text-[#1a5c38] font-semibold hover:underline">WhatsApp Us</a></span>
           <span className="flex items-center gap-2">✉️ <a href="mailto:hello@srikrishnaadairy.in" className="text-[#1a5c38] font-semibold hover:underline">hello@srikrishnaadairy.in</a></span>
           <span className="flex items-center gap-2">📍 <span>Kattigenahalli, Bangalore, Karnataka</span></span>
         </div>
@@ -787,7 +787,7 @@ export default function Home() {
 
       {/* WhatsApp banner */}
       <section className="max-w-3xl mx-auto px-6 py-6">
-        <a href="https://wa.me/919980166221?text=Hi" target="_blank"
+        <a href="https://wa.me/918105054473?text=Hi" target="_blank"
           className="flex items-center gap-3 bg-[#25D366] text-white rounded-xl px-4 py-3 text-sm font-semibold">
           <span>💬</span>
           <span>Save our number & send us a Hi on WhatsApp to receive delivery updates!</span>
@@ -855,7 +855,7 @@ export default function Home() {
               <ul className="flex flex-col gap-4 text-sm text-gray-400">
                 <li className="flex items-start gap-3">
                   <span className="text-[#d4a017] mt-0.5">📞</span>
-                  <a href="tel:9980166221" className="hover:text-white transition">9980166221</a>
+                  <a href="tel:8105054473" className="hover:text-white transition">8105054473</a>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="text-[#d4a017] mt-0.5">✉️</span>
