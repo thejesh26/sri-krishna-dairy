@@ -1179,6 +1179,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           <div className="flex gap-2 bg-white border border-[#e8e0d0] rounded-xl p-1 shadow-sm">
             {[
               { id: 'today', label: "Today's List", icon: '📋' },
+              { id: 'tomorrow', label: "Tomorrow's Delivery", icon: '🔜' },
               { id: 'upcoming', label: 'Upcoming (7 days)', icon: '📅' },
               { id: 'history', label: 'History (7 days)', icon: '📊' },
             ].map(({ id, label, icon }) => (
@@ -1186,7 +1187,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 onClick={() => {
                   setOverviewSubTab(id)
                   if (id === 'history' && !historyLoaded) loadDeliveryHistory()
-                  if (id === 'upcoming' && !upcomingLoaded) loadUpcomingDeliveries()
+                  if ((id === 'upcoming' || id === 'tomorrow') && !upcomingLoaded) loadUpcomingDeliveries()
                 }}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition ${
                   overviewSubTab === id ? 'bg-[#1a5c38] text-white shadow' : 'text-gray-500 hover:text-[#1a5c38]'
@@ -1204,7 +1205,26 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">
                   Today's Deliveries
                 </h3>
-                <p className="text-xs text-gray-400 mt-0.5">{todayOrders.length + todaySubscriptions.length} deliveries today ({todaySubscriptions.length} subscriptions, {todayOrders.length} one-time)</p>
+                <p className="text-xs text-gray-400 mt-0.5">{todayOrders.length + todayAddons.length + todaySubscriptions.length} deliveries today ({todaySubscriptions.length} subscriptions, {todayOrders.length + todayAddons.length} one-time)</p>
+                {(() => {
+                  const counts = {}
+                  ;[...todaySubscriptions, ...todayAddons, ...todayOrders].forEach(item => {
+                    const size = item.products?.size
+                    if (!size) return
+                    counts[size] = (counts[size] || 0) + (item.quantity || 1)
+                  })
+                  const entries = Object.entries(counts)
+                  if (!entries.length) return null
+                  return (
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {entries.map(([size, count]) => (
+                        <span key={size} className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
+                          🥛 {count} × {size}
+                        </span>
+                      ))}
+                    </div>
+                  )
+                })()}
               </div>
               <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-bold px-3 py-1.5 rounded-full border border-[#f0dfa0]">
                 {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
@@ -1433,6 +1453,97 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
             )}
           </div>
           )}
+
+          {/* Tomorrow sub-tab */}
+          {overviewSubTab === 'tomorrow' && (() => {
+            const tomorrowStr = new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+            const tomorrowData = upcomingDeliveries[tomorrowStr] || { subscriptions: [], orders: [] }
+            const { subscriptions: tSubs, orders: tOrders } = tomorrowData
+            const sizeCounts = {}
+            ;[...tSubs, ...tOrders].forEach(item => {
+              const size = item.products?.size
+              if (!size) return
+              sizeCounts[size] = (sizeCounts[size] || 0) + (item.quantity || 1)
+            })
+            return (
+              <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+                <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between">
+                  <div>
+                    <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">
+                      Tomorrow's Deliveries
+                    </h3>
+                    {!upcomingLoaded ? (
+                      <p className="text-xs text-gray-400 mt-0.5">Loading...</p>
+                    ) : (
+                      <>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {tSubs.length + tOrders.length} deliveries ({tSubs.length} subscriptions, {tOrders.length} one-time)
+                        </p>
+                        {Object.entries(sizeCounts).length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            {Object.entries(sizeCounts).map(([size, count]) => (
+                              <span key={size} className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
+                                🥛 {count} × {size}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-bold px-3 py-1.5 rounded-full border border-[#f0dfa0]">
+                    {new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </span>
+                </div>
+                {!upcomingLoaded ? (
+                  <div className="px-6 py-12 text-center text-gray-400">Loading...</div>
+                ) : tSubs.length === 0 && tOrders.length === 0 ? (
+                  <div className="px-6 py-12 text-center">
+                    <div className="text-5xl mb-3">📭</div>
+                    <p className="text-gray-400">No deliveries scheduled for tomorrow</p>
+                  </div>
+                ) : (
+                  <div>
+                    {tSubs.map(sub => (
+                      <div key={sub.id} className="px-6 py-4 border-b border-[#f5f0e8] flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-[#f0faf4] flex items-center justify-center flex-shrink-0 p-1.5">
+                          <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                            <p className="font-semibold text-[#1c1c1c] text-sm">{sub.profiles?.full_name}</p>
+                            <span className="text-xs bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4] px-2 py-0.5 rounded-full font-semibold">📅 Subscription</span>
+                            {sub.start_date === tomorrowStr && <span className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full font-semibold">🆕 First delivery</span>}
+                            <AddressBadge profile={sub.profiles} />
+                          </div>
+                          <p className="text-xs text-gray-400">{sub.profiles?.phone} · {sub.profiles?.area}</p>
+                          <p className="text-xs text-[#1a5c38] font-medium mt-0.5">{sub.products?.size} × {sub.quantity} · {sub.delivery_slot === 'morning' ? '🌅 7–9AM' : '🌆 5–7PM'}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {tOrders.map(order => (
+                      <div key={order.id} className="px-6 py-4 border-b border-[#f5f0e8] flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-[#f5f0e8] flex items-center justify-center text-xl flex-shrink-0">
+                          {['COD', 'wallet', 'razorpay'].includes(order.payment_method) ? '🎁' : '🛒'}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                            <p className="font-semibold text-[#1c1c1c] text-sm">{order.profiles?.full_name}</p>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${['COD', 'wallet', 'razorpay'].includes(order.payment_method) ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-[#fdf6e3] text-[#d4a017] border-[#f0dfa0]'}`}>
+                              {['COD', 'wallet', 'razorpay'].includes(order.payment_method) ? '🎁 Trial' : '🛒 Order'}
+                            </span>
+                            <AddressBadge profile={order.profiles} />
+                          </div>
+                          <p className="text-xs text-gray-400">{order.profiles?.phone} · {order.profiles?.area}</p>
+                          <p className="text-xs text-[#1a5c38] font-medium mt-0.5">{order.products?.size} × {order.quantity} · {order.delivery_slot === 'morning' ? '🌅 7–9AM' : '🌆 5–7PM'}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Upcoming sub-tab */}
           {overviewSubTab === 'upcoming' && (
