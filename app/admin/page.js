@@ -1358,7 +1358,17 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                                 setAddonOrders(prev => prev.map(a => a.id === addon.id ? { ...a, status: addon.status } : a))
                               }
                             } else {
-                              await supabase.from('addon_orders').update({ status: newStatus }).eq('id', addon.id)
+                              const { data: { session } } = await supabase.auth.getSession()
+                              const res = await fetch('/api/admin/update-addon-status', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                                body: JSON.stringify({ addon_id: addon.id, status: newStatus }),
+                              })
+                              if (!res.ok) {
+                                showError('Failed to update addon status')
+                                setTodayAddons(prev => prev.map(a => a.id === addon.id ? { ...a, status: addon.status } : a))
+                                setAddonOrders(prev => prev.map(a => a.id === addon.id ? { ...a, status: addon.status } : a))
+                              }
                             }
                           }}
                           className={`text-xs font-semibold px-3 py-1.5 rounded-full border cursor-pointer ${addonCls}`}>
@@ -4461,9 +4471,14 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
             })
             const data = await res.json()
             if (!res.ok) { showError(data.error || 'Failed to place extra orders'); return }
-            const selectedProduct = products.find(p => p.id === addOrderProduct)
             showSuccess(`${data.order_count} extra order${data.order_count !== 1 ? 's' : ''} placed for ${addOrderCustomer.full_name}! Total: ₹${data.total_amount}`)
             setAddOrderCustomer(null); setAddOrderProduct(null); setAddOrderExtraDates([]); setAddOrderExtraDateInput('')
+            // Reload addon orders so newly created addons appear immediately in Today's List
+            const freshRes = await fetch('/api/admin/addon-orders', { headers: { Authorization: `Bearer ${session?.access_token}` } })
+            const { addonOrders: freshAddons = [] } = await freshRes.json()
+            const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+            setAddonOrders(freshAddons)
+            setTodayAddons(freshAddons.filter(a => a.delivery_date === today && a.status !== 'delivered' && a.status !== 'cancelled'))
           } else {
             const res = await fetch('/api/admin/place-subscription', {
               method: 'POST',
