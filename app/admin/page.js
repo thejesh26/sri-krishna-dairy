@@ -1469,12 +1469,15 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
             const tomorrowStr = new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
             const tomorrowData = upcomingDeliveries[tomorrowStr] || { subscriptions: [], orders: [] }
             const { subscriptions: tSubs, orders: tOrders } = tomorrowData
+            // Addon orders come from already-loaded addonOrders state (upcoming API doesn't include them)
+            const tAddons = addonOrders.filter(a => a.delivery_date === tomorrowStr && a.status !== 'cancelled')
             const sizeCounts = {}
-            ;[...tSubs, ...tOrders].forEach(item => {
+            ;[...tSubs, ...tOrders, ...tAddons].forEach(item => {
               const size = item.products?.size
               if (!size) return
               sizeCounts[size] = (sizeCounts[size] || 0) + (item.quantity || 1)
             })
+            const total = tSubs.length + tOrders.length + tAddons.length
             return (
               <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
                 <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between">
@@ -1487,7 +1490,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                     ) : (
                       <>
                         <p className="text-xs text-gray-400 mt-0.5">
-                          {tSubs.length + tOrders.length} deliveries ({tSubs.length} subscriptions, {tOrders.length} one-time)
+                          {total} deliveries ({tSubs.length} subscriptions, {tOrders.length + tAddons.length} one-time)
                         </p>
                         {Object.entries(sizeCounts).length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -1507,7 +1510,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 </div>
                 {!upcomingLoaded ? (
                   <div className="px-6 py-12 text-center text-gray-400">Loading...</div>
-                ) : tSubs.length === 0 && tOrders.length === 0 ? (
+                ) : total === 0 ? (
                   <div className="px-6 py-12 text-center">
                     <div className="text-5xl mb-3">📭</div>
                     <p className="text-gray-400">No deliveries scheduled for tomorrow</p>
@@ -1546,6 +1549,20 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                           </div>
                           <p className="text-xs text-gray-400">{order.profiles?.phone} · {order.profiles?.area}</p>
                           <p className="text-xs text-[#1a5c38] font-medium mt-0.5">{order.products?.size} × {order.quantity} · {order.delivery_slot === 'morning' ? '🌅 7–9AM' : '🌆 5–7PM'}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {tAddons.map(addon => (
+                      <div key={addon.id} className="px-6 py-4 border-b border-[#f5f0e8] flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-xl flex-shrink-0">➕</div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                            <p className="font-semibold text-[#1c1c1c] text-sm">{addon.profiles?.full_name}</p>
+                            <span className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full font-semibold">➕ Extra</span>
+                            <AddressBadge profile={addon.profiles} />
+                          </div>
+                          <p className="text-xs text-gray-400">{addon.profiles?.phone} · {addon.profiles?.area}</p>
+                          <p className="text-xs text-[#1a5c38] font-medium mt-0.5">{addon.products?.size} × {addon.quantity} · {addon.delivery_slot === 'morning' ? '🌅 7–9AM' : '🌆 5–7PM'}</p>
                         </div>
                       </div>
                     ))}
