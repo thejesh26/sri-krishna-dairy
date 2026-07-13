@@ -1578,7 +1578,8 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               {!upcomingLoaded ? (
                 <div className="text-center py-12 text-gray-400">Loading...</div>
               ) : Object.entries(upcomingDeliveries).map(([date, { subscriptions, orders }]) => {
-                const total = subscriptions.length + orders.length
+                const dateAddons = addonOrders.filter(a => a.delivery_date === date && a.status !== 'cancelled')
+                const total = subscriptions.length + orders.length + dateAddons.length
                 if (total === 0) return null
                 return (
                   <div key={date} className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
@@ -1616,11 +1617,26 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                           </div>
                         </div>
                       ))}
+                      {dateAddons.map(addon => (
+                        <div key={addon.id} className="px-6 py-4 border-b border-[#f5f0e8] flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <p className="font-semibold text-[#1c1c1c] text-sm">{addon.profiles?.full_name}</p>
+                              <span className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full font-semibold">➕ Extra</span>
+                            </div>
+                            <p className="text-xs text-gray-400">{addon.profiles?.phone} · {addon.profiles?.area}</p>
+                            <p className="text-xs text-[#1a5c38] font-medium mt-0.5">{addon.products?.size} × {addon.quantity} · {addon.delivery_slot === 'morning' ? '🌅 7–9AM' : '🌆 5–7PM'}</p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )
               })}
-              {upcomingLoaded && Object.values(upcomingDeliveries).every(d => d.subscriptions.length + d.orders.length === 0) && (
+              {upcomingLoaded && Object.values(upcomingDeliveries).every(d => d.subscriptions.length + d.orders.length === 0) && addonOrders.filter(a => {
+                const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+                return a.delivery_date > today && a.status !== 'cancelled'
+              }).length === 0 && (
                 <div className="text-center py-12 text-gray-400">No upcoming deliveries in the next 7 days.</div>
               )}
             </div>
