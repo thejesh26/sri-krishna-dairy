@@ -7,14 +7,24 @@ export async function GET(request) {
     const { error: authError } = await requireAdmin(request)
     if (authError) return authError
 
-    const { data, error } = await supabaseAdmin
+    const { data: addons, error } = await supabaseAdmin
       .from('addon_orders')
-      .select('*, products(*), profiles!addon_orders_user_id_fkey(*)')
+      .select('*, products(*)')
       .order('created_at', { ascending: false })
 
     if (error) throw error
 
-    return NextResponse.json({ addonOrders: data || [] })
+    if (addons && addons.length > 0) {
+      const userIds = [...new Set(addons.map(a => a.user_id))]
+      const { data: profiles } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .in('id', userIds)
+      const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
+      addons.forEach(a => { a.profiles = profileMap[a.user_id] || null })
+    }
+
+    return NextResponse.json({ addonOrders: addons || [] })
   } catch (err) {
     console.error('[admin/addon-orders] error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
