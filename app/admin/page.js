@@ -494,6 +494,15 @@ export default function AdminDashboard() {
     setHistoryLoading(false)
   }
 
+ const loadFreshAddons = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/addon-orders', { headers: { Authorization: `Bearer ${session?.access_token}` } })
+    const { addonOrders: fresh = [] } = await res.json()
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+    setAddonOrders(fresh)
+    setTodayAddons(fresh.filter(a => a.delivery_date === today && a.status !== 'delivered' && a.status !== 'cancelled'))
+  }
+
  const loadUpcomingDeliveries = async () => {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
   const in7Days = new Date()
@@ -1189,6 +1198,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                   setOverviewSubTab(id)
                   if (id === 'history' && !historyLoaded) loadDeliveryHistory()
                   if ((id === 'upcoming' || id === 'tomorrow') && !upcomingLoaded) loadUpcomingDeliveries()
+                  if (id === 'tomorrow' || id === 'upcoming' || id === 'paused') loadFreshAddons()
                 }}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition ${
                   overviewSubTab === id ? 'bg-[#1a5c38] text-white shadow' : 'text-gray-500 hover:text-[#1a5c38]'
