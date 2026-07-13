@@ -1181,6 +1181,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               { id: 'today', label: "Today's List", icon: '📋' },
               { id: 'tomorrow', label: "Tomorrow's Delivery", icon: '🔜' },
               { id: 'upcoming', label: 'Upcoming (7 days)', icon: '📅' },
+              { id: 'paused', label: 'Paused', icon: '⏸️' },
               { id: 'history', label: 'History (7 days)', icon: '📊' },
             ].map(({ id, label, icon }) => (
               <button key={id}
@@ -1641,6 +1642,76 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               )}
             </div>
           )}
+
+          {/* Paused sub-tab */}
+          {overviewSubTab === 'paused' && (() => {
+            const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+            const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+            const pausedByDate = {}
+            subscriptions.filter(s => s.is_active).forEach(sub => {
+              (sub.paused_dates || []).filter(d => d >= today).forEach(date => {
+                if (!pausedByDate[date]) pausedByDate[date] = []
+                pausedByDate[date].push(sub)
+              })
+            })
+            const sortedDates = Object.keys(pausedByDate).sort()
+            const totalPaused = sortedDates.reduce((sum, d) => sum + pausedByDate[d].length, 0)
+            return (
+              <div className="flex flex-col gap-4">
+                {sortedDates.length === 0 ? (
+                  <div className="bg-white rounded-2xl border border-[#e8e0d0] shadow-sm px-6 py-12 text-center">
+                    <div className="text-5xl mb-3">✅</div>
+                    <p className="text-gray-400">No paused deliveries for today or upcoming days</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between px-1">
+                      <p className="text-xs text-gray-400">{totalPaused} paused delivery{totalPaused !== 1 ? 's' : ''} across {sortedDates.length} day{sortedDates.length !== 1 ? 's' : ''}</p>
+                    </div>
+                    {sortedDates.map(date => {
+                      const subs = pausedByDate[date]
+                      const label = date === today ? 'Today' : date === tomorrow ? 'Tomorrow' : new Date(date + 'T00:00:00+05:30').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
+                      const isToday = date === today
+                      const isTomorrow = date === tomorrow
+                      return (
+                        <div key={date} className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+                          <div className="px-6 py-4 bg-orange-50 border-b border-orange-100 flex items-center justify-between">
+                            <p className="font-semibold text-[#1c1c1c]">
+                              {isToday || isTomorrow ? label : new Date(date + 'T00:00:00+05:30').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+                            </p>
+                            <div className="flex items-center gap-2">
+                              {isToday && <span className="text-xs bg-red-100 text-red-600 font-bold px-2 py-0.5 rounded-full border border-red-200">Today</span>}
+                              {isTomorrow && <span className="text-xs bg-orange-100 text-orange-600 font-bold px-2 py-0.5 rounded-full border border-orange-200">Tomorrow</span>}
+                              <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                                {subs.length} paused
+                              </span>
+                            </div>
+                          </div>
+                          <div>
+                            {subs.map(sub => (
+                              <div key={sub.id} className="px-6 py-4 border-b border-[#f5f0e8] flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-xl flex-shrink-0">⏸️</div>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                                    <p className="font-semibold text-[#1c1c1c] text-sm">{sub.profiles?.full_name}</p>
+                                    <AddressBadge profile={sub.profiles} />
+                                  </div>
+                                  <p className="text-xs text-gray-400">{sub.profiles?.phone} · {sub.profiles?.area}</p>
+                                  <p className="text-xs text-orange-500 font-medium mt-0.5">
+                                    {sub.products?.size} × {sub.quantity} · {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'} · paused
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </>
+                )}
+              </div>
+            )
+          })()}
 
           {/* History sub-tab */}
           {overviewSubTab === 'history' && (
