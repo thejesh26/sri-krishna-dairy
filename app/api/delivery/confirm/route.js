@@ -397,13 +397,17 @@ export async function POST(request) {
     }
 
     if (type === 'addon' && addon_id) {
-      const { data: addonOrder } = await supabaseAdmin
+      const { data: addonOrder, error: addonError } = await supabaseAdmin
         .from('addon_orders')
         .update({ status: 'delivered', delivered_at: deliveredAt, delivered_by: deliveredBy })
         .eq('id', addon_id)
         .select('user_id, total_price, product_id, quantity, delivery_date')
         .single()
 
+      if (addonError) {
+        console.error('[delivery/confirm] addon update error:', addonError)
+        return NextResponse.json({ error: addonError.message || 'Failed to update addon order' }, { status: 500 })
+      }
       if (!addonOrder) return NextResponse.json({ error: 'Addon order not found' }, { status: 404 })
 
       const amount = addonOrder.total_price || 0
