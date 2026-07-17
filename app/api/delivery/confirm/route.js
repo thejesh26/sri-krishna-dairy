@@ -1,7 +1,7 @@
 ﻿import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../lib/db'
 import { requireDelivery } from '../../../lib/auth'
-import { calcDailyAmount, getISTDate } from '../../../lib/pricing'
+import { calcDailyAmount, getISTDate, getScheduledQuantity } from '../../../lib/pricing'
 import { sendDeliveryConfirmed, notifyCodUpsell, sendLowBalanceAlert, sendWhatsAppMessage, sendWhatsAppToAdmin, notifySubscriptionStopped, notifyAdmin, notifyTrialEnded } from '../../../lib/whatsapp'
 import { sendLowBalanceEmail, sendOrderConfirmationEmail, sendEmail } from '../../../lib/email'
 
@@ -181,7 +181,7 @@ export async function POST(request) {
 
       const { data: sub } = await supabaseAdmin
         .from('subscriptions')
-        .select('user_id, products(*), quantity, discount_percent, pending_delivery')
+        .select('user_id, products(*), quantity, weekly_schedule, discount_percent, pending_delivery')
         .eq('id', subscription_id)
         .single()
 
@@ -221,7 +221,8 @@ export async function POST(request) {
       }
 
       // ── Deduct wallet on delivery confirmation (atomic via DB function) ───────
-      const dailyAmount = calcDailyAmount(sub.products.price, sub.quantity, sub.discount_percent || 0)
+      const effectiveQty = getScheduledQuantity(sub, delivery_date)
+      const dailyAmount = calcDailyAmount(sub.products.price, effectiveQty, sub.discount_percent || 0)
       const description = `Daily subscription ${subscription_id} [${delivery_date}]`
 
       // deduct_wallet is an atomic Postgres function: it locks the wallet row,
@@ -295,7 +296,7 @@ export async function POST(request) {
                 to: deliveryEmail,
                 name: deliveryName,
                 product: productLabel,
-                quantity: sub.quantity || 1,
+                quantity: effectiveQty,
                 deliveryDate: dateLabel,
                 deliverySlot: sub.products?.delivery_slot || delivery_date,
                 totalAmount: dailyAmount,

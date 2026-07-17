@@ -10,7 +10,7 @@ export async function POST(request) {
     if (authError) return authError
 
     const {
-      target_user_id, product_id, quantity, delivery_slot,
+      target_user_id, product_id, quantity, weekly_schedule, delivery_slot,
       delivery_frequency, subscription_type, start_date, end_date,
       discount_percent,
     } = await request.json()
@@ -19,7 +19,10 @@ export async function POST(request) {
       return NextResponse.json({ error: 'target_user_id, product_id, and start_date are required' }, { status: 400 })
     }
 
-    const qty = parseInt(quantity, 10) || 1
+    // When a weekly schedule is provided, quantity = max daily bottles (for balance checks / display fallback)
+    const qty = weekly_schedule
+      ? Math.max(...Object.values(weekly_schedule).map(Number).filter(v => !isNaN(v)), 1)
+      : (parseInt(quantity, 10) || 1)
 
     // Check for existing active subscription
     const { data: existing } = await supabaseAdmin
@@ -46,6 +49,7 @@ export async function POST(request) {
       user_id: target_user_id,
       product_id: product.id,
       quantity: qty,
+      ...(weekly_schedule ? { weekly_schedule } : {}),
       delivery_slot: delivery_slot || 'morning',
       delivery_frequency: delivery_frequency || 'daily',
       subscription_type: subscription_type || 'ongoing',

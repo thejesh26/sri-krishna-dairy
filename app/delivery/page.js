@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ToastContext'
+import { getScheduledQuantity } from '../lib/pricing'
 
 function isDeliveryDay(sub) {
   const freq = sub.delivery_frequency || 'daily'
@@ -548,7 +549,7 @@ export default function DeliveryDashboard() {
                     <p className="text-xs text-gray-400">{sub.profiles?.area}{sub.profiles?.pincode ? ` - ${sub.profiles.pincode}` : ''}</p>
                     {sub.profiles?.landmark && <p className="text-xs text-[#d4a017]">📍 Near: {sub.profiles?.landmark}</p>}
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="bg-[#f0faf4] text-[#1a5c38] text-xs px-2 py-0.5 rounded-full">{sub.products?.size} x {sub.quantity}</span>
+                      <span className="bg-[#f0faf4] text-[#1a5c38] text-xs px-2 py-0.5 rounded-full">{sub.products?.size} x {getScheduledQuantity(sub, new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))}</span>
                       <span className="bg-[#fdf6e3] text-[#d4a017] text-xs px-2 py-0.5 rounded-full">{sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}</span>
                     </div>
                   </div>

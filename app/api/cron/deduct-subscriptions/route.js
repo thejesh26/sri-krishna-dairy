@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../lib/db'
-import { getISTDate } from '../../../lib/pricing'
+import { getISTDate, avgScheduledQuantity } from '../../../lib/pricing'
 import { sendLowBalanceEmail, sendSubscriptionExpiryReminderEmail, sendReferralCompletedEmail, sendPointsExpiryEmail } from '../../../lib/email'
 import { sendSubscriptionExpiry, notifyReferralCompleted, notifyPointsExpiring, notifyAdmin } from '../../../lib/whatsapp'
 
@@ -47,7 +47,7 @@ async function runDeductions() {
   try {
     const { data: activeSubs } = await supabaseAdmin
       .from('subscriptions')
-      .select('user_id, products(price), quantity, discount_percent')
+      .select('user_id, products(price), quantity, weekly_schedule, discount_percent')
       .eq('is_active', true)
       .eq('subscription_type', 'ongoing')
       .lte('start_date', today)
@@ -70,7 +70,7 @@ async function runDeductions() {
 
       for (const userId of userIds) {
         const sub = userSubMap[userId]
-        const dailyAmount = Math.round((sub.products?.price || 0) * sub.quantity * (1 - (sub.discount_percent || 0) / 100))
+        const dailyAmount = Math.round((sub.products?.price || 0) * avgScheduledQuantity(sub) * (1 - (sub.discount_percent || 0) / 100))
         if (!dailyAmount) continue
         const balance = walletMap[userId]?.balance || 0
         if (balance > 0 && balance < dailyAmount * 7) {

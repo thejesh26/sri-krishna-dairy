@@ -41,6 +41,32 @@ export function daysBetween(startDate, endDate) {
   )
 }
 
+// ── Weekly schedule helpers ───────────────────────────────────────────────────
+
+const WEEK_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+
+/**
+ * Returns the effective delivery quantity for a subscription on a given date.
+ * Falls back to sub.quantity when no weekly_schedule is set (backward compatible).
+ * A schedule value of 0 means no delivery that day.
+ */
+export function getScheduledQuantity(sub, dateStr) {
+  if (!sub.weekly_schedule) return sub.quantity || 1
+  const dayKey = WEEK_KEYS[new Date(dateStr + 'T00:00:00').getDay()]
+  const qty = sub.weekly_schedule[dayKey]
+  return (qty !== undefined && qty !== null) ? qty : (sub.quantity || 1)
+}
+
+/**
+ * Average daily quantity across the weekly schedule (used for balance estimates).
+ */
+export function avgScheduledQuantity(sub) {
+  if (!sub.weekly_schedule) return sub.quantity || 1
+  const vals = Object.values(sub.weekly_schedule)
+  if (!vals.length) return sub.quantity || 1
+  return vals.reduce((a, b) => a + b, 0) / 7
+}
+
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
 /**

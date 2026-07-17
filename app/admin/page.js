@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { parseFilterQuery, getAddress, sortByTowerFlat } from '../lib/address'
 import AddressBadge from '../components/AddressBadge'
+import { getScheduledQuantity } from '../lib/pricing'
 
 function isDeliveryDay(sub, dateStr) {
   const freq = sub.delivery_frequency || 'daily'
@@ -210,6 +211,8 @@ export default function AdminDashboard() {
   const [addOrderSubType, setAddOrderSubType] = useState('ongoing')
   const [addOrderEndDate, setAddOrderEndDate] = useState('')
   const [addOrderDiscount, setAddOrderDiscount] = useState(0)
+  const [addOrderScheduleMode, setAddOrderScheduleMode] = useState('uniform')
+  const [addOrderWeeklySchedule, setAddOrderWeeklySchedule] = useState({ mon: 1, tue: 1, wed: 1, thu: 1, fri: 1, sat: 1, sun: 1 })
   const [addOrderLoading, setAddOrderLoading] = useState(false)
   const [addOrderExtraDates, setAddOrderExtraDates] = useState([])
   const [addOrderExtraDateInput, setAddOrderExtraDateInput] = useState('')
@@ -1218,8 +1221,14 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 </h3>
                 <p className="text-xs text-gray-400 mt-0.5">{todayOrders.length + todayAddons.length + todaySubscriptions.length} deliveries today ({todaySubscriptions.length} subscriptions, {todayOrders.length + todayAddons.length} one-time)</p>
                 {(() => {
+                  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
                   const counts = {}
-                  ;[...todaySubscriptions, ...todayAddons, ...todayOrders].forEach(item => {
+                  todaySubscriptions.forEach(item => {
+                    const size = item.products?.size
+                    if (!size) return
+                    counts[size] = (counts[size] || 0) + getScheduledQuantity(item, todayStr)
+                  })
+                  ;[...todayAddons, ...todayOrders].forEach(item => {
                     const size = item.products?.size
                     if (!size) return
                     counts[size] = (counts[size] || 0) + (item.quantity || 1)
@@ -1282,11 +1291,11 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       <p className="text-sm text-gray-400">{sub.profiles?.apartment_name}, Flat {sub.profiles?.flat_number}</p>
                       <p className="text-xs text-gray-400 mt-0.5">{sub.profiles?.area} • 📞 {sub.profiles?.phone}</p>
                       <p className="text-xs text-[#1a5c38] font-medium mt-1">
-                        {sub.products?.size} x {sub.quantity} • {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
+                        {sub.products?.size} x {getScheduledQuantity(sub, new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))} • {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0 flex flex-col gap-1">
-                      <p className="font-bold text-[#1a5c38] mb-0.5">₹{(sub.products?.price || 0) * sub.quantity}</p>
+                      <p className="font-bold text-[#1a5c38] mb-0.5">₹{(sub.products?.price || 0) * getScheduledQuantity(sub, new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))}</p>
                       <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border mb-1 inline-block ${statusCls}`}>
                         {subStatus === 'delivered' ? '✅ Delivered' : subStatus === 'out_for_delivery' ? '🚴 Out' : subStatus === 'missed' ? '⚠️ Missed' : subStatus === 'cancelled' ? '❌ Cancelled' : '🕐 Pending'}
                       </span>
@@ -4600,7 +4609,8 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
               body: JSON.stringify({
                 target_user_id: addOrderCustomer.id,
                 product_id: addOrderProduct,
-                quantity: addOrderQuantity,
+                quantity: addOrderScheduleMode === 'uniform' ? addOrderQuantity : Math.max(...Object.values(addOrderWeeklySchedule)),
+                weekly_schedule: addOrderScheduleMode === 'custom' ? addOrderWeeklySchedule : null,
                 delivery_slot: addOrderSlot,
                 delivery_frequency: addOrderFrequency,
                 subscription_type: addOrderSubType,
@@ -4710,12 +4720,14 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
 
               {/* Quantity + Slot */}
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Quantity</label>
-                  <input type="number" min="1" max="20" value={addOrderQuantity} onChange={e => setAddOrderQuantity(Number(e.target.value))}
-                    className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]" />
-                </div>
-                <div>
+                {!(addOrderType === 'subscription' && addOrderScheduleMode === 'custom') && (
+                  <div>
+                    <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Quantity</label>
+                    <input type="number" min="1" max="20" value={addOrderQuantity} onChange={e => setAddOrderQuantity(Number(e.target.value))}
+                      className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]" />
+                  </div>
+                )}
+                <div className={addOrderType === 'subscription' && addOrderScheduleMode === 'custom' ? 'col-span-2' : ''}>
                   <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Delivery Slot</label>
                   <select value={addOrderSlot} onChange={e => setAddOrderSlot(e.target.value)}
                     className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-white">
@@ -4834,6 +4846,58 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
                         </button>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Quantity schedule — uniform or per-weekday */}
+                  <div>
+                    <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-2 block">Quantity Schedule</label>
+                    <div className="flex gap-2 mb-3">
+                      {[{ id: 'uniform', label: 'Same every day' }, { id: 'custom', label: 'Varies by weekday' }].map(({ id, label }) => (
+                        <button key={id} onClick={() => setAddOrderScheduleMode(id)}
+                          className={`flex-1 py-2 rounded-lg text-xs font-semibold transition border ${
+                            addOrderScheduleMode === id ? 'bg-[#1a5c38] text-white border-[#1a5c38]' : 'bg-white text-gray-600 border-[#e8e0d0] hover:border-[#1a5c38]'
+                          }`}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {addOrderScheduleMode === 'custom' && (() => {
+                      const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+                      const labels = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' }
+                      return (
+                        <div>
+                          <div className="grid grid-cols-7 gap-1 mb-2">
+                            {days.map(day => (
+                              <div key={day} className="flex flex-col items-center gap-1">
+                                <span className="text-[10px] font-bold text-gray-500 uppercase">{labels[day]}</span>
+                                <input
+                                  type="number" min="0" max="20"
+                                  value={addOrderWeeklySchedule[day] ?? 1}
+                                  onChange={e => setAddOrderWeeklySchedule(prev => ({ ...prev, [day]: Number(e.target.value) }))}
+                                  className="w-full text-center border border-[#e8e0d0] rounded-lg px-1 py-2 text-sm font-semibold focus:outline-none focus:border-[#1a5c38]"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          <p className="text-xs text-gray-400">Enter 0 for days with no delivery.</p>
+                          {addOrderProduct && (() => {
+                            const p = products.find(pr => String(pr.id) === String(addOrderProduct))
+                            if (!p) return null
+                            const disc = 1 - (addOrderDiscount || 0) / 100
+                            const lines = []
+                            const byQty = {}
+                            days.forEach(d => {
+                              const q = addOrderWeeklySchedule[d] ?? 1
+                              if (q > 0) { if (!byQty[q]) byQty[q] = []; byQty[q].push(labels[d]) }
+                            })
+                            Object.entries(byQty).forEach(([q, ds]) => {
+                              lines.push(`${ds.join('/')} ₹${Math.round(p.price * Number(q) * disc)}/day`)
+                            })
+                            return <p className="text-xs text-[#1a5c38] font-semibold mt-1.5">{lines.join(' · ')}</p>
+                          })()}
+                        </div>
+                      )
+                    })()}
                   </div>
 
                   <div>

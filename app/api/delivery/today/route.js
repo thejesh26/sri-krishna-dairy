@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../lib/db'
 import { requireDelivery } from '../../../lib/auth'
-import { getISTDate } from '../../../lib/pricing'
+import { getISTDate, getScheduledQuantity } from '../../../lib/pricing'
 
 /**
  * GET /api/delivery/today
@@ -54,7 +54,9 @@ export async function GET(request) {
     return true
   }
   const subscriptions = (allSubs || []).filter(sub =>
-    !(sub.paused_dates || []).includes(today) && isDeliveryDay(sub)
+    !(sub.paused_dates || []).includes(today) &&
+    isDeliveryDay(sub) &&
+    getScheduledQuantity(sub, today) > 0
   )
 
   // Addon orders for today (unassigned — all agents see them)
