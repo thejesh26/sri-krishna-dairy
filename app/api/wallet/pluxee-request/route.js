@@ -19,11 +19,12 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Amount must be at least ₹10.' }, { status: 400 })
     }
 
-    // Prevent duplicate submissions for the same txn_ref
+    // Check globally — same txn_ref from any customer means it's already submitted.
+    // The DB also enforces this via a partial unique index, so this is just a friendlier error.
     const { data: existing } = await supabaseAdmin
       .from('wallet_requests')
       .select('id')
-      .eq('target_user_id', user.id)
+      .eq('payment_method', 'pluxee')
       .eq('txn_ref', txn_ref.trim())
       .limit(1)
     if (existing?.length) {
@@ -42,6 +43,10 @@ export async function POST(request) {
     })
 
     if (insertError) {
+      // Unique constraint violation — concurrent duplicate submission
+      if (insertError.code === '23505') {
+        return NextResponse.json({ error: 'This transaction reference has already been submitted.' }, { status: 409 })
+      }
       console.error('[pluxee-request] insert error:', insertError)
       return NextResponse.json({ error: 'Server error.' }, { status: 500 })
     }
