@@ -4884,16 +4884,34 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
                             const p = products.find(pr => String(pr.id) === String(addOrderProduct))
                             if (!p) return null
                             const disc = 1 - (addOrderDiscount || 0) / 100
-                            const lines = []
+                            const weeklyTotal = days.reduce((sum, d) => {
+                              const q = addOrderWeeklySchedule[d] ?? 1
+                              return sum + Math.round(p.price * q * disc)
+                            }, 0)
+                            const monthlyEst = Math.round(weeklyTotal * 52 / 12)
                             const byQty = {}
                             days.forEach(d => {
                               const q = addOrderWeeklySchedule[d] ?? 1
                               if (q > 0) { if (!byQty[q]) byQty[q] = []; byQty[q].push(labels[d]) }
                             })
-                            Object.entries(byQty).forEach(([q, ds]) => {
-                              lines.push(`${ds.join('/')} ₹${Math.round(p.price * Number(q) * disc)}/day`)
-                            })
-                            return <p className="text-xs text-[#1a5c38] font-semibold mt-1.5">{lines.join(' · ')}</p>
+                            const tierLines = Object.entries(byQty).map(([q, ds]) =>
+                              `${ds.join('/')} — ₹${Math.round(p.price * Number(q) * disc)}/day`
+                            )
+                            return (
+                              <div className="mt-2 bg-[#f0faf4] border border-[#c8e6d4] rounded-xl p-3 space-y-1.5">
+                                {tierLines.map(line => (
+                                  <p key={line} className="text-xs text-[#1a5c38]">{line}</p>
+                                ))}
+                                <div className="border-t border-[#c8e6d4] pt-1.5 mt-1.5 flex justify-between">
+                                  <span className="text-xs font-bold text-[#1a5c38]">Weekly total</span>
+                                  <span className="text-xs font-bold text-[#1a5c38]">₹{weeklyTotal}/week</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-xs text-gray-500">Monthly estimate</span>
+                                  <span className="text-xs font-semibold text-gray-700">≈ ₹{monthlyEst}/month</span>
+                                </div>
+                              </div>
+                            )
                           })()}
                         </div>
                       )
@@ -4913,6 +4931,31 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
                       ))}
                     </div>
                   </div>
+
+                  {/* Cost summary for uniform mode */}
+                  {addOrderScheduleMode === 'uniform' && addOrderProduct && (() => {
+                    const p = products.find(pr => String(pr.id) === String(addOrderProduct))
+                    if (!p) return null
+                    const daily = Math.round(p.price * addOrderQuantity * (1 - addOrderDiscount / 100))
+                    const weekly = daily * 7
+                    const monthly = Math.round(weekly * 52 / 12)
+                    return (
+                      <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-xl p-3 space-y-1.5">
+                        <div className="flex justify-between">
+                          <span className="text-xs text-[#1a5c38]">Daily cost</span>
+                          <span className="text-xs font-bold text-[#1a5c38]">₹{daily}/day</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs text-[#1a5c38]">Weekly total</span>
+                          <span className="text-xs font-bold text-[#1a5c38]">₹{weekly}/week</span>
+                        </div>
+                        <div className="flex justify-between border-t border-[#c8e6d4] pt-1.5 mt-1.5">
+                          <span className="text-xs text-gray-500">Monthly estimate</span>
+                          <span className="text-xs font-semibold text-gray-700">≈ ₹{monthly}/month</span>
+                        </div>
+                      </div>
+                    )
+                  })()}
 
                   <div>
                     <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Subscription Type</label>
