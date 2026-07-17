@@ -5232,13 +5232,17 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
           return
         }
         setPausingSubId(sub.id)
-        const newPaused = [...alreadyPaused, pauseSubDate].sort()
-        const { error } = await supabase.from('subscriptions').update({ paused_dates: newPaused }).eq('id', sub.id)
-        if (!error) {
+        const { data: { session } } = await supabase.auth.getSession()
+        const res = await fetch('/api/admin/pause', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+          body: JSON.stringify({ subscription_id: sub.id, pause_date: pauseSubDate }),
+        })
+        const result = await res.json()
+        if (res.ok) {
+          const newPaused = result.paused_dates
           setSubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, paused_dates: newPaused } : s))
-          // Remove from today's list if pausing today
           setTodaySubscriptions(prev => pauseSubDate === todayIST ? prev.filter(s => s.id !== sub.id) : prev)
-          // Remove from upcoming deliveries cache for the paused date
           setUpcomingDeliveries(prev => {
             const slot = prev[pauseSubDate]
             if (!slot) return prev
@@ -5247,7 +5251,7 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
           showSuccess(`Delivery paused for ${sub.profiles?.full_name} on ${new Date(pauseSubDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`)
           setPauseSubModal(null)
         } else {
-          showError('Failed to pause delivery')
+          showError(result.error || 'Failed to pause delivery')
         }
         setPausingSubId(null)
       }
