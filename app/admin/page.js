@@ -66,6 +66,9 @@ export default function AdminDashboard() {
   const [stoppingSubId, setStoppingSubId] = useState(null)
   const [showCancelledSubs, setShowCancelledSubs] = useState(false)
   const [reactivatingSubId, setReactivatingSubId] = useState(null)
+  const [pauseSubModal, setPauseSubModal] = useState(null) // { sub }
+  const [pauseSubDate, setPauseSubDate] = useState('')
+  const [pausingSubId, setPausingSubId] = useState(null)
   const [wallets, setWallets] = useState([])
   const [walletsWithProfiles, setWalletsWithProfiles] = useState([])
   const [selectedCustomer, setSelectedCustomer] = useState(null)
@@ -2239,6 +2242,11 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                           }}
                           className="text-xs bg-[#25D366] text-white px-3 py-1.5 rounded-lg hover:bg-[#1da851] transition font-semibold disabled:opacity-50">
                           {resendWaLoading[sub.id] ? '...' : '📲 Smart WA'}
+                        </button>
+                        <button
+                          onClick={() => { setPauseSubModal({ sub }); setPauseSubDate('') }}
+                          className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition font-semibold">
+                          ⏸️ Pause
                         </button>
                         <button
                           onClick={() => { setStopSubPopup(sub); setStopCancelledBy('admin'); setStopCancellationReason('') }}
@@ -5163,6 +5171,97 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )
+    })()}
+
+    {/* ── Pause Delivery Modal ── */}
+    {pauseSubModal && (() => {
+      const sub = pauseSubModal.sub
+      const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+      const quickDates = [0, 1, 2, 3].map(offset => {
+        const d = new Date(Date.now() + offset * 24 * 60 * 60 * 1000)
+        return {
+          str: d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }),
+          label: offset === 0 ? 'Today' : offset === 1 ? 'Tomorrow' : d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }),
+        }
+      })
+      const alreadyPaused = sub.paused_dates || []
+      const confirmPause = async () => {
+        if (!pauseSubDate) return
+        if (alreadyPaused.includes(pauseSubDate)) {
+          showError(`${new Date(pauseSubDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} is already paused`)
+          return
+        }
+        setPausingSubId(sub.id)
+        const newPaused = [...alreadyPaused, pauseSubDate].sort()
+        const { error } = await supabase.from('subscriptions').update({ paused_dates: newPaused }).eq('id', sub.id)
+        if (!error) {
+          setSubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, paused_dates: newPaused } : s))
+          setTodaySubscriptions(prev => pauseSubDate === todayIST ? prev.filter(s => s.id !== sub.id) : prev)
+          showSuccess(`Delivery paused for ${sub.profiles?.full_name} on ${new Date(pauseSubDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`)
+          setPauseSubModal(null)
+        } else {
+          showError('Failed to pause delivery')
+        }
+        setPausingSubId(null)
+      }
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <h3 className="font-bold text-lg text-[#1c1c1c] mb-1">⏸️ Pause Delivery</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              {sub.profiles?.full_name} — {sub.products?.size} × {sub.quantity}
+            </p>
+
+            <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-2 block">Quick Select</label>
+            <div className="grid grid-cols-4 gap-1.5 mb-3">
+              {quickDates.map(({ str, label }) => (
+                <button key={str}
+                  onClick={() => setPauseSubDate(str)}
+                  className={`py-2 rounded-lg text-xs font-semibold border transition ${
+                    pauseSubDate === str ? 'bg-amber-500 text-white border-amber-500' :
+                    alreadyPaused.includes(str) ? 'bg-gray-100 text-gray-400 border-gray-200 line-through cursor-default' :
+                    'bg-white text-gray-600 border-[#e8e0d0] hover:border-amber-400'
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Or Pick a Date</label>
+            <input type="date"
+              value={pauseSubDate}
+              min={todayIST}
+              onChange={e => setPauseSubDate(e.target.value)}
+              className="w-full border border-[#e8e0d0] rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400 mb-3" />
+
+            {alreadyPaused.filter(d => d >= todayIST).length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+                <p className="text-xs font-semibold text-amber-700 mb-1">Already paused:</p>
+                <div className="flex flex-wrap gap-1">
+                  {alreadyPaused.filter(d => d >= todayIST).map(d => (
+                    <span key={d} className="text-xs bg-white border border-amber-200 text-amber-700 px-2 py-0.5 rounded-full">
+                      {new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button onClick={() => setPauseSubModal(null)}
+                className="flex-1 border border-[#e8e0d0] text-gray-600 font-semibold py-3 rounded-xl text-sm hover:bg-gray-50 transition">
+                Cancel
+              </button>
+              <button
+                disabled={!pauseSubDate || pausingSubId === sub.id || alreadyPaused.includes(pauseSubDate)}
+                onClick={confirmPause}
+                className="flex-1 bg-amber-500 text-white font-bold py-3 rounded-xl text-sm hover:bg-amber-600 transition disabled:opacity-40">
+                {pausingSubId === sub.id ? 'Pausing...' : '⏸️ Confirm Pause'}
+              </button>
+            </div>
           </div>
         </div>
       )

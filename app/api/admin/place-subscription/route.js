@@ -24,18 +24,6 @@ export async function POST(request) {
       ? Math.max(...Object.values(weekly_schedule).map(Number).filter(v => !isNaN(v)), 1)
       : (parseInt(quantity, 10) || 1)
 
-    // Check for existing active subscription
-    const { data: existing } = await supabaseAdmin
-      .from('subscriptions')
-      .select('id')
-      .eq('user_id', target_user_id)
-      .eq('is_active', true)
-      .maybeSingle()
-
-    if (existing) {
-      return NextResponse.json({ error: 'Customer already has an active subscription' }, { status: 409 })
-    }
-
     const { data: product } = await supabaseAdmin
       .from('products').select('id, name, size, price, is_available').eq('id', product_id).single()
     if (!product?.is_available) {
