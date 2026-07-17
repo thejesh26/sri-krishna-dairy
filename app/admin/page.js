@@ -117,6 +117,7 @@ export default function AdminDashboard() {
     trial_order_enabled: 'true',
     bottle_deposit_amount: '200',
     holidays: '[]',
+    pluxee_qr_url: '',
   })
   const [settingsSaving, setSettingsSaving] = useState({})
   const [editProducts, setEditProducts] = useState({})
@@ -2535,7 +2536,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 { id: 'active_subs', label: `Active Subs (${subscriptions.filter(s => s.is_active).length})` },
                 { id: 'inactive_subs', label: 'Inactive Subs' },
                 { id: 'low_balance', label: `Low Balance (${wallets.filter(w => (w.balance ?? 0) < 300).length})` },
-                { id: 'wallet_requests', label: `💳 Agent Requests (${walletRequests.filter(r => r.status === 'pending').length})` },
+                { id: 'wallet_requests', label: `💳 Recharge Requests (${walletRequests.filter(r => r.status === 'pending').length})` },
                 { id: 'leads', label: `🎯 Leads (${leads.filter(l => !l.converted).length})` },
               ].map(({ id, label }) => (
                 <button key={id} onClick={() => setCustomersSubTab(id)}
@@ -2560,8 +2561,13 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                     <div key={req.id} className={`px-6 py-4 flex items-start gap-4 ${index !== arr.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <p className="font-semibold text-[#1c1c1c] text-sm">{req.requester?.full_name}</p>
-                          <span className="text-xs text-gray-400">({req.requester?.phone})</span>
+                          <p className="font-semibold text-[#1c1c1c] text-sm">{req.target?.full_name || req.requester?.full_name}</p>
+                          <span className="text-xs text-gray-400">({req.target?.phone || req.requester?.phone})</span>
+                          {req.payment_method === 'pluxee' ? (
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-200">💳 Pluxee</span>
+                          ) : (
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full border bg-gray-50 text-gray-500 border-gray-200">👤 Agent</span>
+                          )}
                           <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
                             req.status === 'approved' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
                             : req.status === 'rejected' ? 'bg-red-50 text-red-500 border-red-200'
@@ -2570,12 +2576,16 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                             {req.status === 'approved' ? '✅ Approved' : req.status === 'rejected' ? '❌ Rejected' : '🕐 Pending'}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-500">
-                          {req.action === 'add' ? '➕ Add' : req.action === 'deduct' ? '➖ Deduct' : '⚙️ Set'}
-                          {' '}₹{req.amount}{' → '}
-                          <span className="font-medium">{req.target?.full_name || req.target_user_id}</span>
+                        <p className="text-xs text-gray-700 font-semibold">
+                          {req.action === 'add' ? '➕' : req.action === 'deduct' ? '➖' : '⚙️'} ₹{req.amount}
                         </p>
-                        {req.note && <p className="text-xs text-gray-400 mt-0.5">Note: {req.note}</p>}
+                        {req.txn_ref && (
+                          <p className="text-xs mt-0.5">
+                            <span className="text-gray-400">Txn Ref: </span>
+                            <span className="font-mono font-semibold text-blue-700">{req.txn_ref}</span>
+                          </p>
+                        )}
+                        {req.note && <p className="text-xs text-gray-400 mt-0.5">{req.note}</p>}
                         <p className="text-xs text-gray-400 mt-0.5">{new Date(req.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                       </div>
                       {req.status === 'pending' && (
@@ -4220,7 +4230,34 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           </div>
         </div>
 
-        {/* D. Customer Controls */}
+        {/* D. Pluxee Settings */}
+        <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-2">💳 Pluxee (Sodexo) Settings</h3>
+          <p className="text-xs text-gray-400 mb-5">Paste the public URL of your Pluxee merchant QR image. Customers will see this QR on their Wallet page to scan and pay.</p>
+          <div className="flex flex-col gap-3">
+            <div>
+              <label className="block text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2">Pluxee QR Image URL</label>
+              <div className="flex gap-2">
+                <input type="url" value={appSettings.pluxee_qr_url || ''}
+                  onChange={e => setAppSettings(p => ({ ...p, pluxee_qr_url: e.target.value }))}
+                  placeholder="https://your-storage-url/pluxee-qr.png"
+                  className="flex-1 border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
+                <button onClick={() => saveSetting('pluxee_qr_url', appSettings.pluxee_qr_url)} disabled={settingsSaving.pluxee_qr_url}
+                  className="bg-[#1a5c38] text-white font-bold px-4 py-2 rounded-lg text-sm hover:bg-[#14472c] transition disabled:opacity-50">
+                  Save
+                </button>
+              </div>
+            </div>
+            {appSettings.pluxee_qr_url && (
+              <div className="flex items-center gap-3 mt-1">
+                <img src={appSettings.pluxee_qr_url} alt="Pluxee QR preview" className="w-24 h-24 rounded-xl border border-[#e8e0d0] object-contain bg-white p-1" />
+                <p className="text-xs text-gray-400">QR preview — this is what customers see.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* E. Customer Controls */}
         <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
           <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-5">👥 Customer Controls</h3>
           <input type="text" placeholder="Search by name or phone..."

@@ -18,6 +18,10 @@ export default function Wallet() {
   const [rechargeAmount, setRechargeAmount] = useState('')
   const { showSuccess, showError } = useToast()
   const [selectedAmount, setSelectedAmount] = useState(null)
+  const [pluxeeQrUrl, setPluxeeQrUrl] = useState('')
+  const [pluxeeAmount, setPluxeeAmount] = useState('')
+  const [pluxeeTxnRef, setPluxeeTxnRef] = useState('')
+  const [pluxeeLoading, setPluxeeLoading] = useState(false)
 
   useEffect(() => { getUser() }, [])
 
@@ -28,8 +32,38 @@ export default function Wallet() {
     setUser(user)
     const { data: prof } = await supabase.from('profiles').select('full_name, phone').eq('id', user.id).single()
     setProfile(prof)
-    await loadWallet(user.id)
+    await Promise.all([
+      loadWallet(user.id),
+      fetch('/api/settings/public').then(r => r.json()).then(s => { if (s.pluxee_qr_url) setPluxeeQrUrl(s.pluxee_qr_url) }).catch(() => {}),
+    ])
     setLoading(false)
+  }
+
+  const handlePluxeeSubmit = async () => {
+    const amt = parseFloat(pluxeeAmount)
+    if (!pluxeeTxnRef.trim()) { showError('Please enter the transaction reference from Pluxee app.'); return }
+    if (isNaN(amt) || amt < 10) { showError('Amount must be at least ₹10.'); return }
+    try {
+      setPluxeeLoading(true)
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/wallet/pluxee-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ amount: amt, txn_ref: pluxeeTxnRef.trim() }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        showSuccess('Pluxee payment submitted! Admin will verify and credit your wallet shortly.')
+        setPluxeeAmount('')
+        setPluxeeTxnRef('')
+      } else {
+        showError(data.error || 'Failed to submit Pluxee payment.')
+      }
+    } catch {
+      showError('Something went wrong. Please try again.')
+    } finally {
+      setPluxeeLoading(false)
+    }
   }
 
   const loadWallet = async (userId) => {
@@ -247,6 +281,56 @@ export default function Wallet() {
             </div>
           </CardSection>
         </Card>
+
+        {/* Pluxee (Sodexo) Payment */}
+        {pluxeeQrUrl && (
+          <Card id="pluxee-pay" className="mb-6">
+            <CardSection title="Pay via Pluxee (Sodexo)">
+              <div className="flex flex-col sm:flex-row gap-5 items-start">
+                <div className="flex-shrink-0 flex flex-col items-center gap-2">
+                  <img src={pluxeeQrUrl} alt="Pluxee QR Code" className="w-36 h-36 rounded-xl border border-[#e8e0d0] object-contain bg-white p-1" />
+                  <p className="text-[10px] text-gray-400 text-center">Scan with Pluxee / Sodexo app</p>
+                </div>
+                <div className="flex-1 flex flex-col gap-3 w-full">
+                  <p className="text-xs text-gray-500">Scan the QR, pay the amount in your Pluxee app, then enter the transaction reference here for verification.</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[200, 500, 1000].map(amt => (
+                      <button key={amt}
+                        onClick={() => setPluxeeAmount(String(amt))}
+                        className={`py-2.5 rounded-xl text-sm font-semibold border transition ${pluxeeAmount === String(amt) ? 'bg-[#1a5c38] text-white border-[#1a5c38]' : 'border-[#e8e0d0] text-[#1c1c1c] bg-[#fdfbf7] hover:border-[#1a5c38]'}`}>
+                        ₹{amt}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="number"
+                    placeholder="Or enter custom amount (₹)"
+                    value={pluxeeAmount}
+                    onChange={e => setPluxeeAmount(e.target.value)}
+                    className="border border-[#e8e0d0] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] w-full"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Transaction reference (from Pluxee app)"
+                    value={pluxeeTxnRef}
+                    onChange={e => setPluxeeTxnRef(e.target.value)}
+                    className="border border-[#e8e0d0] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] w-full"
+                  />
+                  <Button
+                    variant="primary"
+                    loading={pluxeeLoading}
+                    disabled={!pluxeeAmount || !pluxeeTxnRef.trim()}
+                    onClick={handlePluxeeSubmit}
+                    fullWidth
+                  >
+                    Submit for Verification
+                  </Button>
+                  <p className="text-[10px] text-gray-400">Admin will verify your Pluxee payment and credit your wallet within a few hours.</p>
+                </div>
+              </div>
+            </CardSection>
+          </Card>
+        )}
 
         {/* Wallet Benefits */}
         <Card className="mb-6">

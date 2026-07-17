@@ -15,7 +15,7 @@ export async function POST(request) {
 
     const { data: walletReq, error: fetchError } = await supabaseAdmin
       .from('wallet_requests')
-      .select('target_user_id, action, amount, status, requested_by')
+      .select('target_user_id, action, amount, status, requested_by, payment_method, txn_ref')
       .eq('id', request_id)
       .single()
 
@@ -56,11 +56,15 @@ export async function POST(request) {
 
     await supabaseAdmin.from('wallet').update({ balance: newBalance }).eq('user_id', walletReq.target_user_id)
 
+    const txnDescription = walletReq.payment_method === 'pluxee' && walletReq.txn_ref
+      ? `Pluxee wallet recharge [${walletReq.txn_ref}]`
+      : walletReq.action === 'add' ? 'Wallet recharge approved by admin' : 'Wallet adjustment by admin'
+
     await supabaseAdmin.from('wallet_transactions').insert({
       user_id: walletReq.target_user_id,
       amount: walletReq.amount,
       type: walletReq.action === 'add' ? 'credit' : 'debit',
-      description: 'Wallet update approved by admin',
+      description: txnDescription,
     })
 
     await supabaseAdmin.from('wallet_requests').update({
