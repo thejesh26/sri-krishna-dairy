@@ -36,11 +36,18 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Cancellations are only allowed before 6AM on the delivery date.' }, { status: 400 })
     }
 
-    // Update order status to cancelled
-    await supabaseAdmin
+    // Atomically flip status — concurrent cancel requests both pass the status check above
+    // but only one can update from 'pending'; the loser gets 0 rows and skips the refund.
+    const { data: cancelled } = await supabaseAdmin
       .from('orders')
       .update({ status: 'cancelled' })
       .eq('id', order_id)
+      .eq('status', 'pending')
+      .select('id')
+
+    if (!cancelled?.length) {
+      return NextResponse.json({ error: 'Order was already cancelled.' }, { status: 409 })
+    }
 
     // Process refund if wallet payment (COD = no charge yet, no refund needed)
     let refundAmount = 0

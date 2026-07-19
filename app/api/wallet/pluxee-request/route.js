@@ -9,14 +9,24 @@ export async function POST(request) {
     const { user, error: authError } = await requireAuth(request)
     if (authError) return authError
 
-    const { amount, txn_ref } = await request.json()
+    let body
+    try { body = await request.json() } catch {
+      return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
+    }
+    const { amount, txn_ref } = body
     const amt = parseFloat(amount)
 
     if (!txn_ref?.trim()) {
       return NextResponse.json({ error: 'Transaction reference is required.' }, { status: 400 })
     }
+    if (txn_ref.trim().length > 100) {
+      return NextResponse.json({ error: 'Transaction reference is too long.' }, { status: 400 })
+    }
     if (isNaN(amt) || amt < 10) {
       return NextResponse.json({ error: 'Amount must be at least ₹10.' }, { status: 400 })
+    }
+    if (amt > 10000) {
+      return NextResponse.json({ error: 'Amount cannot exceed ₹10,000 per request.' }, { status: 400 })
     }
 
     // Check globally — same txn_ref from any customer means it's already submitted.

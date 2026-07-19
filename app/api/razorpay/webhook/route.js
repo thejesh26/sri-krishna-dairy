@@ -33,21 +33,17 @@ export async function POST(request) {
         .eq('razorpay_order_id', orderId)
         .maybeSingle()
 
-      if (sub && !sub.is_active) {
-        // Idempotency: skip if this payment_id was already processed
-        const { data: existing } = await supabaseAdmin
-          .from('wallet_transactions')
-          .select('id')
-          .eq('user_id', sub.user_id)
-          .eq('description', `Subscription payment webhook [${payment.id}]`)
-          .limit(1)
-        if (existing?.length) return Response.json({ success: true })
-
-        // Activate subscription
-        await supabaseAdmin
+      if (sub) {
+        // Atomically activate subscription — only one webhook delivery can flip is_active
+        // from false to true. The loser gets 0 rows and safely skips the wallet credit.
+        const { data: activated } = await supabaseAdmin
           .from('subscriptions')
           .update({ is_active: true })
           .eq('id', sub.id)
+          .eq('is_active', false)
+          .select('id')
+
+        if (!activated?.length) return Response.json({ success: true })
 
         // Credit wallet
         const { data: wallet } = await supabaseAdmin

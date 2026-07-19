@@ -59,12 +59,25 @@ export async function GET(request) {
     getScheduledQuantity(sub, today) > 0
   )
 
-  // Addon orders for today — include delivered ones so they stay visible after confirmation
-  const { data: addonOrders } = await supabaseAdmin
+  // Addon orders for today — include delivered ones so they stay visible after confirmation.
+  // Filter by the same agent assignment as subscriptions: only show addons for customers
+  // whose subscription is assigned to this agent (or unassigned).
+  let addonQuery = supabaseAdmin
     .from('addon_orders')
     .select('*, products(*), profiles!addon_orders_user_id_fkey(full_name, phone, apartment_name, flat_number, area, landmark, pincode)')
     .eq('delivery_date', today)
     .neq('status', 'cancelled')
+
+  if (!isAdmin) {
+    // Re-use the already-fetched allSubs list to avoid a second DB round-trip.
+    const userIds = [...new Set((allSubs || []).map(s => s.user_id))]
+    if (userIds.length === 0) {
+      return NextResponse.json({ orders: orders || [], subscriptions, addonOrders: [] })
+    }
+    addonQuery = addonQuery.in('user_id', userIds)
+  }
+
+  const { data: addonOrders } = await addonQuery
 
   return NextResponse.json({
     orders: orders || [],

@@ -15,25 +15,30 @@ export async function POST(request) {
 
     const { data: walletReq, error: fetchError } = await supabaseAdmin
       .from('wallet_requests')
-      .select('target_user_id, action, amount, status, requested_by, payment_method, txn_ref')
+      .select('target_user_id, action, amount, requested_by, payment_method, txn_ref')
       .eq('id', request_id)
       .single()
 
     if (fetchError || !walletReq) {
       return NextResponse.json({ error: 'Wallet request not found' }, { status: 404 })
     }
-    if (walletReq.status !== 'pending') {
+    const resolvedAt = new Date().toISOString()
+    const newStatus = approved ? 'approved' : 'rejected'
+
+    // Atomically claim this request — concurrent calls both read 'pending' but only one
+    // can flip it; the loser gets 0 rows back and returns 409 without touching the wallet.
+    const { data: claimed } = await supabaseAdmin
+      .from('wallet_requests')
+      .update({ status: newStatus, resolved_by: user.id, resolved_at: resolvedAt })
+      .eq('id', request_id)
+      .eq('status', 'pending')
+      .select('id')
+
+    if (!claimed?.length) {
       return NextResponse.json({ error: 'Request already resolved' }, { status: 409 })
     }
 
-    const resolvedAt = new Date().toISOString()
-
     if (!approved) {
-      await supabaseAdmin.from('wallet_requests').update({
-        status: 'rejected',
-        resolved_by: user.id,
-        resolved_at: resolvedAt,
-      }).eq('id', request_id)
       return NextResponse.json({ success: true })
     }
 
@@ -66,12 +71,6 @@ export async function POST(request) {
       type: walletReq.action === 'add' ? 'credit' : 'debit',
       description: txnDescription,
     })
-
-    await supabaseAdmin.from('wallet_requests').update({
-      status: 'approved',
-      resolved_by: user.id,
-      resolved_at: resolvedAt,
-    }).eq('id', request_id)
 
     // Notify the agent who raised the request
     try {

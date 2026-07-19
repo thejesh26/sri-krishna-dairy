@@ -13,10 +13,13 @@ export async function POST(request) {
     if (!subscription_id || !pause_date) {
       return NextResponse.json({ error: 'subscription_id and pause_date are required.' }, { status: 400 })
     }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(pause_date)) {
+      return NextResponse.json({ error: 'pause_date must be in YYYY-MM-DD format.' }, { status: 400 })
+    }
 
     const { data: sub, error: fetchError } = await supabaseAdmin
       .from('subscriptions')
-      .select('paused_dates')
+      .select('paused_dates, pause_days_used_this_month')
       .eq('id', subscription_id)
       .single()
 
@@ -33,7 +36,10 @@ export async function POST(request) {
 
     const { error: updateError } = await supabaseAdmin
       .from('subscriptions')
-      .update({ paused_dates: newPaused })
+      .update({
+        paused_dates: newPaused,
+        pause_days_used_this_month: (sub.pause_days_used_this_month || 0) + 1,
+      })
       .eq('id', subscription_id)
 
     if (updateError) {

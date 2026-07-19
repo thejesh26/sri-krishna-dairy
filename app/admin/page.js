@@ -766,16 +766,19 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
   const addNewProduct = async () => {
     if (!newProduct.name || !newProduct.size || !newProduct.price) return
     setProductAddLoading(true)
-    const { data, error } = await supabase.from('products').insert({
-      name: newProduct.name,
-      size: newProduct.size,
-      price: parseFloat(newProduct.price),
-      is_available: newProduct.is_available,
-    }).select().single()
-    if (data && !error) {
-      setProducts(prev => [...prev, data])
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ name: newProduct.name, size: newProduct.size, price: newProduct.price, is_available: newProduct.is_available }),
+    })
+    const result = await res.json()
+    if (res.ok) {
+      setProducts(prev => [...prev, result.product])
       setNewProduct({ name: '', size: '', price: '', is_available: true })
       showSuccess('Product added!')
+    } else {
+      showError(result.error || 'Failed to add product.')
     }
     setProductAddLoading(false)
   }
@@ -783,16 +786,19 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
   const saveProductEdit = async (productId) => {
     const edit = editProducts[productId]
     if (!edit) return
-    const { error } = await supabase.from('products').update({
-      name: edit.name,
-      size: edit.size,
-      price: parseFloat(edit.price),
-      is_available: edit.is_available,
-    }).eq('id', productId)
-    if (!error) {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/products', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ product_id: productId, name: edit.name, size: edit.size, price: edit.price, is_available: edit.is_available }),
+    })
+    if (res.ok) {
       setProducts(prev => prev.map(p => p.id === productId ? { ...p, ...edit, price: parseFloat(edit.price) } : p))
       setEditProducts(prev => { const n = { ...prev }; delete n[productId]; return n })
       showSuccess('Product saved!')
+    } else {
+      const result = await res.json()
+      showError(result.error || 'Failed to save product.')
     }
   }
 
@@ -805,28 +811,52 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
     ).slice(0, 5))
   }
 
+  const updateProfile = async (userId, fields) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/update-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ user_id: userId, fields }),
+    })
+    return res.ok
+  }
+
   const resetCod = async (userId, name) => {
-    await supabase.from('profiles').update({ has_used_cod: false }).eq('id', userId)
-    setCustomers(prev => prev.map(c => c.id === userId ? { ...c, has_used_cod: false } : c))
-    setSettingsCustomers(prev => prev.map(c => c.id === userId ? { ...c, has_used_cod: false } : c))
-    showSuccess(`COD reset for ${name}`)
+    if (await updateProfile(userId, { has_used_cod: false })) {
+      setCustomers(prev => prev.map(c => c.id === userId ? { ...c, has_used_cod: false } : c))
+      setSettingsCustomers(prev => prev.map(c => c.id === userId ? { ...c, has_used_cod: false } : c))
+      showSuccess(`COD reset for ${name}`)
+    } else {
+      showError('Failed to reset COD.')
+    }
   }
 
   const toggleBan = async (userId, isBanned, name) => {
-    await supabase.from('profiles').update({ is_banned: !isBanned }).eq('id', userId)
-    setCustomers(prev => prev.map(c => c.id === userId ? { ...c, is_banned: !isBanned } : c))
-    setSettingsCustomers(prev => prev.map(c => c.id === userId ? { ...c, is_banned: !isBanned } : c))
-    showSuccess(`${name} ${!isBanned ? 'banned' : 'unbanned'}`)
+    if (await updateProfile(userId, { is_banned: !isBanned })) {
+      setCustomers(prev => prev.map(c => c.id === userId ? { ...c, is_banned: !isBanned } : c))
+      setSettingsCustomers(prev => prev.map(c => c.id === userId ? { ...c, is_banned: !isBanned } : c))
+      showSuccess(`${name} ${!isBanned ? 'banned' : 'unbanned'}`)
+    } else {
+      showError('Failed to update ban status.')
+    }
   }
 
   const extendSubscription = async (userId, name, days) => {
     if (!days || isNaN(parseInt(days))) return
-    const { data: sub } = await supabase.from('subscriptions').select('id, end_date').eq('user_id', userId).eq('is_active', true).maybeSingle()
+    const { data: sub } = await supabase.from('subscriptions').select('id').eq('user_id', userId).eq('is_active', true).maybeSingle()
     if (!sub) { showError('No active subscription found'); return }
-    const base = sub.end_date ? new Date(sub.end_date) : new Date()
-    base.setDate(base.getDate() + parseInt(days))
-    await supabase.from('subscriptions').update({ end_date: base.toISOString().split('T')[0] }).eq('id', sub.id)
-    showSuccess(`${name}'s subscription extended by ${days} days`)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/extend-subscription', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ subscription_id: sub.id, days: parseInt(days) }),
+    })
+    if (res.ok) {
+      showSuccess(`${name}'s subscription extended by ${days} days`)
+    } else {
+      const result = await res.json()
+      showError(result.error || 'Failed to extend subscription.')
+    }
   }
 
  const handleSubStatusChange = async (subId, newStatus) => {
@@ -919,27 +949,37 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
 
   const reactivateSub = async (subId) => {
     setReactivatingSubId(subId)
-    const { error } = await supabase.from('subscriptions').update({ is_active: true }).eq('id', subId)
-    if (!error) {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/reactivate-subscription', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ subscription_id: subId }),
+    })
+    if (res.ok) {
       setSubscriptions(prev => prev.map(s => s.id === subId ? { ...s, is_active: true } : s))
       showSuccess('Subscription reactivated!')
     } else {
-      showError('Failed to reactivate subscription.')
+      const result = await res.json()
+      showError(result.error || 'Failed to reactivate subscription.')
     }
     setReactivatingSubId(null)
   }
 
   const pauseDelivery = async (userId, name, date) => {
     if (!date) return
-    // Fetch ALL active subscriptions — maybeSingle() would silently skip customers with 2+ active subs (e.g. Julie, Amit Chaudhary)
+    // Fetch ALL active subscriptions — maybeSingle() would silently skip customers with 2+ active subs
     const { data: subs } = await supabase.from('subscriptions').select('id, paused_dates').eq('user_id', userId).eq('is_active', true)
     if (!subs || subs.length === 0) { showError('No active subscription found'); return }
+    const { data: { session } } = await supabase.auth.getSession()
     let pausedCount = 0
     for (const sub of subs) {
-      const paused = sub.paused_dates || []
-      if (!paused.includes(date)) {
-        await supabase.from('subscriptions').update({ paused_dates: [...paused, date] }).eq('id', sub.id)
-        pausedCount++
+      if (!(sub.paused_dates || []).includes(date)) {
+        const res = await fetch('/api/admin/pause', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+          body: JSON.stringify({ subscription_id: sub.id, pause_date: date }),
+        })
+        if (res.ok) pausedCount++
       }
     }
     if (pausedCount === 0) {
@@ -983,9 +1023,18 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
   }
 
   const deleteWaitlistEntry = async (id) => {
-    await supabase.from('priority_waitlist').delete().eq('id', id)
-    setWaitlistEntries(prev => prev.filter(e => e.id !== id))
-    showSuccess('Entry removed')
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/waitlist', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ id }),
+    })
+    if (res.ok) {
+      setWaitlistEntries(prev => prev.filter(e => e.id !== id))
+      showSuccess('Entry removed')
+    } else {
+      showError('Failed to remove entry.')
+    }
   }
 
   const exportWaitlistCSV = () => {
@@ -2217,7 +2266,12 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                             value={sub.assigned_to || ''}
                             onChange={async (e) => {
                               const agentId = e.target.value
-                              await supabase.from('subscriptions').update({ assigned_to: agentId || null }).eq('id', sub.id)
+                              const { data: { session } } = await supabase.auth.getSession()
+                              await fetch('/api/admin/assign-agent', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                                body: JSON.stringify({ type: 'subscription', id: sub.id, agent_id: agentId || null }),
+                              })
                               setSubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, assigned_to: agentId } : s))
                             }}
                             className="text-xs border border-[#e8e0d0] rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]">
@@ -3484,8 +3538,11 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                   </div>
                   <button
                     onClick={async () => {
-                      await supabase.from('profiles').update({ is_delivery: false }).eq('id', agent.id)
-                      setDeliveryAgents(deliveryAgents.filter(a => a.id !== agent.id))
+                      if (await updateProfile(agent.id, { is_delivery: false })) {
+                        setDeliveryAgents(deliveryAgents.filter(a => a.id !== agent.id))
+                      } else {
+                        showError('Failed to remove delivery agent.')
+                      }
                     }}
                     className="text-xs border border-red-300 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition font-semibold flex-shrink-0">
                     Remove
@@ -3922,9 +3979,16 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                     </span>
                     {s.status !== 'resolved' && (
                       <button onClick={async () => {
-                        await supabase.from('customer_suggestions').update({ status: 'resolved' }).eq('id', s.id)
-                        setSuggestions(prev => prev.map(x => x.id === s.id ? { ...x, status: 'resolved' } : x))
-                        showSuccess('Marked as resolved')
+                        const { data: { session } } = await supabase.auth.getSession()
+                        const res = await fetch('/api/admin/resolve-report', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                          body: JSON.stringify({ table: 'customer_suggestions', id: s.id }),
+                        })
+                        if (res.ok) {
+                          setSuggestions(prev => prev.map(x => x.id === s.id ? { ...x, status: 'resolved' } : x))
+                          showSuccess('Marked as resolved')
+                        }
                       }} className="text-xs bg-[#1a5c38] text-white font-bold px-3 py-1 rounded-lg hover:bg-[#14472c] transition">
                         Mark Resolved
                       </button>
@@ -3976,9 +4040,16 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       </span>
                       {issue.status !== 'resolved' && (
                         <button onClick={async () => {
-                          await supabase.from('delivery_issues').update({ status: 'resolved' }).eq('id', issue.id)
-                          setDeliveryIssues(prev => prev.map(x => x.id === issue.id ? { ...x, status: 'resolved' } : x))
-                          showSuccess('Marked as resolved')
+                          const { data: { session } } = await supabase.auth.getSession()
+                          const res = await fetch('/api/admin/resolve-report', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                            body: JSON.stringify({ table: 'delivery_issues', id: issue.id }),
+                          })
+                          if (res.ok) {
+                            setDeliveryIssues(prev => prev.map(x => x.id === issue.id ? { ...x, status: 'resolved' } : x))
+                            showSuccess('Marked as resolved')
+                          }
                         }} className="text-xs bg-[#1a5c38] text-white font-bold px-3 py-1 rounded-lg hover:bg-[#14472c] transition">
                           Mark Resolved
                         </button>
