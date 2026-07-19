@@ -69,6 +69,7 @@ export default function DeliveryDashboard() {
   const [stats, setStats] = useState({ total: 0, pending: 0, out: 0, delivered: 0 })
   const [historyOrders, setHistoryOrders] = useState([])
   const [historySubDeliveries, setHistorySubDeliveries] = useState([])
+  const [historyAddonOrders, setHistoryAddonOrders] = useState([])
   const [historyLoaded, setHistoryLoaded] = useState(false)
   const [deliverySort, setDeliverySort] = useState('area')
   const [addressFilter, setAddressFilter] = useState('')
@@ -128,6 +129,8 @@ export default function DeliveryDashboard() {
     setOrders(allOrders || [])
     setSubscriptions(activeSubs || [])
     setAddonOrders(allAddons || [])
+    // Seed delivered set from actual status so "✅ Done" persists across refreshes
+    setDeliveredAddons(new Set((allAddons || []).filter(a => a.status === 'delivered').map(a => a.id)))
 
     setStats({
       total: (allOrders || []).length + (activeSubs || []).length,
@@ -185,6 +188,16 @@ export default function DeliveryDashboard() {
     if (!profile?.is_admin) sdQuery = sdQuery.eq('delivered_by', profile?.full_name)
     const { data: sdHistory } = await sdQuery
     setHistorySubDeliveries(sdHistory || [])
+
+    const { data: addonHistory } = await supabase
+      .from('addon_orders')
+      .select('*, products(*), profiles!addon_orders_user_id_fkey(full_name, phone, apartment_name, flat_number, area)')
+      .eq('status', 'delivered')
+      .lt('delivery_date', today)
+      .order('delivery_date', { ascending: false })
+      .limit(50)
+    setHistoryAddonOrders(addonHistory || [])
+
     setHistoryLoaded(true)
   }
 
@@ -703,6 +716,13 @@ export default function DeliveryDashboard() {
                   product: `${sd.subscriptions?.products?.size || 'Milk'} x${sd.subscriptions?.quantity || 1}`,
                   slot: sd.subscriptions?.delivery_slot, photo_url: sd.photo_url || null,
                 })),
+                ...(historyAddonOrders || []).map(a => ({
+                  id: `addon-${a.id}`, date: a.delivery_date, type: 'addon',
+                  name: a.profiles?.full_name || 'Customer',
+                  area: `${a.profiles?.apartment_name || ''}, ${a.profiles?.area || ''}`,
+                  product: `${a.products?.size || 'Milk'} x${a.quantity || 1}`,
+                  slot: a.delivery_slot, photo_url: null,
+                })),
               ].sort((a, b) => b.date.localeCompare(a.date))
 
               if (allItems.length === 0) return (
@@ -736,8 +756,8 @@ export default function DeliveryDashboard() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <p className="font-semibold text-[#1c1c1c] text-sm">{item.name}</p>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.type === 'sub' ? 'bg-[#f0faf4] text-[#1a5c38]' : 'bg-[#fdf6e3] text-[#d4a017]'}`}>
-                            {item.type === 'sub' ? '📅 Sub' : '🛒 Order'}
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.type === 'sub' ? 'bg-[#f0faf4] text-[#1a5c38]' : item.type === 'addon' ? 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]' : 'bg-blue-50 text-blue-600'}`}>
+                            {item.type === 'sub' ? '📅 Sub' : item.type === 'addon' ? '➕ Addon' : '🛒 Order'}
                           </span>
                         </div>
                         <p className="text-xs text-gray-400">{item.area}</p>

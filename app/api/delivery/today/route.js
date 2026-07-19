@@ -59,12 +59,12 @@ export async function GET(request) {
     getScheduledQuantity(sub, today) > 0
   )
 
-  // Addon orders for today (unassigned — all agents see them)
+  // Addon orders for today — include delivered ones so they stay visible after confirmation
   const { data: addonOrders } = await supabaseAdmin
     .from('addon_orders')
     .select('*, products(*), profiles!addon_orders_user_id_fkey(full_name, phone, apartment_name, flat_number, area, landmark, pincode)')
     .eq('delivery_date', today)
-    .eq('status', 'pending')
+    .neq('status', 'cancelled')
 
   return NextResponse.json({
     orders: orders || [],

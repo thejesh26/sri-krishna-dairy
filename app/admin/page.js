@@ -329,7 +329,7 @@ export default function AdminDashboard() {
       // Compute derived values
       const todayO = allOrders.filter(o => o.delivery_date === today)
       setTodayOrders(todayO)
-      const todayA = allAddons.filter(a => a.delivery_date === today && a.status !== 'delivered' && a.status !== 'cancelled')
+      const todayA = allAddons.filter(a => a.delivery_date === today && a.status !== 'cancelled')
       setTodayAddons(todayA)
 
       const todaySubs = allSubs.filter(sub =>
@@ -508,7 +508,7 @@ export default function AdminDashboard() {
     const { addonOrders: fresh = [] } = await res.json()
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
     setAddonOrders(fresh)
-    setTodayAddons(fresh.filter(a => a.delivery_date === today && a.status !== 'delivered' && a.status !== 'cancelled'))
+    setTodayAddons(fresh.filter(a => a.delivery_date === today && a.status !== 'cancelled'))
   }
 
  const loadUpcomingDeliveries = async () => {
@@ -4653,7 +4653,7 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
             const { addonOrders: freshAddons = [] } = await freshRes.json()
             const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
             setAddonOrders(freshAddons)
-            setTodayAddons(freshAddons.filter(a => a.delivery_date === today && a.status !== 'delivered' && a.status !== 'cancelled'))
+            setTodayAddons(freshAddons.filter(a => a.delivery_date === today && a.status !== 'cancelled'))
           } else {
             const res = await fetch('/api/admin/place-subscription', {
               method: 'POST',
