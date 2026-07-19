@@ -5,12 +5,14 @@ import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ToastContext'
 import { getScheduledQuantity } from '../lib/pricing'
 
-function isDeliveryDay(sub) {
+function isDeliveryDay(sub, dateStr) {
   const freq = sub.delivery_frequency || 'daily'
   if (freq === 'daily') return true
-  const start = new Date(sub.start_date)
-  const today = new Date()
-  const daysDiff = Math.floor((today - start) / (1000 * 60 * 60 * 24))
+  const start = new Date(sub.start_date + 'T00:00:00+05:30')
+  const check = dateStr
+    ? new Date(dateStr + 'T00:00:00+05:30')
+    : new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) + 'T00:00:00+05:30')
+  const daysDiff = Math.round((check - start) / (1000 * 60 * 60 * 24))
   if (freq === 'alternate') return daysDiff % 2 === 0
   if (freq === 'weekly') return daysDiff % 7 === 0
   return true
@@ -189,14 +191,12 @@ export default function DeliveryDashboard() {
     const { data: sdHistory } = await sdQuery
     setHistorySubDeliveries(sdHistory || [])
 
-    const { data: addonHistory } = await supabase
-      .from('addon_orders')
-      .select('*, products(*), profiles!addon_orders_user_id_fkey(full_name, phone, apartment_name, flat_number, area)')
-      .eq('status', 'delivered')
-      .lt('delivery_date', today)
-      .order('delivery_date', { ascending: false })
-      .limit(50)
-    setHistoryAddonOrders(addonHistory || [])
+    const { data: { session: histSession } } = await supabase.auth.getSession()
+    const addonHistRes = await fetch('/api/delivery/addon-history', {
+      headers: { Authorization: `Bearer ${histSession?.access_token}` },
+    })
+    const { addonOrders: addonHistory } = addonHistRes.ok ? await addonHistRes.json() : { addonOrders: [] }
+    setHistoryAddonOrders(addonHistory)
 
     setHistoryLoaded(true)
   }

@@ -130,17 +130,17 @@ export default function Dashboard() {
 
   const getNextDeliveryDate = (sub) => {
     const freq = sub.delivery_frequency || 'daily'
-    const start = new Date(sub.start_date)
-    const check = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
-    check.setDate(check.getDate() + 1)
-    for (let i = 0; i < 14; i++) {
-      const daysDiff = Math.floor((check - start) / (1000 * 60 * 60 * 24))
+    const start = new Date(sub.start_date + 'T00:00:00+05:30')
+    const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+    for (let i = 1; i <= 14; i++) {
+      const d = new Date(todayIST + 'T00:00:00+05:30')
+      d.setDate(d.getDate() + i)
+      const checkStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+      const daysDiff = Math.round((d - start) / (1000 * 60 * 60 * 24))
       const isDay = freq === 'daily' ? true : freq === 'alternate' ? daysDiff % 2 === 0 : daysDiff % 7 === 0
-      const checkStr = check.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
       if (isDay && !(sub.paused_dates || []).includes(checkStr)) {
-        return check.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
+        return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
       }
-      check.setDate(check.getDate() + 1)
     }
     return 'TBD'
   }

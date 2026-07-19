@@ -46,9 +46,9 @@ export async function GET(request) {
   function isDeliveryDay(sub) {
     const freq = sub.delivery_frequency || 'daily'
     if (freq === 'daily') return true
-    const start = new Date(sub.start_date)
-    const now = new Date()
-    const daysDiff = Math.floor((now - start) / (1000 * 60 * 60 * 24))
+    const start = new Date(sub.start_date + 'T00:00:00+05:30')
+    const check = new Date(today + 'T00:00:00+05:30')
+    const daysDiff = Math.round((check - start) / (1000 * 60 * 60 * 24))
     if (freq === 'alternate') return daysDiff % 2 === 0
     if (freq === 'weekly') return daysDiff % 7 === 0
     return true
