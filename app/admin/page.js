@@ -337,7 +337,8 @@ export default function AdminDashboard() {
         sub.start_date <= today &&
         (!sub.end_date || sub.end_date >= today) &&
         !(sub.paused_dates || []).includes(today) &&
-        isDeliveryDay(sub)
+        isDeliveryDay(sub) &&
+        getScheduledQuantity(sub, today) > 0
       )
       setTodaySubscriptions(todaySubs)
 
@@ -552,6 +553,7 @@ export default function AdminDashboard() {
       const freq = sub.delivery_frequency || 'daily'
       if (freq === 'alternate' && diff % 2 !== 0) continue
       if (freq === 'weekly' && diff % 7 !== 0) continue
+      if (getScheduledQuantity(sub, dateStr) === 0) continue
       schedule[dateStr].subscriptions.push(sub)
     }
   }
@@ -1496,7 +1498,12 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
             // Addon orders come from already-loaded addonOrders state (upcoming API doesn't include them)
             const tAddons = addonOrders.filter(a => a.delivery_date === tomorrowStr && a.status !== 'cancelled')
             const sizeCounts = {}
-            ;[...tSubs, ...tOrders, ...tAddons].forEach(item => {
+            tSubs.forEach(item => {
+              const size = item.products?.size
+              if (!size) return
+              sizeCounts[size] = (sizeCounts[size] || 0) + getScheduledQuantity(item, tomorrowStr)
+            })
+            ;[...tOrders, ...tAddons].forEach(item => {
               const size = item.products?.size
               if (!size) return
               sizeCounts[size] = (sizeCounts[size] || 0) + (item.quantity || 1)
@@ -1554,7 +1561,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                             <AddressBadge profile={sub.profiles} />
                           </div>
                           <p className="text-xs text-gray-400">{sub.profiles?.phone} · {sub.profiles?.area}</p>
-                          <p className="text-xs text-[#1a5c38] font-medium mt-0.5">{sub.products?.size} × {sub.quantity} · {sub.delivery_slot === 'morning' ? '🌅 7–9AM' : '🌆 5–7PM'}</p>
+                          <p className="text-xs text-[#1a5c38] font-medium mt-0.5">{sub.products?.size} × {getScheduledQuantity(sub, tomorrowStr)} · {sub.delivery_slot === 'morning' ? '🌅 7–9AM' : '🌆 5–7PM'}</p>
                         </div>
                       </div>
                     ))}
@@ -1625,7 +1632,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                               {sub.start_date === date && <span className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full font-semibold">🆕 First delivery</span>}
                             </div>
                             <p className="text-xs text-gray-400">{sub.profiles?.phone} · {sub.profiles?.area}</p>
-                            <p className="text-xs text-[#1a5c38] font-medium mt-0.5">{sub.products?.size} × {sub.quantity} · {sub.delivery_slot === 'morning' ? '🌅 7–9AM' : '🌆 5–7PM'}</p>
+                            <p className="text-xs text-[#1a5c38] font-medium mt-0.5">{sub.products?.size} × {getScheduledQuantity(sub, date)} · {sub.delivery_slot === 'morning' ? '🌅 7–9AM' : '🌆 5–7PM'}</p>
                           </div>
                         </div>
                       ))}
