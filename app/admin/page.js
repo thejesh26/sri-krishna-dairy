@@ -68,7 +68,9 @@ export default function AdminDashboard() {
   const [reactivatingSubId, setReactivatingSubId] = useState(null)
   const [pauseSubModal, setPauseSubModal] = useState(null) // { sub }
   const [pauseSubDate, setPauseSubDate] = useState('')
+  const [pauseSubDates, setPauseSubDates] = useState([]) // multi-date selection
   const [pausingSubId, setPausingSubId] = useState(null)
+  const [notifTypeFilter, setNotifTypeFilter] = useState('all')
   const [wallets, setWallets] = useState([])
   const [walletsWithProfiles, setWalletsWithProfiles] = useState([])
   const [selectedCustomer, setSelectedCustomer] = useState(null)
@@ -263,6 +265,7 @@ export default function AdminDashboard() {
     setProfile(profile)
     await loadAllData()
     setLoading(false)
+    loadNotifications() // load unread count without blocking the page
   }
 
   const loadAllData = async () => {
@@ -1102,60 +1105,95 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               )}
             </button>
 
-            {notifBellOpen && (
-              <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-[#e8e0d0] rounded-2xl shadow-2xl z-50 overflow-hidden"
-                onClick={e => e.stopPropagation()}>
-                <div className="px-4 py-3 border-b border-[#f5f0e8] flex items-center justify-between">
-                  <p className="font-semibold text-sm text-[#1c1c1c]">Notifications</p>
-                  {notifUnread > 0 && (
-                    <button onClick={markAllNotificationsRead}
-                      className="text-xs text-[#1a5c38] font-semibold hover:underline">
-                      Mark all read
-                    </button>
-                  )}
-                </div>
-                <div className="max-h-80 overflow-y-auto">
-                  {notifications.length === 0 ? (
-                    <div className="px-4 py-8 text-center">
-                      <div className="text-3xl mb-2">🔔</div>
-                      <p className="text-gray-400 text-sm">No notifications yet</p>
+            {notifBellOpen && (() => {
+              const NOTIF_META = {
+                new_subscription: { icon: '📅', label: 'New Sub',    color: 'bg-green-100 text-green-700'  },
+                new_order:        { icon: '🛒', label: 'Order',      color: 'bg-blue-100 text-blue-700'   },
+                wallet_request:   { icon: '💳', label: 'Wallet',     color: 'bg-purple-100 text-purple-700'},
+                low_balance:      { icon: '⚠️', label: 'Low Bal',   color: 'bg-yellow-100 text-yellow-700'},
+                missed_delivery:  { icon: '❌', label: 'Missed',     color: 'bg-red-100 text-red-700'     },
+                quality_report:   { icon: '🔍', label: 'Report',     color: 'bg-orange-100 text-orange-700'},
+                pause:            { icon: '⏸️', label: 'Pause',     color: 'bg-amber-100 text-amber-700' },
+                addon:            { icon: '➕', label: 'Addon',      color: 'bg-cyan-100 text-cyan-700'   },
+                subscription_stopped: { icon: '🛑', label: 'Stopped', color: 'bg-red-100 text-red-700' },
+                reactivation:     { icon: '▶️', label: 'Reactivated', color: 'bg-green-100 text-green-700'},
+              }
+              const FILTERS = [
+                { id: 'all', label: 'All' },
+                { id: 'new_subscription', label: 'Subscriptions' },
+                { id: 'pause', label: 'Pauses' },
+                { id: 'addon', label: 'Addons' },
+                { id: 'wallet_request', label: 'Wallet' },
+                { id: 'missed_delivery,quality_report,subscription_stopped', label: 'Issues' },
+              ]
+              const filteredNotifs = notifTypeFilter === 'all'
+                ? notifications
+                : notifications.filter(n => notifTypeFilter.split(',').includes(n.type))
+              return (
+                <div className="absolute right-0 top-full mt-2 w-96 bg-white border border-[#e8e0d0] rounded-2xl shadow-2xl z-50 overflow-hidden"
+                  onClick={e => e.stopPropagation()}>
+                  <div className="px-4 py-3 border-b border-[#f5f0e8] flex items-center justify-between">
+                    <p className="font-semibold text-sm text-[#1c1c1c]">Notifications</p>
+                    <div className="flex gap-2">
+                      {notifUnread > 0 && (
+                        <button onClick={markAllNotificationsRead}
+                          className="text-xs text-[#1a5c38] font-semibold hover:underline">
+                          Mark all read
+                        </button>
+                      )}
+                      <button onClick={() => { loadNotifications(); setNotifLoaded(false) }}
+                        className="text-xs text-gray-400 hover:text-[#1a5c38] transition">↻</button>
                     </div>
-                  ) : notifications.map((n, idx) => {
-                    const icons = { new_subscription: '📅', new_order: '🛒', wallet_request: '💳', low_balance: '⚠️', missed_delivery: '❌', quality_report: '⚠️' }
-                    return (
-                      <button key={n.id}
-                        onClick={() => {
-                          if (n.link_tab) { setActiveTab(n.link_tab); setNotifBellOpen(false) }
-                          if (!n.is_read) {
-                            setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, is_read: true } : x))
-                            setNotifUnread(c => Math.max(0, c - 1))
-                            supabase.auth.getSession().then(({ data: { session } }) => {
-                              fetch('/api/admin/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify({ ids: [n.id] }) })
-                            })
-                          }
-                        }}
-                        className={`w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-[#fdfbf7] transition ${idx !== notifications.length - 1 ? 'border-b border-[#f5f0e8]' : ''} ${!n.is_read ? 'bg-[#f0faf4]' : ''}`}>
-                        <span className="text-lg flex-shrink-0 mt-0.5">{icons[n.type] || '🔔'}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm ${!n.is_read ? 'font-semibold text-[#1c1c1c]' : 'text-gray-600'}`}>{n.title}</p>
-                          {n.body && <p className="text-xs text-gray-400 mt-0.5 truncate">{n.body}</p>}
-                          <p className="text-xs text-gray-300 mt-0.5">
-                            {new Date(n.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        </div>
-                        {!n.is_read && <span className="w-2 h-2 rounded-full bg-[#1a5c38] flex-shrink-0 mt-1.5" />}
+                  </div>
+                  {/* Type filters */}
+                  <div className="px-3 py-2 border-b border-[#f5f0e8] flex gap-1.5 overflow-x-auto scrollbar-none">
+                    {FILTERS.map(f => (
+                      <button key={f.id} onClick={() => setNotifTypeFilter(f.id)}
+                        className={`text-xs px-2.5 py-1 rounded-full whitespace-nowrap font-medium transition ${notifTypeFilter === f.id ? 'bg-[#1a5c38] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                        {f.label}
                       </button>
-                    )
-                  })}
+                    ))}
+                  </div>
+                  <div className="max-h-72 overflow-y-auto">
+                    {filteredNotifs.length === 0 ? (
+                      <div className="px-4 py-8 text-center">
+                        <div className="text-3xl mb-2">🔔</div>
+                        <p className="text-gray-400 text-sm">No notifications yet</p>
+                      </div>
+                    ) : filteredNotifs.map((n, idx) => {
+                      const meta = NOTIF_META[n.type] || { icon: '🔔', label: n.type, color: 'bg-gray-100 text-gray-600' }
+                      return (
+                        <button key={n.id}
+                          onClick={() => {
+                            if (n.link_tab) { setActiveTab(n.link_tab); setNotifBellOpen(false) }
+                            if (!n.is_read) {
+                              setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, is_read: true } : x))
+                              setNotifUnread(c => Math.max(0, c - 1))
+                              supabase.auth.getSession().then(({ data: { session } }) => {
+                                fetch('/api/admin/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify({ ids: [n.id] }) })
+                              })
+                            }
+                          }}
+                          className={`w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-[#fdfbf7] transition ${idx !== filteredNotifs.length - 1 ? 'border-b border-[#f5f0e8]' : ''} ${!n.is_read ? 'bg-[#f0faf4]' : ''}`}>
+                          <span className="text-lg flex-shrink-0 mt-0.5">{meta.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${meta.color}`}>{meta.label}</span>
+                            </div>
+                            <p className={`text-sm ${!n.is_read ? 'font-semibold text-[#1c1c1c]' : 'text-gray-600'}`}>{n.title}</p>
+                            {n.body && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{n.body}</p>}
+                            <p className="text-xs text-gray-300 mt-0.5">
+                              {new Date(n.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                          {!n.is_read && <span className="w-2 h-2 rounded-full bg-[#1a5c38] flex-shrink-0 mt-1.5" />}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
-                <div className="px-4 py-2 border-t border-[#f5f0e8]">
-                  <button onClick={() => { loadNotifications(); setNotifLoaded(false) }}
-                    className="text-xs text-gray-400 hover:text-[#1a5c38] transition">
-                    ↻ Refresh
-                  </button>
-                </div>
-              </div>
-            )}
+              )
+            })()}
           </div>
 
           <button onClick={handleLogout}
@@ -2306,7 +2344,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                           {resendWaLoading[sub.id] ? '...' : '📲 Smart WA'}
                         </button>
                         <button
-                          onClick={() => { setPauseSubModal({ sub }); setPauseSubDate('') }}
+                          onClick={() => { setPauseSubModal({ sub }); setPauseSubDate(''); setPauseSubDates([]) }}
                           className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition font-semibold">
                           ⏸️ Pause
                         </button>
@@ -5303,33 +5341,51 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
         }
       })
       const alreadyPaused = sub.paused_dates || []
-      const confirmPause = async () => {
+      const toggleDate = (str) => {
+        if (alreadyPaused.includes(str)) return
+        setPauseSubDates(prev => prev.includes(str) ? prev.filter(d => d !== str) : [...prev, str].sort())
+      }
+      const addPickedDate = () => {
         if (!pauseSubDate) return
-        if (alreadyPaused.includes(pauseSubDate)) {
-          showError(`${new Date(pauseSubDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} is already paused`)
-          return
+        if (!alreadyPaused.includes(pauseSubDate) && !pauseSubDates.includes(pauseSubDate)) {
+          setPauseSubDates(prev => [...prev, pauseSubDate].sort())
         }
+        setPauseSubDate('')
+      }
+      const confirmPause = async () => {
+        if (pauseSubDates.length === 0) return
         setPausingSubId(sub.id)
         const { data: { session } } = await supabase.auth.getSession()
-        const res = await fetch('/api/admin/pause', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-          body: JSON.stringify({ subscription_id: sub.id, pause_date: pauseSubDate }),
-        })
-        const result = await res.json()
-        if (res.ok) {
-          const newPaused = result.paused_dates
-          setSubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, paused_dates: newPaused } : s))
-          setTodaySubscriptions(prev => pauseSubDate === todayIST ? prev.filter(s => s.id !== sub.id) : prev)
-          setUpcomingDeliveries(prev => {
-            const slot = prev[pauseSubDate]
-            if (!slot) return prev
-            return { ...prev, [pauseSubDate]: { ...slot, subscriptions: (slot.subscriptions || []).filter(s => s.id !== sub.id) } }
+        let successDates = []
+        let lastPaused = alreadyPaused
+        for (const date of pauseSubDates) {
+          const res = await fetch('/api/admin/pause', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+            body: JSON.stringify({ subscription_id: sub.id, pause_date: date }),
           })
-          showSuccess(`Delivery paused for ${sub.profiles?.full_name} on ${new Date(pauseSubDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`)
+          const result = await res.json()
+          if (res.ok) {
+            successDates.push(date)
+            lastPaused = result.paused_dates
+          }
+        }
+        if (successDates.length > 0) {
+          setSubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, paused_dates: lastPaused } : s))
+          setTodaySubscriptions(prev => successDates.includes(todayIST) ? prev.filter(s => s.id !== sub.id) : prev)
+          setUpcomingDeliveries(prev => {
+            let next = { ...prev }
+            for (const date of successDates) {
+              const slot = next[date]
+              if (slot) next[date] = { ...slot, subscriptions: (slot.subscriptions || []).filter(s => s.id !== sub.id) }
+            }
+            return next
+          })
+          const dateList = successDates.map(d => new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })).join(', ')
+          showSuccess(`Delivery paused for ${sub.profiles?.full_name} on: ${dateList}`)
           setPauseSubModal(null)
         } else {
-          showError(result.error || 'Failed to pause delivery')
+          showError('Failed to pause delivery')
         }
         setPausingSubId(null)
       }
@@ -5341,13 +5397,13 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
               {sub.profiles?.full_name} — {sub.products?.size} × {sub.quantity}
             </p>
 
-            <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-2 block">Quick Select</label>
+            <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-2 block">Quick Select (tap to toggle)</label>
             <div className="grid grid-cols-4 gap-1.5 mb-3">
               {quickDates.map(({ str, label }) => (
                 <button key={str}
-                  onClick={() => setPauseSubDate(str)}
+                  onClick={() => toggleDate(str)}
                   className={`py-2 rounded-lg text-xs font-semibold border transition ${
-                    pauseSubDate === str ? 'bg-amber-500 text-white border-amber-500' :
+                    pauseSubDates.includes(str) ? 'bg-amber-500 text-white border-amber-500' :
                     alreadyPaused.includes(str) ? 'bg-gray-100 text-gray-400 border-gray-200 line-through cursor-default' :
                     'bg-white text-gray-600 border-[#e8e0d0] hover:border-amber-400'
                   }`}>
@@ -5356,19 +5412,41 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
               ))}
             </div>
 
-            <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Or Pick a Date</label>
-            <input type="date"
-              value={pauseSubDate}
-              min={todayIST}
-              onChange={e => setPauseSubDate(e.target.value)}
-              className="w-full border border-[#e8e0d0] rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400 mb-3" />
+            <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Pick a Date</label>
+            <div className="flex gap-2 mb-3">
+              <input type="date"
+                value={pauseSubDate}
+                min={todayIST}
+                onChange={e => setPauseSubDate(e.target.value)}
+                className="flex-1 border border-[#e8e0d0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-400" />
+              <button onClick={addPickedDate} disabled={!pauseSubDate}
+                className="bg-amber-100 text-amber-700 font-bold px-3 py-2 rounded-lg text-sm hover:bg-amber-200 transition disabled:opacity-40">
+                + Add
+              </button>
+            </div>
+
+            {/* Selected dates chips */}
+            {pauseSubDates.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+                <p className="text-xs font-semibold text-amber-700 mb-1.5">Selected ({pauseSubDates.length}):</p>
+                <div className="flex flex-wrap gap-1">
+                  {pauseSubDates.map(d => (
+                    <button key={d} onClick={() => setPauseSubDates(prev => prev.filter(x => x !== d))}
+                      className="text-xs bg-white border border-amber-300 text-amber-700 px-2 py-0.5 rounded-full hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition flex items-center gap-1">
+                      {new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      <span className="text-[10px]">×</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {alreadyPaused.filter(d => d >= todayIST).length > 0 && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
-                <p className="text-xs font-semibold text-amber-700 mb-1">Already paused:</p>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 mb-3">
+                <p className="text-xs font-semibold text-gray-500 mb-1">Already paused:</p>
                 <div className="flex flex-wrap gap-1">
                   {alreadyPaused.filter(d => d >= todayIST).map(d => (
-                    <span key={d} className="text-xs bg-white border border-amber-200 text-amber-700 px-2 py-0.5 rounded-full">
+                    <span key={d} className="text-xs bg-white border border-gray-200 text-gray-500 px-2 py-0.5 rounded-full">
                       {new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                     </span>
                   ))}
@@ -5382,10 +5460,10 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
                 Cancel
               </button>
               <button
-                disabled={!pauseSubDate || pausingSubId === sub.id || alreadyPaused.includes(pauseSubDate)}
+                disabled={pauseSubDates.length === 0 || pausingSubId === sub.id}
                 onClick={confirmPause}
                 className="flex-1 bg-amber-500 text-white font-bold py-3 rounded-xl text-sm hover:bg-amber-600 transition disabled:opacity-40">
-                {pausingSubId === sub.id ? 'Pausing...' : '⏸️ Confirm Pause'}
+                {pausingSubId === sub.id ? 'Pausing...' : `⏸️ Pause ${pauseSubDates.length > 1 ? `${pauseSubDates.length} Days` : 'Day'}`}
               </button>
             </div>
           </div>

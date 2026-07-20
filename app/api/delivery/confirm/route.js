@@ -2,6 +2,7 @@
 import { supabaseAdmin } from '../../../lib/db'
 import { requireDelivery } from '../../../lib/auth'
 import { calcDailyAmount, getISTDate, getScheduledQuantity } from '../../../lib/pricing'
+import { createAdminNotification } from '../../../lib/notify'
 import { sendDeliveryConfirmed, notifyCodUpsell, sendLowBalanceAlert, sendWhatsAppMessage, sendWhatsAppToAdmin, notifySubscriptionStopped, notifyAdmin, notifyTrialEnded } from '../../../lib/whatsapp'
 import { sendLowBalanceEmail, sendOrderConfirmationEmail, sendEmail } from '../../../lib/email'
 
@@ -45,7 +46,7 @@ export async function POST(request) {
       if (!isAdmin) {
         const { data: assignCheck } = await supabaseAdmin
           .from('orders').select('assigned_to').eq('id', order_id).maybeSingle()
-        if (!assignCheck || assignCheck.assigned_to !== user.id) {
+        if (!assignCheck || (assignCheck.assigned_to !== null && assignCheck.assigned_to !== user.id)) {
           return NextResponse.json({ error: 'Not assigned to this order.' }, { status: 403 })
         }
       }
@@ -54,7 +55,7 @@ export async function POST(request) {
         .from('orders')
         .update({ status: 'delivered', delivered_at: deliveredAt, delivered_by: deliveredBy })
         .eq('id', order_id)
-        .select('user_id, payment_method, quantity, product_id')
+        .select('user_id, payment_method, quantity, product_id, total_price')
         .single()
       if (error) return NextResponse.json({ error: 'Failed to update order.' }, { status: 500 })
 
@@ -157,7 +158,7 @@ export async function POST(request) {
       if (!isAdmin) {
         const { data: assignCheck } = await supabaseAdmin
           .from('subscriptions').select('assigned_to').eq('id', subscription_id).maybeSingle()
-        if (!assignCheck || assignCheck.assigned_to !== user.id) {
+        if (!assignCheck || (assignCheck.assigned_to !== null && assignCheck.assigned_to !== user.id)) {
           return NextResponse.json({ error: 'Not assigned to this subscription.' }, { status: 403 })
         }
       }
@@ -325,6 +326,13 @@ export async function POST(request) {
         const balance = walletSnap?.balance || 0
 
         await supabaseAdmin.from('subscriptions').update({ is_active: false, pending_delivery: false }).eq('id', subscription_id)
+        const { data: stoppedProfileInfo } = await supabaseAdmin.from('profiles').select('full_name, phone').eq('id', sub.user_id).maybeSingle()
+        createAdminNotification({
+          type: 'subscription_stopped',
+          title: `Subscription stopped — ${stoppedProfileInfo?.full_name || 'Customer'}`,
+          body: `Insufficient balance. Required: ₹${dailyAmount}, Available: ₹${balance} | Phone: ${stoppedProfileInfo?.phone || 'N/A'}`,
+          link_tab: 'customers',
+        })
         await supabaseAdmin.from('failed_deductions').insert({
           user_id: sub.user_id,
           subscription_id,

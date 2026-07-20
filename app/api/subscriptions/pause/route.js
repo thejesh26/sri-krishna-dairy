@@ -4,6 +4,7 @@ import { requireAuth } from '../../../lib/auth'
 import { sendSubscriptionPausedEmail } from '../../../lib/email'
 import { notifyAdmin } from '../../../lib/whatsapp'
 import { getEarliestPauseDate, formatPauseCutoffTime } from '../../../lib/pricing'
+import { createAdminNotification } from '../../../lib/notify'
 
 export async function POST(request) {
   try {
@@ -83,6 +84,12 @@ export async function POST(request) {
         `Subscription Paused — ${profile?.full_name || 'Customer'}`,
         `⏸️ Subscription paused\nCustomer: ${profile?.full_name || user.id}\nPhone: ${profile?.phone || 'N/A'}\nPaused date: ${pause_date}\nTotal paused days: ${updatedPaused.length}`
       )
+      await createAdminNotification({
+        type: 'pause',
+        title: `Delivery paused — ${profile?.full_name || 'Customer'}`,
+        body: `Date: ${pause_date} | Phone: ${profile?.phone || 'N/A'} | Total paused this month: ${newPausedCount}`,
+        link_tab: 'customers',
+      })
     } catch { /* non-blocking */ }
 
     return NextResponse.json({

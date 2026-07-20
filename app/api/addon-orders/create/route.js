@@ -4,6 +4,7 @@ import { requireAuth } from '../../../lib/auth'
 import { getISTDate } from '../../../lib/pricing'
 import { sendAddonOrderEmail } from '../../../lib/email'
 import { notifyAddonOrderConfirmed } from '../../../lib/whatsapp'
+import { createAdminNotification } from '../../../lib/notify'
 
 const VALID_DELIVERY_SLOTS = ['morning', 'evening']
 
@@ -99,6 +100,12 @@ export async function POST(request) {
           message: 'Payment will be deducted on delivery.',
         })
       }
+      await createAdminNotification({
+        type: 'addon',
+        title: `Addon order — ${name}`,
+        body: `${product.size} x${qty} for ${dates.length} day(s) | Delivery: ${dates.join(', ')}`,
+        link_tab: 'orders',
+      })
     } catch { /* non-blocking */ }
 
     return NextResponse.json({ success: true, order_count: addonOrders.length })

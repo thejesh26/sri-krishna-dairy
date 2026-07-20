@@ -1,4 +1,5 @@
 import Razorpay from 'razorpay'
+import { requireAuth } from '../../../lib/auth'
 
 const razorpay = new Razorpay({
   key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
@@ -7,6 +8,9 @@ const razorpay = new Razorpay({
 
 export async function POST(request) {
   try {
+    const { error: authError } = await requireAuth(request)
+    if (authError) return authError
+
     const { amount } = await request.json()
 
     if (!amount || amount <= 0) {

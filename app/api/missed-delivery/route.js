@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../../lib/db'
 import { requireAuth } from '../../lib/auth'
 import { sendAdminAlert } from '../../lib/whatsapp'
 import { sendEmail } from '../../lib/email'
+import { createAdminNotification } from '../../lib/notify'
 
 export async function POST(request) {
   console.log('[MissedDelivery] Route called')
@@ -87,6 +88,13 @@ export async function POST(request) {
     } catch (emailErr) {
       console.error('[MissedDelivery] Email failed:', emailErr)
     }
+
+    await createAdminNotification({
+      type: 'missed_delivery',
+      title: `Missed delivery — ${name}`,
+      body: `${issueText} | ${address || 'N/A'} | ${today}`,
+      link_tab: 'reports',
+    })
 
     return NextResponse.json({ success: true })
   } catch {

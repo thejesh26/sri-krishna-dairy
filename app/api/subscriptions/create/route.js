@@ -243,6 +243,7 @@ export async function POST(request) {
       .delete()
       .eq('user_id', user.id)
       .eq('is_active', false)
+      .eq('start_date', start_date)
       .is('cancelled_by', null)
       .is('cancellation_reason', null)
 

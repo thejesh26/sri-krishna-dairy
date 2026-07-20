@@ -22,6 +22,8 @@ export default function AddonOrder() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [myAddonOrders, setMyAddonOrders] = useState([])
+  const [cancellingId, setCancellingId] = useState(null)
 
   useEffect(() => {
     getData()
@@ -58,7 +60,40 @@ export default function AddonOrder() {
     const { data: wallet } = await supabase.from('wallet').select('balance').eq('user_id', session.user.id).maybeSingle()
     setWalletBalance(wallet?.balance || 0)
 
+    // Load existing addon orders
+    const addonRes = await fetch('/api/addon-orders/list', {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    })
+    if (addonRes.ok) {
+      const { addonOrders } = await addonRes.json()
+      setMyAddonOrders(addonOrders || [])
+    }
+
     setLoading(false)
+  }
+
+  const cancelAddon = async (addonId) => {
+    if (!confirm('Cancel this addon order?')) return
+    setCancellingId(addonId)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/addon-orders/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ addon_id: addonId }),
+    })
+    const result = await res.json()
+    if (res.ok) {
+      setMyAddonOrders(prev => prev.map(o => o.id === addonId ? { ...o, status: 'cancelled' } : o))
+      if (result.refund_amount > 0) {
+        setWalletBalance(b => b + result.refund_amount)
+        showSuccess(`Order cancelled. ₹${result.refund_amount} refunded to wallet.`)
+      } else {
+        showSuccess('Order cancelled.')
+      }
+    } else {
+      showError(result.error || 'Could not cancel order.')
+    }
+    setCancellingId(null)
   }
 
   // Compute selected dates based on addon type
@@ -323,6 +358,47 @@ export default function AddonOrder() {
           </button>
         </div>
       </div>
+
+      {/* My Addon Orders */}
+      {myAddonOrders.length > 0 && (
+        <div className="max-w-lg mx-auto px-6 pb-8">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">My Addon Orders</p>
+          <div className="flex flex-col gap-3">
+            {myAddonOrders.map(o => {
+              const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+              const isPending = o.status === 'pending'
+              const canCancel = isPending && o.delivery_date > today
+              const statusColor = {
+                pending: 'bg-yellow-100 text-yellow-700',
+                out_for_delivery: 'bg-blue-100 text-blue-700',
+                delivered: 'bg-green-100 text-green-700',
+                cancelled: 'bg-gray-100 text-gray-500',
+              }[o.status] || 'bg-gray-100 text-gray-500'
+              return (
+                <div key={o.id} className="bg-white border border-[#e8e0d0] rounded-xl p-4 shadow-sm flex items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusColor}`}>{o.status.replace('_', ' ').toUpperCase()}</span>
+                    </div>
+                    <p className="text-sm font-semibold text-[#1c1c1c]">
+                      {o.products?.size} × {o.quantity}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(o.delivery_date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })} · ₹{o.total_price}
+                    </p>
+                  </div>
+                  {canCancel && (
+                    <button onClick={() => cancelAddon(o.id)} disabled={cancellingId === o.id}
+                      className="text-xs text-red-500 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 transition font-semibold disabled:opacity-50 whitespace-nowrap">
+                      {cancellingId === o.id ? '...' : 'Cancel'}
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Modal */}
       {confirmOpen && (

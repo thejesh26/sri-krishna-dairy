@@ -80,6 +80,12 @@ export default function DeliveryDashboard() {
   const [addonOrders, setAddonOrders] = useState([])
   const [deliveredAddons, setDeliveredAddons] = useState(new Set())
 
+  // Tomorrow tab
+  const [tomorrowSubs, setTomorrowSubs] = useState([])
+  const [tomorrowAddons, setTomorrowAddons] = useState([])
+  const [tomorrowLoaded, setTomorrowLoaded] = useState(false)
+  const [tomorrowDate, setTomorrowDate] = useState('')
+
   // Photo modal
   const [photoModal, setPhotoModal] = useState(null)
   const [photoFile, setPhotoFile] = useState(null)
@@ -169,41 +175,39 @@ export default function DeliveryDashboard() {
 
   const loadHistory = async () => {
     if (historyLoaded) return
-    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-    let q = supabase
-      .from('orders')
-      .select('*, products(*), profiles(*)')
-      .eq('status', 'delivered')
-      .lt('delivery_date', today)
-      .order('delivery_date', { ascending: false })
-      .limit(100)
-    if (!profile?.is_admin) q = q.eq('assigned_to', user.id)
-    const { data: orderHistory } = await q
-    setHistoryOrders(orderHistory || [])
-
-    let sdQuery = supabase
-      .from('subscription_deliveries')
-      .select('*, subscriptions(*, products(*), profiles(*))')
-      .lt('delivery_date', today)
-      .order('delivery_date', { ascending: false })
-      .limit(100)
-    if (!profile?.is_admin) sdQuery = sdQuery.eq('delivered_by', profile?.full_name)
-    const { data: sdHistory } = await sdQuery
-    setHistorySubDeliveries(sdHistory || [])
-
     const { data: { session: histSession } } = await supabase.auth.getSession()
-    const addonHistRes = await fetch('/api/delivery/addon-history', {
-      headers: { Authorization: `Bearer ${histSession?.access_token}` },
-    })
-    const { addonOrders: addonHistory } = addonHistRes.ok ? await addonHistRes.json() : { addonOrders: [] }
+    const token = histSession?.access_token
+    const [histRes, addonHistRes] = await Promise.all([
+      fetch('/api/delivery/history', { headers: { Authorization: `Bearer ${token}` } }),
+      fetch('/api/delivery/addon-history', { headers: { Authorization: `Bearer ${token}` } }),
+    ])
+    const { orderHistory = [], sdHistory = [] } = histRes.ok ? await histRes.json() : {}
+    const { addonOrders: addonHistory = [] } = addonHistRes.ok ? await addonHistRes.json() : {}
+    setHistoryOrders(orderHistory)
+    setHistorySubDeliveries(sdHistory)
     setHistoryAddonOrders(addonHistory)
-
     setHistoryLoaded(true)
+  }
+
+  const loadTomorrow = async () => {
+    if (tomorrowLoaded) return
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/delivery/upcoming', {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    })
+    if (res.ok) {
+      const { subscriptions: subs, addonOrders: addons, date } = await res.json()
+      setTomorrowSubs(subs || [])
+      setTomorrowAddons(addons || [])
+      setTomorrowDate(date)
+      setTomorrowLoaded(true)
+    }
   }
 
   const handleTabChange = (tab) => {
     setActiveTab(tab)
     if (tab === 'history') loadHistory()
+    if (tab === 'tomorrow') loadTomorrow()
     if (tab === 'report' && !reportsLoaded) loadReports()
     if (tab === 'wallet' && !walletReqsLoaded) loadWalletRequests()
   }
@@ -679,6 +683,7 @@ export default function DeliveryDashboard() {
             { id: 'pending',   label: 'Pending',    count: stats.pending   },
             { id: 'out',       label: 'Out',        count: stats.out       },
             { id: 'delivered', label: 'Done',       count: stats.delivered },
+            { id: 'tomorrow',  label: '📅 Tomorrow', count: tomorrowLoaded ? tomorrowSubs.length + tomorrowAddons.length : null },
             { id: 'history',   label: '📋 History', count: null            },
             { id: 'wallet',    label: '💳 Wallet',  count: null            },
             { id: 'report',    label: '📝 Report',  count: null            },
@@ -696,6 +701,72 @@ export default function DeliveryDashboard() {
             </button>
           ))}
         </div>
+
+        {/* Tomorrow Tab */}
+        {activeTab === 'tomorrow' && (
+          <div className="flex flex-col gap-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+              <p className="text-sm font-semibold text-blue-700">
+                📅 Tomorrow's deliveries
+                {tomorrowDate ? ` — ${new Date(tomorrowDate + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}` : ''}
+              </p>
+              <p className="text-xs text-blue-500 mt-0.5">{tomorrowSubs.length} subscriptions · {tomorrowAddons.length} addon orders</p>
+            </div>
+            {tomorrowSubs.length === 0 && tomorrowAddons.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-5xl mb-3">📭</div>
+                <p className="text-gray-500 font-semibold">No deliveries scheduled for tomorrow</p>
+              </div>
+            ) : (
+              <>
+                {tomorrowSubs.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Subscriptions ({tomorrowSubs.length})</p>
+                    <div className="flex flex-col gap-2">
+                      {tomorrowSubs.map(sub => (
+                        <div key={sub.id} className="bg-white border border-[#e8e0d0] rounded-xl p-4 shadow-sm">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="font-semibold text-sm text-[#1c1c1c]">{sub.profiles?.full_name || 'Customer'}</p>
+                              <p className="text-xs text-gray-500">{sub.profiles?.phone}</p>
+                              <p className="text-xs text-gray-400">{[sub.profiles?.flat_number, sub.profiles?.apartment_name, sub.profiles?.area].filter(Boolean).join(', ')}</p>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-sm font-bold text-[#1a5c38]">{sub.products?.size} × {getScheduledQuantity(sub, tomorrowDate)}</span>
+                              <p className="text-xs text-gray-400 capitalize">{sub.delivery_slot}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {tomorrowAddons.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Addon Orders ({tomorrowAddons.length})</p>
+                    <div className="flex flex-col gap-2">
+                      {tomorrowAddons.map(ao => (
+                        <div key={ao.id} className="bg-white border border-cyan-200 rounded-xl p-4 shadow-sm">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="font-semibold text-sm text-[#1c1c1c]">{ao.profiles?.full_name || 'Customer'}</p>
+                              <p className="text-xs text-gray-500">{ao.profiles?.phone}</p>
+                              <p className="text-xs text-gray-400">{[ao.profiles?.flat_number, ao.profiles?.apartment_name, ao.profiles?.area].filter(Boolean).join(', ')}</p>
+                            </div>
+                            <div className="text-right">
+                              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-700 font-semibold mb-1">ADDON</span>
+                              <p className="text-sm font-bold text-[#1a5c38]">{ao.products?.size} × {ao.quantity}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {/* History Tab */}
         {activeTab === 'history' && (
