@@ -24,18 +24,11 @@ export default function AddonOrder() {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [myAddonOrders, setMyAddonOrders] = useState([])
   const [cancellingId, setCancellingId] = useState(null)
-
-  useEffect(() => {
-    getData()
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const tStr = tomorrow.toISOString().split('T')[0]
-    setSelectedDate(tStr)
-    setRangeStart(tStr)
-    const endDate = new Date()
-    endDate.setDate(endDate.getDate() + 7)
-    setRangeEnd(endDate.toISOString().split('T')[0])
-  }, [])
+  const [minDate] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() + 1)
+    return d.toISOString().split('T')[0]
+  })
 
   const getData = async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -71,6 +64,19 @@ export default function AddonOrder() {
 
     setLoading(false)
   }
+
+  useEffect(() => {
+    getData()
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const tStr = tomorrow.toISOString().split('T')[0]
+    setSelectedDate(tStr)
+    setRangeStart(tStr)
+    const endDate = new Date()
+    endDate.setDate(endDate.getDate() + 7)
+    setRangeEnd(endDate.toISOString().split('T')[0])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const cancelAddon = async (addonId) => {
     if (!confirm('Cancel this addon order?')) return
@@ -276,7 +282,7 @@ export default function AddonOrder() {
 
             {addonType === 'onetime' && (
               <input type="date" value={selectedDate}
-                min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+                min={minDate}
                 onChange={e => setSelectedDate(e.target.value)}
                 className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38]" />
             )}
@@ -286,7 +292,7 @@ export default function AddonOrder() {
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">From</label>
                   <input type="date" value={rangeStart}
-                    min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+                    min={minDate}
                     onChange={e => setRangeStart(e.target.value)}
                     className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
                 </div>
