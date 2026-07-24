@@ -1,59 +1,61 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../lib/db'
+import { requireCron } from '../../../lib/auth'
+import { getISTDate, getScheduledQuantity } from '../../../lib/pricing'
 import { notifyAdmin } from '../../../lib/whatsapp'
 
-/**
- * Called by Vercel Cron at 19:30 UTC (1AM IST) — 1 hour after the main deduction cron.
- * Checks whether the deduction cron ran today by looking for any subscription deduction
- * transaction with today's date in the description.
- * If none found, alerts admin via WhatsApp.
- *
- * GET /api/cron/heartbeat-check
- */
+// Called daily at 19:30 UTC (1AM IST) — 1 hour after the midnight deduction cron.
+// Verifies that deduct-subscriptions ran by checking pending_delivery flags it sets.
 export async function GET(request) {
-  const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { error } = requireCron(request)
+  if (error) return error
 
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  const today = getISTDate()
 
-  // Check if cron marked any subscriptions as pending_delivery today
-  const { data: todayRun } = await supabaseAdmin
-    .from('subscriptions')
-    .select('id')
-    .eq('pending_delivery', true)
-    .limit(1)
+  const [{ data: pendingSubs }, { count: activeCount }] = await Promise.all([
+    supabaseAdmin.from('subscriptions').select('id').eq('pending_delivery', true).limit(1),
+    supabaseAdmin.from('subscriptions').select('*', { count: 'exact', head: true }).eq('is_active', true),
+  ])
 
-  // Also check if any active subscriptions exist — if none, cron has nothing to do
-  const { data: activeSubs } = await supabaseAdmin
-    .from('subscriptions')
-    .select('id')
-    .eq('is_active', true)
-    .limit(1)
-
-  // If no active subscriptions exist, cron ran successfully (nothing to do)
-  if (!activeSubs?.length) {
+  // No active subscriptions — cron has nothing to do, all good
+  if (!activeCount) {
     return NextResponse.json({ date: today, status: 'OK', message: 'No active subscriptions.' })
   }
 
-  // If active subs exist and none are pending — cron may not have run
-  if (!todayRun?.length) {
-    // Check wallet_transactions as fallback
-    const { data: txCheck } = await supabaseAdmin
-      .from('wallet_transactions')
-      .select('id')
-      .like('description', `%[${today}]%`)
-      .limit(1)
-
-    if (!txCheck?.length) {
-      await notifyAdmin(
-        '⚠️ Cron Alert — Deduction Did Not Run',
-        `The daily cron did NOT run on ${today}. Please check Vercel logs.`
-      )
-      return NextResponse.json({ date: today, status: 'MISSED' })
-    }
+  // Cron set at least one pending_delivery flag — it ran successfully
+  if (pendingSubs?.length) {
+    return NextResponse.json({ date: today, status: 'OK', pending: pendingSubs.length })
   }
 
-  return NextResponse.json({ date: today, status: 'OK' })
+  // pending_delivery count is 0 even though active subs exist.
+  // Check if the cron genuinely ran but found nothing scheduled today
+  // (all paused, or weekly_schedule has 0 for today's day-of-week).
+  try {
+    const { data: candidates } = await supabaseAdmin
+      .from('subscriptions')
+      .select('id, weekly_schedule, quantity, paused_dates')
+      .eq('is_active', true)
+      .lte('start_date', today)
+      .or(`end_date.is.null,end_date.gte.${today}`)
+
+    const expectedCount = (candidates || []).filter(sub => {
+      if ((sub.paused_dates || []).includes(today)) return false
+      return getScheduledQuantity(sub, today) > 0
+    }).length
+
+    if (expectedCount === 0) {
+      // Cron ran correctly — no deliveries scheduled today (all paused or off-day)
+      return NextResponse.json({ date: today, status: 'OK', message: 'No deliveries scheduled today.' })
+    }
+  } catch (err) {
+    console.error('[heartbeat] candidate check failed:', err)
+  }
+
+  // Active subs exist, deliveries were expected, but pending_delivery is 0 — cron missed
+  await notifyAdmin(
+    '⚠️ Cron Alert — Deduction Did Not Run',
+    `The daily cron did NOT run on ${today}. Delivery pipeline not set up. Please check Vercel logs and trigger manually if needed.`
+  ).catch(() => {})
+
+  return NextResponse.json({ date: today, status: 'MISSED' })
 }

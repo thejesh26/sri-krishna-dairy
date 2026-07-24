@@ -1,29 +1,66 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../lib/db'
-import { getISTDate, avgScheduledQuantity } from '../../../lib/pricing'
+import { getISTDate, getScheduledQuantity, avgScheduledQuantity } from '../../../lib/pricing'
+import { requireCron } from '../../../lib/auth'
 import { sendLowBalanceEmail, sendSubscriptionExpiryReminderEmail, sendReferralCompletedEmail, sendPointsExpiryEmail } from '../../../lib/email'
 import { sendSubscriptionExpiry, notifyReferralCompleted, notifyPointsExpiring, notifyAdmin } from '../../../lib/whatsapp'
 
 // Called daily by Vercel Cron at 18:30 UTC (midnight IST)
+export const maxDuration = 300
+
 export async function GET(request) {
-  const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { error } = requireCron(request)
+  if (error) return error
   return runDeductions()
 }
 
 // Also accepts POST so the admin panel can trigger it manually
 export async function POST(request) {
-  const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { error } = requireCron(request)
+  if (error) return error
   return runDeductions()
 }
 
 async function runDeductions() {
   const today = getISTDate()
+  console.log(`[cron/deduct-subscriptions] start — ${today}`)
+  const results = { date: today }
+
+  // ── 0. Mark today's scheduled subscriptions as pending_delivery ──────────────
+  // Reset leftover flags from the previous day, then set today's expected deliveries.
+  // delivery/confirm clears flags when agents confirm; check-undelivered clears at 10AM IST.
+  try {
+    await supabaseAdmin
+      .from('subscriptions')
+      .update({ pending_delivery: false })
+      .eq('pending_delivery', true)
+
+    const { data: candidates } = await supabaseAdmin
+      .from('subscriptions')
+      .select('id, weekly_schedule, quantity, paused_dates')
+      .eq('is_active', true)
+      .lte('start_date', today)
+      .or(`end_date.is.null,end_date.gte.${today}`)
+
+    const idsToMark = (candidates || [])
+      .filter(sub => {
+        if ((sub.paused_dates || []).includes(today)) return false
+        return getScheduledQuantity(sub, today) > 0
+      })
+      .map(sub => sub.id)
+
+    if (idsToMark.length) {
+      await supabaseAdmin
+        .from('subscriptions')
+        .update({ pending_delivery: true })
+        .in('id', idsToMark)
+    }
+
+    results.pending_delivery_count = idsToMark.length
+    console.log(`[cron] step 0: marked ${idsToMark.length} subscriptions as pending_delivery`)
+  } catch (err) {
+    console.error('[cron] step 0 failed:', err)
+  }
 
   // ── 1. Auto-deactivate expired fixed subscriptions ───────────────────────────
   try {
@@ -41,9 +78,13 @@ async function runDeductions() {
         `📅 Fixed subscription #${sub.id} has expired (end date: ${sub.end_date}). Auto-deactivated.`
       ).catch(() => {})
     }
-  } catch { /* must not block cron */ }
+    results.expired_subs = (expiredSubs || []).length
+    console.log(`[cron] step 1: deactivated ${results.expired_subs} expired fixed subs`)
+  } catch (err) {
+    console.error('[cron] step 1 failed:', err)
+  }
 
-  // ── 2. Low balance alerts (batched — 2 queries instead of N×2) ──────────────
+  // ── 2. Low balance alerts (batched) ─────────────────────────────────────────
   try {
     const { data: activeSubs } = await supabaseAdmin
       .from('subscriptions')
@@ -53,13 +94,13 @@ async function runDeductions() {
       .lte('start_date', today)
       .or(`end_date.is.null,end_date.gte.${today}`)
 
-    // One sub per user (first match wins)
     const userSubMap = {}
     for (const sub of activeSubs || []) {
       if (!userSubMap[sub.user_id]) userSubMap[sub.user_id] = sub
     }
     const userIds = Object.keys(userSubMap)
 
+    let alertCount = 0
     if (userIds.length) {
       const [{ data: wallets }, { data: profiles }] = await Promise.all([
         supabaseAdmin.from('wallet').select('user_id, balance').in('user_id', userIds),
@@ -77,11 +118,16 @@ async function runDeductions() {
           const profile = profileMap[userId]
           if (profile?.email) {
             await sendLowBalanceEmail({ to: profile.email, name: profile.full_name || 'Customer', balance }).catch(() => {})
+            alertCount++
           }
         }
       }
     }
-  } catch { /* must not block cron */ }
+    results.low_balance_alerts = alertCount
+    console.log(`[cron] step 2: sent ${alertCount} low-balance alerts`)
+  } catch (err) {
+    console.error('[cron] step 2 failed:', err)
+  }
 
   // ── 3. Admin alert if no deliveries confirmed yesterday ─────────────────────
   try {
@@ -100,7 +146,10 @@ async function runDeductions() {
         `⚠️ No deliveries were confirmed on ${yesterdayStr}. Please check if deliveries are being marked in the admin panel.`
       ).catch(() => {})
     }
-  } catch { /* must not block cron */ }
+    console.log(`[cron] step 3: yesterday deliveries=${deliveryCount}, active subs=${activeCount}`)
+  } catch (err) {
+    console.error('[cron] step 3 failed:', err)
+  }
 
   // ── 4. Reset pause_days_used_this_month on the 1st of each month ────────────
   try {
@@ -109,8 +158,11 @@ async function runDeductions() {
         .from('subscriptions')
         .update({ pause_days_used_this_month: 0 })
         .eq('is_active', true)
+      console.log('[cron] step 4: reset monthly pause counters')
     }
-  } catch { /* non-blocking */ }
+  } catch (err) {
+    console.error('[cron] step 4 failed:', err)
+  }
 
   // ── 5. Referral completion check: award 100 pts after 30 subscription days ──
   try {
@@ -119,49 +171,54 @@ async function runDeductions() {
       .select('id, referrer_id, referred_id, subscription_days_count, profiles!referrals_referred_id_fkey(full_name)')
       .eq('status', 'pending')
 
-    for (const ref of pendingReferrals || []) {
-      const { data: activeSub } = await supabaseAdmin
+    if ((pendingReferrals || []).length) {
+      // Batch-check which referred users have an active subscription (1 query vs N)
+      const referredIds = pendingReferrals.map(r => r.referred_id)
+      const { data: activeSubs } = await supabaseAdmin
         .from('subscriptions')
-        .select('id')
-        .eq('user_id', ref.referred_id)
+        .select('user_id')
         .eq('is_active', true)
-        .maybeSingle()
-      if (!activeSub) continue
+        .in('user_id', referredIds)
+      const activeReferredSet = new Set((activeSubs || []).map(s => s.user_id))
 
-      const newCount = (ref.subscription_days_count || 0) + 1
+      let completedCount = 0
+      for (const ref of pendingReferrals) {
+        if (!activeReferredSet.has(ref.referred_id)) continue
 
-      if (newCount >= 30) {
-        const REFERRAL_POINTS = 100
-        const referredName = ref.profiles?.full_name || 'Your referral'
+        const newCount = (ref.subscription_days_count || 0) + 1
 
-        const [{ data: referrerProf }, { data: referrerAuth }, { data: referredProf }, { data: referredAuth }] = await Promise.all([
-          supabaseAdmin.from('profiles').select('loyalty_points, full_name, phone, email').eq('id', ref.referrer_id).single(),
-          supabaseAdmin.auth.admin.getUserById(ref.referrer_id),
-          supabaseAdmin.from('profiles').select('loyalty_points, full_name, phone, email').eq('id', ref.referred_id).single(),
-          supabaseAdmin.auth.admin.getUserById(ref.referred_id),
-        ])
+        if (newCount >= 30) {
+          const REFERRAL_POINTS = 100
+          const referredName = ref.profiles?.full_name || 'Your referral'
 
-        await Promise.all([
-          supabaseAdmin.from('profiles').update({ loyalty_points: (referrerProf?.loyalty_points || 0) + REFERRAL_POINTS }).eq('id', ref.referrer_id),
-          supabaseAdmin.from('profiles').update({ loyalty_points: (referredProf?.loyalty_points || 0) + REFERRAL_POINTS }).eq('id', ref.referred_id),
-          supabaseAdmin.from('referrals').update({ status: 'completed', referral_activated_at: new Date().toISOString(), subscription_days_count: newCount }).eq('id', ref.id),
-        ])
+          const [{ data: referrerProf }, { data: referredProf }] = await Promise.all([
+            supabaseAdmin.from('profiles').select('loyalty_points, full_name, phone, email').eq('id', ref.referrer_id).single(),
+            supabaseAdmin.from('profiles').select('loyalty_points, full_name, phone, email').eq('id', ref.referred_id).single(),
+          ])
 
-        try {
-          const referrerEmail = referrerAuth?.user?.email || referrerProf?.email
-          const referredEmail = referredAuth?.user?.email || referredProf?.email
+          await Promise.all([
+            supabaseAdmin.from('profiles').update({ loyalty_points: (referrerProf?.loyalty_points || 0) + REFERRAL_POINTS }).eq('id', ref.referrer_id),
+            supabaseAdmin.from('profiles').update({ loyalty_points: (referredProf?.loyalty_points || 0) + REFERRAL_POINTS }).eq('id', ref.referred_id),
+            supabaseAdmin.from('referrals').update({ status: 'completed', referral_activated_at: new Date().toISOString(), subscription_days_count: newCount }).eq('id', ref.id),
+          ])
+
           await Promise.allSettled([
-            referrerEmail && sendReferralCompletedEmail({ to: referrerEmail, name: referrerProf?.full_name || 'Customer', points: REFERRAL_POINTS, friendName: referredName }),
-            referredEmail && sendReferralCompletedEmail({ to: referredEmail, name: referredProf?.full_name || 'Customer', points: REFERRAL_POINTS, friendName: referrerProf?.full_name || 'Your referrer' }),
+            referrerProf?.email && sendReferralCompletedEmail({ to: referrerProf.email, name: referrerProf.full_name || 'Customer', points: REFERRAL_POINTS, friendName: referredName }),
+            referredProf?.email && sendReferralCompletedEmail({ to: referredProf.email, name: referredProf.full_name || 'Customer', points: REFERRAL_POINTS, friendName: referrerProf?.full_name || 'Your referrer' }),
             referrerProf?.phone && notifyReferralCompleted({ phone: referrerProf.phone, name: referrerProf.full_name || 'Customer', points: REFERRAL_POINTS }),
             referredProf?.phone && notifyReferralCompleted({ phone: referredProf.phone, name: referredProf.full_name || 'Customer', points: REFERRAL_POINTS }),
           ])
-        } catch { /* non-blocking */ }
-      } else {
-        await supabaseAdmin.from('referrals').update({ subscription_days_count: newCount }).eq('id', ref.id)
+          completedCount++
+        } else {
+          await supabaseAdmin.from('referrals').update({ subscription_days_count: newCount }).eq('id', ref.id)
+        }
       }
+      results.referrals_completed = completedCount
+      console.log(`[cron] step 5: ${completedCount} referrals completed, ${pendingReferrals.length} checked`)
     }
-  } catch { /* referral check must not block cron */ }
+  } catch (err) {
+    console.error('[cron] step 5 failed:', err)
+  }
 
   // ── 6. Loyalty points expiry check ──────────────────────────────────────────
   try {
@@ -170,7 +227,6 @@ async function runDeductions() {
     const in30DaysStr = in30Days.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 
     const [{ data: expiredProfiles }, { data: expiringProfiles }] = await Promise.all([
-      // lt (strictly before today) so points remain valid through the full expiry date
       supabaseAdmin.from('profiles').select('id').not('loyalty_points_expiry', 'is', null).lt('loyalty_points_expiry', today).gt('loyalty_points', 0),
       supabaseAdmin.from('profiles').select('id, full_name, phone, loyalty_points, loyalty_points_expiry, email').eq('loyalty_points_expiry', in30DaysStr).gt('loyalty_points', 0),
     ])
@@ -180,12 +236,16 @@ async function runDeductions() {
     }
 
     for (const prof of expiringProfiles || []) {
-      try {
-        if (prof.email) await sendPointsExpiryEmail({ to: prof.email, name: prof.full_name || 'Customer', points: prof.loyalty_points, expiryDate: prof.loyalty_points_expiry })
-        if (prof.phone) await notifyPointsExpiring({ phone: prof.phone, name: prof.full_name || 'Customer', points: prof.loyalty_points, expiryDate: prof.loyalty_points_expiry })
-      } catch { /* non-blocking */ }
+      await Promise.allSettled([
+        prof.email && sendPointsExpiryEmail({ to: prof.email, name: prof.full_name || 'Customer', points: prof.loyalty_points, expiryDate: prof.loyalty_points_expiry }),
+        prof.phone && notifyPointsExpiring({ phone: prof.phone, name: prof.full_name || 'Customer', points: prof.loyalty_points, expiryDate: prof.loyalty_points_expiry }),
+      ])
     }
-  } catch { /* expiry check must not block cron */ }
+    results.points_expired = (expiredProfiles || []).length
+    console.log(`[cron] step 6: ${results.points_expired} expired, ${(expiringProfiles || []).length} expiry warnings sent`)
+  } catch (err) {
+    console.error('[cron] step 6 failed:', err)
+  }
 
   // ── 7. Subscription expiry reminders (3-day warning for fixed subs) ──────────
   try {
@@ -199,6 +259,7 @@ async function runDeductions() {
       .eq('is_active', true)
       .eq('end_date', in3DaysStr)
 
+    let remindersCount = 0
     for (const sub of expiringSubs || []) {
       try {
         const { data: expiryProfile } = await supabaseAdmin
@@ -212,9 +273,17 @@ async function runDeductions() {
         const endDateLabel = new Date(sub.end_date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
         if (email) await sendSubscriptionExpiryReminderEmail({ to: email, name, product, endDate: endDateLabel, daysLeft: 3 })
         if (expiryProfile?.phone) await sendSubscriptionExpiry(expiryProfile.phone, name, endDateLabel, product)
-      } catch { /* non-blocking per sub */ }
+        remindersCount++
+      } catch (err) {
+        console.error('[cron] step 7 sub reminder failed:', err)
+      }
     }
-  } catch { /* must not block cron */ }
+    results.expiry_reminders = remindersCount
+    console.log(`[cron] step 7: sent ${remindersCount} expiry reminders`)
+  } catch (err) {
+    console.error('[cron] step 7 failed:', err)
+  }
 
-  return NextResponse.json({ date: today, summary: 'daily cron complete' })
+  console.log('[cron/deduct-subscriptions] done:', JSON.stringify(results))
+  return NextResponse.json(results)
 }

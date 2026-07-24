@@ -48,7 +48,9 @@ export async function GET(request) {
       if (profile?.phone) await notifyUndelivered({ phone: profile.phone, name })
 
       notified.push({ subscriptionId: sub.id, userId: sub.user_id })
-    } catch { /* non-blocking */ }
+    } catch (err) {
+      console.error('[check-undelivered] notify failed for sub', sub.id, err)
+    }
   }
 
   // Alert admin with count
@@ -57,7 +59,9 @@ export async function GET(request) {
       `⚠️ Undelivered check [${today}]: ${undelivered.length} subscription(s) were not confirmed by 10AM IST.\n` +
       `Customers have NOT been charged. Please review deliveries.`
     )
-  } catch { /* non-blocking */ }
+  } catch (err) {
+    console.error('[check-undelivered] admin notify failed:', err)
+  }
 
   return NextResponse.json({
     date: today,
