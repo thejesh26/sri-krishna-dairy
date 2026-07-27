@@ -19,6 +19,8 @@ export default function Wallet() {
   const { showSuccess, showError } = useToast()
   const [selectedAmount, setSelectedAmount] = useState(null)
   const [pluxeeQrUrl, setPluxeeQrUrl] = useState('')
+  const [pluxeeStoreName, setPluxeeStoreName] = useState('')
+  const [pluxeeStoreId, setPluxeeStoreId] = useState('')
   const [pluxeeAmount, setPluxeeAmount] = useState('')
   const [pluxeeTxnRef, setPluxeeTxnRef] = useState('')
   const [pluxeeLoading, setPluxeeLoading] = useState(false)
@@ -34,7 +36,11 @@ export default function Wallet() {
     setProfile(prof)
     await Promise.all([
       loadWallet(user.id),
-      fetch('/api/settings/public').then(r => r.json()).then(s => { if (s.pluxee_qr_url) setPluxeeQrUrl(s.pluxee_qr_url) }).catch(() => {}),
+      fetch('/api/settings/public').then(r => r.json()).then(s => {
+        if (s.pluxee_qr_url) setPluxeeQrUrl(s.pluxee_qr_url)
+        if (s.pluxee_store_name) setPluxeeStoreName(s.pluxee_store_name)
+        if (s.pluxee_store_id) setPluxeeStoreId(s.pluxee_store_id)
+      }).catch(() => {}),
     ])
     setLoading(false)
   }
@@ -286,13 +292,48 @@ export default function Wallet() {
         {pluxeeQrUrl && (
           <Card id="pluxee-pay" className="mb-6">
             <CardSection title="Pay via Pluxee (Sodexo)">
-              <div className="flex flex-col sm:flex-row gap-5 items-start">
-                <div className="flex-shrink-0 flex flex-col items-center gap-2">
-                  <img src={pluxeeQrUrl} alt="Pluxee QR Code" className="w-36 h-36 rounded-xl border border-[#e8e0d0] object-contain bg-white p-1" />
-                  <p className="text-[10px] text-gray-400 text-center">Scan with Pluxee / Sodexo app</p>
+              {/* Store info + QR */}
+              <div className="flex gap-4 items-start mb-4">
+                <div className="flex-shrink-0 flex flex-col items-center gap-1.5">
+                  <img src={pluxeeQrUrl} alt="Pluxee QR Code" className="w-36 h-36 rounded-xl border-2 border-[#1a5c38] object-contain bg-white p-1 shadow-sm" />
+                  <p className="text-[10px] text-gray-400 text-center">Scan with Pluxee app</p>
                 </div>
-                <div className="flex-1 flex flex-col gap-3 w-full">
-                  <p className="text-xs text-gray-500">Scan the QR, pay the amount in your Pluxee app, then enter the transaction reference here for verification.</p>
+                <div className="flex-1 pt-1">
+                  {pluxeeStoreName && (
+                    <p className="font-bold text-[#1c1c1c] text-sm mb-0.5">{pluxeeStoreName}</p>
+                  )}
+                  {pluxeeStoreId && (
+                    <p className="text-xs text-gray-500 mb-3">Store ID: <span className="font-mono font-semibold text-[#1a5c38]">{pluxeeStoreId}</span></p>
+                  )}
+                  <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-xl p-3">
+                    <p className="text-xs font-semibold text-[#1a5c38] mb-1">✅ Auto-credit enabled</p>
+                    <p className="text-xs text-gray-600 leading-relaxed">Scan the QR and pay in your Pluxee app. Your wallet will be credited automatically within a few minutes.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Steps */}
+              <div className="flex flex-col gap-1.5 mb-4">
+                {[
+                  'Open your Pluxee app and tap Scan & Pay',
+                  'Scan the QR code above',
+                  'Enter the amount you want to add and confirm payment',
+                  'Your wallet is credited automatically — no further action needed',
+                ].map((step, i) => (
+                  <div key={i} className="flex gap-2.5 items-start">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#1a5c38] text-white text-[10px] font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
+                    <p className="text-xs text-gray-600">{step}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Fallback: manual txn ref */}
+              <details className="border border-[#e8e0d0] rounded-xl overflow-hidden">
+                <summary className="px-4 py-3 text-xs font-semibold text-gray-500 cursor-pointer select-none hover:bg-[#fdfbf7]">
+                  Wallet not credited after 10 minutes? Submit reference manually
+                </summary>
+                <div className="px-4 pb-4 pt-3 flex flex-col gap-3 border-t border-[#e8e0d0]">
+                  <p className="text-xs text-gray-400">Enter the amount you paid and the transaction reference from your Pluxee app. Admin will verify and credit your wallet.</p>
                   <div className="grid grid-cols-3 gap-2">
                     {[200, 500, 1000].map(amt => (
                       <button key={amt}
@@ -323,11 +364,10 @@ export default function Wallet() {
                     onClick={handlePluxeeSubmit}
                     fullWidth
                   >
-                    Submit for Verification
+                    Submit Reference
                   </Button>
-                  <p className="text-[10px] text-gray-400">Admin will verify your Pluxee payment and credit your wallet within a few hours.</p>
                 </div>
-              </div>
+              </details>
             </CardSection>
           </Card>
         )}

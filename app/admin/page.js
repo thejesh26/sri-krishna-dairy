@@ -120,6 +120,8 @@ export default function AdminDashboard() {
     bottle_deposit_amount: '200',
     holidays: '[]',
     pluxee_qr_url: '',
+    pluxee_store_name: '',
+    pluxee_store_id: '',
   })
   const [settingsSaving, setSettingsSaving] = useState({})
   const [editProducts, setEditProducts] = useState({})
@@ -4349,8 +4351,43 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
         {/* D. Pluxee Settings */}
         <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
           <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-2">💳 Pluxee (Sodexo) Settings</h3>
-          <p className="text-xs text-gray-400 mb-5">Paste the public URL of your Pluxee merchant QR image. Customers will see this QR on their Wallet page to scan and pay.</p>
-          <div className="flex flex-col gap-3">
+          <p className="text-xs text-gray-400 mb-1">Configure your Pluxee merchant details. Customers will see the QR, Store Name, and Store ID on their Wallet page.</p>
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-5">
+            <p className="text-xs font-bold text-blue-700 mb-1">📡 PayU Webhook Setup (one-time)</p>
+            <p className="text-xs text-blue-600 mb-1">In your PayU / Pluxee merchant portal, set the webhook callback URL to:</p>
+            <p className="text-xs font-mono bg-white border border-blue-200 rounded px-2 py-1 text-blue-800 select-all">https://srikrishnaadairy.in/api/webhooks/payu</p>
+            <p className="text-xs text-blue-500 mt-1">Also set <span className="font-mono">PAYU_SALT</span> and <span className="font-mono">PAYU_MERCHANT_KEY</span> in your Vercel environment variables. Wallet credits will be automatic once this is configured.</p>
+          </div>
+          <div className="flex flex-col gap-4">
+            {/* Store Name */}
+            <div>
+              <label className="block text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2">Store Name</label>
+              <div className="flex gap-2">
+                <input type="text" value={appSettings.pluxee_store_name || ''}
+                  onChange={e => setAppSettings(p => ({ ...p, pluxee_store_name: e.target.value }))}
+                  placeholder="e.g. Sri Krishnaa Dairy Farms"
+                  className="flex-1 border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
+                <button onClick={() => saveSetting('pluxee_store_name', appSettings.pluxee_store_name)} disabled={settingsSaving.pluxee_store_name}
+                  className="bg-[#1a5c38] text-white font-bold px-4 py-2 rounded-lg text-sm hover:bg-[#14472c] transition disabled:opacity-50">
+                  Save
+                </button>
+              </div>
+            </div>
+            {/* Store ID */}
+            <div>
+              <label className="block text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2">Store ID / Merchant ID</label>
+              <div className="flex gap-2">
+                <input type="text" value={appSettings.pluxee_store_id || ''}
+                  onChange={e => setAppSettings(p => ({ ...p, pluxee_store_id: e.target.value }))}
+                  placeholder="e.g. SKD-001234"
+                  className="flex-1 border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
+                <button onClick={() => saveSetting('pluxee_store_id', appSettings.pluxee_store_id)} disabled={settingsSaving.pluxee_store_id}
+                  className="bg-[#1a5c38] text-white font-bold px-4 py-2 rounded-lg text-sm hover:bg-[#14472c] transition disabled:opacity-50">
+                  Save
+                </button>
+              </div>
+            </div>
+            {/* QR URL */}
             <div>
               <label className="block text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2">Pluxee QR Image URL</label>
               <div className="flex gap-2">
@@ -4365,9 +4402,13 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               </div>
             </div>
             {appSettings.pluxee_qr_url && (
-              <div className="flex items-center gap-3 mt-1">
+              <div className="flex items-center gap-3">
                 <img src={appSettings.pluxee_qr_url} alt="Pluxee QR preview" className="w-24 h-24 rounded-xl border border-[#e8e0d0] object-contain bg-white p-1" />
-                <p className="text-xs text-gray-400">QR preview — this is what customers see.</p>
+                <div>
+                  <p className="text-xs font-semibold text-[#1c1c1c]">{appSettings.pluxee_store_name || 'Store name not set'}</p>
+                  <p className="text-xs text-gray-400">ID: {appSettings.pluxee_store_id || 'Not set'}</p>
+                  <p className="text-xs text-gray-400 mt-1">QR preview — this is what customers see.</p>
+                </div>
               </div>
             )}
           </div>

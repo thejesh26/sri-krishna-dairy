@@ -3,7 +3,7 @@ import { supabaseAdmin } from '../../../lib/db'
 
 // Returns a safe subset of app_settings that customer-facing pages need.
 // No auth required — only non-sensitive UI config is exposed here.
-const PUBLIC_KEYS = ['pluxee_qr_url']
+const PUBLIC_KEYS = ['pluxee_qr_url', 'pluxee_store_name', 'pluxee_store_id']
 
 export async function GET() {
   try {
