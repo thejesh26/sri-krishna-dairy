@@ -1,42 +1,43 @@
 import Razorpay from 'razorpay'
+import { NextResponse } from 'next/server'
 import { requireAuth } from '../../../lib/auth'
-
-const razorpay = new Razorpay({
-  key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-})
 
 export async function POST(request) {
   try {
     const { error: authError } = await requireAuth(request)
     if (authError) return authError
 
+    const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
+    const keySecret = process.env.RAZORPAY_KEY_SECRET
+
+    if (!keyId || !keySecret) {
+      console.error('[razorpay/create-order] missing env vars — NEXT_PUBLIC_RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET not set')
+      return NextResponse.json({ error: 'Payment gateway not configured on server.' }, { status: 503 })
+    }
+
     const { amount } = await request.json()
 
     if (!amount || amount <= 0) {
-      return Response.json(
-        { error: 'Invalid amount' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Invalid amount' }, { status: 400 })
     }
 
+    const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret })
+
     const order = await razorpay.orders.create({
-      amount: Math.round(amount * 100), // convert to paise
+      amount: Math.round(amount * 100),
       currency: 'INR',
       receipt: `receipt_${Date.now()}`,
     })
 
-    return Response.json({
+    return NextResponse.json({
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
     })
 
   } catch (error) {
-    console.error('Razorpay create order error:', error)
-    return Response.json(
-      { error: 'Failed to create order' },
-      { status: 500 }
-    )
+    const msg = error?.error?.description || error?.message || String(error)
+    console.error('[razorpay/create-order] error:', msg, error)
+    return NextResponse.json({ error: `Razorpay error: ${msg}` }, { status: 500 })
   }
 }

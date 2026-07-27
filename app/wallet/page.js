@@ -105,8 +105,8 @@ export default function Wallet() {
         body: JSON.stringify({ amount }),
       })
       const orderData = await orderRes.json()
-      if (!orderData.orderId) {
-        showError('Failed to create payment order')
+      if (!orderRes.ok || !orderData.orderId) {
+        showError(orderData.error || 'Failed to create payment order')
         setRechargeLoading(false)
         return
       }
