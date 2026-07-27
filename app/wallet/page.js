@@ -104,9 +104,12 @@ export default function Wallet() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ amount }),
       })
-      const orderData = await orderRes.json()
+      let orderData = {}
+      try { orderData = await orderRes.json() } catch { /* non-JSON response */ }
       if (!orderRes.ok || !orderData.orderId) {
-        showError(orderData.error || 'Failed to create payment order')
+        const errMsg = orderData.error || `Payment order failed (HTTP ${orderRes.status})`
+        console.error('[wallet] create-order failed:', orderRes.status, orderData)
+        showError(errMsg)
         setRechargeLoading(false)
         return
       }
