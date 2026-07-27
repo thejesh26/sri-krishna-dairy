@@ -95,7 +95,7 @@ export default function Wallet() {
       const phone = digits.length === 10 ? '+91' + digits : ''
       const orderRes = await fetch('/api/razorpay/create-order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ amount }),
       })
       const orderData = await orderRes.json()
