@@ -479,7 +479,8 @@ export default function AdminDashboard() {
           customerName,
           phone: customers.find(c => c.id === d.user_id)?.phone || '',
           product: sub?.products?.size || 'Milk',
-          quantity: sub?.quantity || 1,
+          quantity: d.quantity ?? sub?.quantity ?? 1,
+          quantitySource: d.quantity_source || null,
           deliveredBy: agentMap[d.delivered_by] || d.delivered_by || '-',
           deliveredAt: d.delivered_at,
           date: d.delivery_date,
@@ -1933,7 +1934,9 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                                     <p className="font-semibold text-[#1c1c1c]">{d.customerName}</p>
                                     <p className="text-xs text-gray-400">{d.phone}</p>
                                   </td>
-                                  <td className="px-5 py-3 text-[#1c1c1c]">{d.product} <span className="text-gray-400 text-xs">x{d.quantity}</span></td>
+                                  <td className="px-5 py-3 text-[#1c1c1c]">{d.product} <span className="text-gray-400 text-xs">x{d.quantity}</span>{d.quantitySource && d.quantitySource !== 'confirmed' && (
+                                    <span title={d.quantitySource === 'unresolved_no_transaction' ? 'No matching wallet transaction found — quantity is a best-effort guess' : 'Backfilled from historical data — please verify'} className="text-amber-500 cursor-help ml-1">≈</span>
+                                  )}</td>
                                   <td className="px-5 py-3">
                                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${d.type === 'subscription' ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]'}`}>
                                       {d.type === 'subscription' ? '📅 Sub' : '🛒 Order'}
@@ -1994,6 +1997,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               orderType: 'subscription',
               _status: 'delivered',
               delivery_date: d.delivery_date,
+              quantity: d.quantity ?? d.subscriptions?.quantity,
               profiles: d.subscriptions?.profiles || null,
               products: d.subscriptions?.products || null,
               _sortDate: d.delivery_date,
@@ -3486,7 +3490,9 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                               <p className="text-xs text-gray-400">{d.phone}</p>
                             </td>
                             <td className="px-5 py-3 text-[#1c1c1c]">
-                              {d.product} <span className="text-gray-400 text-xs">x{d.quantity}</span>
+                              {d.product} <span className="text-gray-400 text-xs">x{d.quantity}</span>{d.quantitySource && d.quantitySource !== 'confirmed' && (
+                                <span title={d.quantitySource === 'unresolved_no_transaction' ? 'No matching wallet transaction found — quantity is a best-effort guess' : 'Backfilled from historical data — please verify'} className="text-amber-500 cursor-help ml-1">≈</span>
+                              )}
                             </td>
                             <td className="px-5 py-3">
                               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${d.type === 'subscription' ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]'}`}>

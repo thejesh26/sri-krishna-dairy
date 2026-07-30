@@ -95,7 +95,7 @@ export default function Dashboard() {
     setSubscriptions(subs || [])
 
     const { data: subDels } = await supabase.from('subscription_deliveries')
-      .select('delivery_date, subscription_id, not_delivered, subscriptions(quantity)')
+      .select('delivery_date, subscription_id, not_delivered, quantity')
       .eq('user_id', u.id)
     setSubDeliveries(subDels || [])
 
@@ -254,7 +254,7 @@ export default function Dashboard() {
     // Count subscription deliveries this month
     const subBottles = subDeliveries
       .filter(d => d.delivery_date?.startsWith(monthPrefix))
-      .reduce((s, d) => s + (d.subscriptions?.quantity || 0), 0)
+      .reduce((s, d) => s + (d.quantity || 0), 0)
     const totalBottles = orderBottles + subBottles
     // Total spent: only actually-delivered orders (exclude pending/future)
     const totalSpent = deliveredOrders.reduce((s, o) => s + (o.total_price || 0), 0)

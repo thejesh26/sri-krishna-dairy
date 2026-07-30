@@ -784,7 +784,7 @@ export default function DeliveryDashboard() {
                   id: sd.id, date: sd.delivery_date, type: 'sub',
                   name: sd.subscriptions?.profiles?.full_name || 'Customer',
                   area: `${sd.subscriptions?.profiles?.apartment_name || ''}, ${sd.subscriptions?.profiles?.area || ''}`,
-                  product: `${sd.subscriptions?.products?.size || 'Milk'} x${sd.subscriptions?.quantity || 1}`,
+                  product: `${sd.subscriptions?.products?.size || 'Milk'} x${sd.quantity ?? sd.subscriptions?.quantity ?? 1}`,
                   slot: sd.subscriptions?.delivery_slot, photo_url: sd.photo_url || null,
                 })),
                 ...(historyAddonOrders || []).map(a => ({

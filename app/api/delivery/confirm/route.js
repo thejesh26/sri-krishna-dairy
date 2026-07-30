@@ -189,7 +189,9 @@ export async function POST(request) {
       if (!sub) return NextResponse.json({ error: 'Subscription not found.' }, { status: 404 })
       if (!sub.products) return NextResponse.json({ error: 'Subscription product not found.' }, { status: 404 })
 
-      // Record delivery log
+      // Record delivery log — persist the quantity actually scheduled for this date so
+      // later changes to the subscription's current quantity don't rewrite history.
+      const effectiveQty = getScheduledQuantity(sub, delivery_date)
       const { error: upsertError } = await supabaseAdmin.from('subscription_deliveries').upsert({
         subscription_id,
         user_id: sub.user_id,
@@ -198,6 +200,8 @@ export async function POST(request) {
         delivered_by: deliveredBy,
         not_delivered: false,
         bottle_returned: bottle_returned !== false,
+        quantity: effectiveQty,
+        quantity_source: 'confirmed',
         ...(safePhotoUrl ? { photo_url: safePhotoUrl } : {}),
       }, { onConflict: 'subscription_id,delivery_date' })
 
@@ -222,7 +226,6 @@ export async function POST(request) {
       }
 
       // ── Deduct wallet on delivery confirmation (atomic via DB function) ───────
-      const effectiveQty = getScheduledQuantity(sub, delivery_date)
       const dailyAmount = calcDailyAmount(sub.products.price, effectiveQty, sub.discount_percent || 0)
       const description = `Daily subscription ${subscription_id} [${delivery_date}]`
 
