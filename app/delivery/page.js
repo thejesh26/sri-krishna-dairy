@@ -46,6 +46,14 @@ function matchesAddressFilter(item, query) {
   return true
 }
 
+function formatSubDateRange(sub) {
+  const start = new Date(sub.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+  const end = sub.end_date
+    ? new Date(sub.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+    : 'Ongoing'
+  return `${start} → ${end}`
+}
+
 function AddressBadge({ profile }) {
   const combined = [profile?.apartment_name, profile?.flat_number].filter(Boolean).join(' ')
   const { tower, flat } = parseAddress(combined)
@@ -570,6 +578,7 @@ export default function DeliveryDashboard() {
                       <span className="bg-[#f0faf4] text-[#1a5c38] text-xs px-2 py-0.5 rounded-full">{sub.products?.size} x {sub.quantity}</span>
                       <span className="bg-[#fdf6e3] text-[#d4a017] text-xs px-2 py-0.5 rounded-full">{sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}</span>
                     </div>
+                    <p className="text-xs text-gray-400 mt-1">{formatSubDateRange(sub)}</p>
                   </div>
                   <div className="flex flex-col gap-2 flex-shrink-0">
                     <a href={`tel:${sub.profiles?.phone}`}
@@ -731,6 +740,7 @@ export default function DeliveryDashboard() {
                               <p className="font-semibold text-sm text-[#1c1c1c]">{sub.profiles?.full_name || 'Customer'}</p>
                               <p className="text-xs text-gray-500">{sub.profiles?.phone}</p>
                               <p className="text-xs text-gray-400">{[sub.profiles?.flat_number, sub.profiles?.apartment_name, sub.profiles?.area].filter(Boolean).join(', ')}</p>
+                              <p className="text-xs text-gray-400 mt-0.5">{formatSubDateRange(sub)}</p>
                             </div>
                             <div className="text-right">
                               <span className="text-sm font-bold text-[#1a5c38]">{sub.products?.size} × {getScheduledQuantity(sub, tomorrowDate)}</span>

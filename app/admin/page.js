@@ -947,6 +947,14 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
     return `Day ${dayX} of ${totalDeliveries}`
   }
 
+  const formatSubDateRange = (sub) => {
+    const start = new Date(sub.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+    const end = sub.end_date
+      ? new Date(sub.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+      : 'Ongoing'
+    return `${start} → ${end}`
+  }
+
   const getSubPlanLabel = (sub) => {
     if (sub.subscription_type === 'ongoing' || !sub.end_date) return 'Ongoing'
     const days = Math.round((new Date(sub.end_date) - new Date(sub.start_date)) / (1000 * 60 * 60 * 24)) + 1
@@ -1422,6 +1430,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       <p className="text-xs text-[#1a5c38] font-medium mt-1">
                         {sub.products?.size} x {sub.quantity} • {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
                       </p>
+                      <p className="text-xs text-gray-400 mt-0.5">{formatSubDateRange(sub)}</p>
                     </div>
                     <div className="text-right flex-shrink-0 flex flex-col gap-1">
                       <p className="font-bold text-[#1a5c38] mb-0.5">₹{(sub.products?.price || 0) * sub.quantity}</p>
@@ -1685,6 +1694,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                           </div>
                           <p className="text-xs text-gray-400">{sub.profiles?.phone} · {sub.profiles?.area}</p>
                           <p className="text-xs text-[#1a5c38] font-medium mt-0.5">{sub.products?.size} × {getScheduledQuantity(sub, tomorrowStr)} · {sub.delivery_slot === 'morning' ? '🌅 7–9AM' : '🌆 5–7PM'}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{formatSubDateRange(sub)}</p>
                         </div>
                       </div>
                     ))}
@@ -1756,6 +1766,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                             </div>
                             <p className="text-xs text-gray-400">{sub.profiles?.phone} · {sub.profiles?.area}</p>
                             <p className="text-xs text-[#1a5c38] font-medium mt-0.5">{sub.products?.size} × {getScheduledQuantity(sub, date)} · {sub.delivery_slot === 'morning' ? '🌅 7–9AM' : '🌆 5–7PM'}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{formatSubDateRange(sub)}</p>
                           </div>
                         </div>
                       ))}
@@ -2330,7 +2341,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                         </div>
                         <p className="text-xs text-gray-400 mt-1.5">
                           Since {new Date(sub.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          {sub.end_date ? ` · Ends ${new Date(sub.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
+                          {' · '}{sub.end_date ? `Ends ${new Date(sub.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'Ongoing'}
                         </p>
                       </div>
                       <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
@@ -2457,7 +2468,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                           </div>
                           <p className="text-xs text-gray-400 mt-1.5">
                             {new Date(sub.start_date).toLocaleDateString('en-IN')}
-                            {sub.end_date ? ` → ${new Date(sub.end_date).toLocaleDateString('en-IN')}` : ''}
+                            {' → '}{sub.end_date ? new Date(sub.end_date).toLocaleDateString('en-IN') : 'Ongoing'}
                           </p>
                           {sub.cancelled_by && (
                             <p className="text-xs text-gray-400 mt-1">
