@@ -15,15 +15,16 @@ export async function GET(request) {
 
     const { data, error } = await supabaseAdmin
       .from('subscription_deliveries')
-      .select('subscription_id, not_delivered')
+      .select('subscription_id, status')
       .in('subscription_id', ids)
       .eq('delivery_date', date)
+      .in('status', ['delivered', 'missed'])
 
     if (error) throw error
 
     const statuses = {}
     ;(data || []).forEach(d => {
-      statuses[d.subscription_id] = d.not_delivered ? 'missed' : 'delivered'
+      statuses[d.subscription_id] = d.status
     })
 
     return NextResponse.json({ statuses })

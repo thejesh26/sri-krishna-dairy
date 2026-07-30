@@ -166,13 +166,51 @@ export async function POST(request) {
       // ── Not-delivered path: clear pending without charging ───────────────────
       if (not_delivered) {
         await supabaseAdmin.from('subscriptions').update({ pending_delivery: false }).eq('id', subscription_id)
+
+        const { data: subForMissed } = await supabaseAdmin
+          .from('subscriptions')
+          .select('user_id, quantity, weekly_schedule')
+          .eq('id', subscription_id)
+          .single()
+
+        // Transition today's pending snapshot row to 'missed' (or write one if none
+        // exists — e.g. a subscription added after the snapshot cron ran). Preserve the
+        // frozen quantity on an existing row; never recompute it here. Previously this
+        // path wrote nothing to subscription_deliveries at all.
         try {
-          const { data: sub } = await supabaseAdmin.from('subscriptions').select('user_id').eq('id', subscription_id).single()
-          const { data: profile } = sub?.user_id
-            ? await supabaseAdmin.from('profiles').select('full_name, apartment_name, flat_number, area').eq('id', sub.user_id).single()
+          const { data: existingDelivery } = await supabaseAdmin
+            .from('subscription_deliveries')
+            .select('id')
+            .eq('subscription_id', subscription_id)
+            .eq('delivery_date', delivery_date)
+            .maybeSingle()
+
+          if (existingDelivery) {
+            await supabaseAdmin.from('subscription_deliveries')
+              .update({ not_delivered: true, status: 'missed', delivered_by: deliveredBy })
+              .eq('id', existingDelivery.id)
+          } else if (subForMissed) {
+            await supabaseAdmin.from('subscription_deliveries').upsert({
+              subscription_id,
+              user_id: subForMissed.user_id,
+              delivery_date,
+              not_delivered: true,
+              status: 'missed',
+              delivered_by: deliveredBy,
+              quantity: getScheduledQuantity(subForMissed, delivery_date),
+              quantity_source: 'confirmed',
+            }, { onConflict: 'subscription_id,delivery_date' })
+          }
+        } catch (err) {
+          console.error('[DeliveryConfirm] not_delivered subscription_deliveries write failed:', err?.message)
+        }
+
+        try {
+          const { data: profile } = subForMissed?.user_id
+            ? await supabaseAdmin.from('profiles').select('full_name, apartment_name, flat_number, area').eq('id', subForMissed.user_id).single()
             : { data: null }
           await sendWhatsAppToAdmin(
-            `❌ Not Delivered [${delivery_date}]\nCustomer: ${profile?.full_name || sub?.user_id}\n` +
+            `❌ Not Delivered [${delivery_date}]\nCustomer: ${profile?.full_name || subForMissed?.user_id}\n` +
             `Address: ${profile?.apartment_name}, Flat ${profile?.flat_number}, ${profile?.area}\n` +
             `Reported by: ${deliveredBy}`
           )
@@ -189,9 +227,23 @@ export async function POST(request) {
       if (!sub) return NextResponse.json({ error: 'Subscription not found.' }, { status: 404 })
       if (!sub.products) return NextResponse.json({ error: 'Subscription product not found.' }, { status: 404 })
 
+      // Use the frozen quantity from today's snapshot row if one already exists (written
+      // by the 5:30 AM cron, or an earlier confirm attempt) — never recompute live here.
+      // Recomputing would let a same-day subscription edit between snapshot and
+      // confirmation silently change what actually gets billed, reintroducing the exact
+      // drift the snapshot exists to prevent. Only fall back to a live computation when
+      // no snapshot row exists at all (e.g. a subscription reactivated/created after the
+      // cron ran today).
+      const { data: existingDelivery } = await supabaseAdmin
+        .from('subscription_deliveries')
+        .select('quantity')
+        .eq('subscription_id', subscription_id)
+        .eq('delivery_date', delivery_date)
+        .maybeSingle()
+      const effectiveQty = existingDelivery?.quantity ?? getScheduledQuantity(sub, delivery_date)
+
       // Record delivery log — persist the quantity actually scheduled for this date so
       // later changes to the subscription's current quantity don't rewrite history.
-      const effectiveQty = getScheduledQuantity(sub, delivery_date)
       const { error: upsertError } = await supabaseAdmin.from('subscription_deliveries').upsert({
         subscription_id,
         user_id: sub.user_id,
@@ -199,6 +251,7 @@ export async function POST(request) {
         delivered_at: deliveredAt,
         delivered_by: deliveredBy,
         not_delivered: false,
+        status: 'delivered',
         bottle_returned: bottle_returned !== false,
         quantity: effectiveQty,
         quantity_source: 'confirmed',

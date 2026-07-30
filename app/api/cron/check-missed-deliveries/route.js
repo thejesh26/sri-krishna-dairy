@@ -48,6 +48,7 @@ export async function GET(request) {
     .from('subscription_deliveries')
     .select('subscription_id')
     .eq('delivery_date', yesterdayStr)
+    .eq('status', 'delivered')
     .in('subscription_id', expectedIds)
 
   const confirmedSet = new Set((confirmedRows || []).map(r => r.subscription_id))

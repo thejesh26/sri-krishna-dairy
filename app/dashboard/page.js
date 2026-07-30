@@ -97,6 +97,7 @@ export default function Dashboard() {
     const { data: subDels } = await supabase.from('subscription_deliveries')
       .select('delivery_date, subscription_id, not_delivered, quantity')
       .eq('user_id', u.id)
+      .neq('status', 'pending')
     setSubDeliveries(subDels || [])
 
     const { data: walletData } = await supabase.from('wallet').select('*').eq('user_id', u.id).limit(1)

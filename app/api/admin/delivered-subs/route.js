@@ -14,7 +14,7 @@ export async function GET(request) {
     const { data, error } = await supabaseAdmin
       .from('subscription_deliveries')
       .select('*, subscriptions(*, products(*))')
-      .eq('not_delivered', false)
+      .eq('status', 'delivered')
       .gte('delivery_date', fromDate)
       .order('delivery_date', { ascending: false })
       .limit(300)

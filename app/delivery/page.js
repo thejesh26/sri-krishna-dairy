@@ -139,6 +139,7 @@ export default function DeliveryDashboard() {
     setAddonOrders(allAddons || [])
     // Seed delivered set from actual status so "✅ Done" persists across refreshes
     setDeliveredAddons(new Set((allAddons || []).filter(a => a.status === 'delivered').map(a => a.id)))
+    setDeliveredSubs(new Set((activeSubs || []).filter(s => s.delivery_status && s.delivery_status !== 'pending').map(s => s.id)))
 
     setStats({
       total: (allOrders || []).length + (activeSubs || []).length,
@@ -566,7 +567,7 @@ export default function DeliveryDashboard() {
                     <p className="text-xs text-gray-400">{sub.profiles?.area}{sub.profiles?.pincode ? ` - ${sub.profiles.pincode}` : ''}</p>
                     {sub.profiles?.landmark && <p className="text-xs text-[#d4a017]">📍 Near: {sub.profiles?.landmark}</p>}
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="bg-[#f0faf4] text-[#1a5c38] text-xs px-2 py-0.5 rounded-full">{sub.products?.size} x {getScheduledQuantity(sub, new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))}</span>
+                      <span className="bg-[#f0faf4] text-[#1a5c38] text-xs px-2 py-0.5 rounded-full">{sub.products?.size} x {sub.quantity}</span>
                       <span className="bg-[#fdf6e3] text-[#d4a017] text-xs px-2 py-0.5 rounded-full">{sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}</span>
                     </div>
                   </div>

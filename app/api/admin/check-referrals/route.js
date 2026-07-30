@@ -30,7 +30,7 @@ export async function POST(request) {
         .from('subscription_deliveries')
         .select('id', { count: 'exact' })
         .eq('user_id', ref.referred_id)
-        .eq('not_delivered', false)
+        .eq('status', 'delivered')
 
       const deliveredDays = count || 0
 

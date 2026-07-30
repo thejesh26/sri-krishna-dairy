@@ -58,6 +58,7 @@ export default function AdminDashboard() {
   const [todayOrders, setTodayOrders] = useState([])
   const [todayAddons, setTodayAddons] = useState([])
   const [todaySubscriptions, setTodaySubscriptions] = useState([])
+  const [todaySnapshotMissing, setTodaySnapshotMissing] = useState(false)
   const [subDeliveryStatuses, setSubDeliveryStatuses] = useState({})
   const [subDeliveryCounts, setSubDeliveryCounts] = useState({})
   const [deliveryAgents, setDeliveryAgents] = useState([])
@@ -294,6 +295,7 @@ export default function AdminDashboard() {
         { data: walletReqs },
         { data: allCustomers },
         { data: daRecords },
+        { data: todaySnapshotRows },
       ] = await Promise.all([
         fetch('/api/admin/orders', { headers: authHeader }).then(r => r.json()),
         fetch('/api/admin/subscriptions', { headers: authHeader }).then(r => r.json()),
@@ -311,6 +313,7 @@ export default function AdminDashboard() {
         supabase.from('wallet_requests').select('*, requester:profiles!wallet_requests_requested_by_fkey(full_name, phone), target:profiles!wallet_requests_target_user_id_fkey(full_name, phone)').order('created_at', { ascending: false }),
         supabase.from('profiles').select('*').order('created_at', { ascending: false }),
         supabase.from('delivery_agents').select('*'),
+        supabase.from('subscription_deliveries').select('*, subscriptions(*, products(*), profiles(*))').eq('delivery_date', today),
       ])
 
       // Set state for all round 1 results
@@ -337,15 +340,35 @@ export default function AdminDashboard() {
       const todayA = allAddons.filter(a => a.delivery_date === today && a.status !== 'cancelled')
       setTodayAddons(todayA)
 
-      const todaySubs = allSubs.filter(sub =>
-        sub.is_active === true &&
-        sub.start_date <= today &&
-        (!sub.end_date || sub.end_date >= today) &&
-        !(sub.paused_dates || []).includes(today) &&
-        isDeliveryDay(sub) &&
-        getScheduledQuantity(sub, today) > 0
-      )
+      // Read today's frozen snapshot (written by the 5:30 AM cron) instead of recomputing
+      // live — a pause/edit made mid-day must not change what's already shown as today's
+      // scheduled deliveries. Falls back to the live computation if the snapshot is
+      // missing (e.g. the cron hasn't run yet or failed), with a visible banner below.
+      let todaySubs
+      let snapshotMissingToday = false
+      if (todaySnapshotRows?.length) {
+        todaySubs = todaySnapshotRows
+          .filter(row => row.subscriptions)
+          .map(row => ({
+            ...row.subscriptions,
+            id: row.subscription_id,
+            quantity: row.quantity,
+            delivery_status: row.status,
+          }))
+      } else {
+        snapshotMissingToday = true
+        console.error(`[admin] today's delivery snapshot missing for ${today} — falling back to live computation`)
+        todaySubs = allSubs.filter(sub =>
+          sub.is_active === true &&
+          sub.start_date <= today &&
+          (!sub.end_date || sub.end_date >= today) &&
+          !(sub.paused_dates || []).includes(today) &&
+          isDeliveryDay(sub) &&
+          getScheduledQuantity(sub, today) > 0
+        )
+      }
       setTodaySubscriptions(todaySubs)
+      setTodaySnapshotMissing(snapshotMissingToday)
 
       const allActiveSubs = allSubs.filter(s => s.is_active)
       const todayRevenue = todayO.reduce((sum, o) => sum + (o.total_price || 0), 0)
@@ -449,6 +472,7 @@ export default function AdminDashboard() {
       supabase
         .from('subscription_deliveries')
         .select('*')
+        .neq('status', 'pending')
         .gte('delivery_date', fromDate)
         .lte('delivery_date', toDate)
         .order('delivery_date', { ascending: false }),
@@ -595,7 +619,7 @@ export default function AdminDashboard() {
       { data: subscription },
     ] = await Promise.all([
       supabase.from('wallet_transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(20),
-      supabase.from('subscription_deliveries').select('*, subscriptions(products(size))').eq('user_id', userId).order('delivery_date', { ascending: false }).limit(10),
+      supabase.from('subscription_deliveries').select('*, subscriptions(products(size))').eq('user_id', userId).neq('status', 'pending').order('delivery_date', { ascending: false }).limit(10),
       supabase.from('orders').select('*, products(size)').eq('user_id', userId).order('created_at', { ascending: false }).limit(10),
       supabase.from('wallet').select('balance, deposit_balance').eq('user_id', userId).maybeSingle(),
 supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),    ])
@@ -931,7 +955,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
   const loadCancelledSubCounts = async () => {
     const inactIds = subscriptions.filter(s => !s.is_active).map(s => s.id)
     if (!inactIds.length) return
-    const { data } = await supabase.from('subscription_deliveries').select('subscription_id').in('subscription_id', inactIds)
+    const { data } = await supabase.from('subscription_deliveries').select('subscription_id').in('subscription_id', inactIds).neq('status', 'pending')
     const counts = {}
     ;(data || []).forEach(d => { counts[d.subscription_id] = (counts[d.subscription_id] || 0) + 1 })
     setCancelledSubCounts(counts)
@@ -1310,6 +1334,11 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           {/* Today sub-tab */}
           {overviewSubTab === 'today' && (
           <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+            {todaySnapshotMissing && (
+              <div className="px-6 py-3 bg-amber-50 border-b border-amber-200 text-amber-700 text-sm font-medium">
+                ⚠️ Today's delivery snapshot wasn't found — showing live-computed numbers, which can still change during the day. The 5:30 AM snapshot cron may not have run; please check.
+              </div>
+            )}
             <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between">
               <div>
                 <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">
@@ -1317,12 +1346,11 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 </h3>
                 <p className="text-xs text-gray-400 mt-0.5">{todayOrders.length + todayAddons.length + todaySubscriptions.length} deliveries today ({todaySubscriptions.length} subscriptions, {todayOrders.length + todayAddons.length} one-time)</p>
                 {(() => {
-                  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
                   const counts = {}
                   todaySubscriptions.forEach(item => {
                     const size = item.products?.size
                     if (!size) return
-                    counts[size] = (counts[size] || 0) + getScheduledQuantity(item, todayStr)
+                    counts[size] = (counts[size] || 0) + (item.quantity || 0)
                   })
                   ;[...todayAddons, ...todayOrders].forEach(item => {
                     const size = item.products?.size
@@ -1387,11 +1415,11 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       <p className="text-sm text-gray-400">{sub.profiles?.apartment_name}, Flat {sub.profiles?.flat_number}</p>
                       <p className="text-xs text-gray-400 mt-0.5">{sub.profiles?.area} • 📞 {sub.profiles?.phone}</p>
                       <p className="text-xs text-[#1a5c38] font-medium mt-1">
-                        {sub.products?.size} x {getScheduledQuantity(sub, new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))} • {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
+                        {sub.products?.size} x {sub.quantity} • {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0 flex flex-col gap-1">
-                      <p className="font-bold text-[#1a5c38] mb-0.5">₹{(sub.products?.price || 0) * getScheduledQuantity(sub, new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))}</p>
+                      <p className="font-bold text-[#1a5c38] mb-0.5">₹{(sub.products?.price || 0) * sub.quantity}</p>
                       <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border mb-1 inline-block ${statusCls}`}>
                         {subStatus === 'delivered' ? '✅ Delivered' : subStatus === 'out_for_delivery' ? '🚴 Out' : subStatus === 'missed' ? '⚠️ Missed' : subStatus === 'cancelled' ? '❌ Cancelled' : '🕐 Pending'}
                       </span>
@@ -1934,7 +1962,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                                     <p className="font-semibold text-[#1c1c1c]">{d.customerName}</p>
                                     <p className="text-xs text-gray-400">{d.phone}</p>
                                   </td>
-                                  <td className="px-5 py-3 text-[#1c1c1c]">{d.product} <span className="text-gray-400 text-xs">x{d.quantity}</span>{d.quantitySource && d.quantitySource !== 'confirmed' && (
+                                  <td className="px-5 py-3 text-[#1c1c1c]">{d.product} <span className="text-gray-400 text-xs">x{d.quantity}</span>{d.quantitySource && ['backfilled_flagged', 'unresolved_no_transaction'].includes(d.quantitySource) && (
                                     <span title={d.quantitySource === 'unresolved_no_transaction' ? 'No matching wallet transaction found — quantity is a best-effort guess' : 'Backfilled from historical data — please verify'} className="text-amber-500 cursor-help ml-1">≈</span>
                                   )}</td>
                                   <td className="px-5 py-3">
@@ -3490,7 +3518,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                               <p className="text-xs text-gray-400">{d.phone}</p>
                             </td>
                             <td className="px-5 py-3 text-[#1c1c1c]">
-                              {d.product} <span className="text-gray-400 text-xs">x{d.quantity}</span>{d.quantitySource && d.quantitySource !== 'confirmed' && (
+                              {d.product} <span className="text-gray-400 text-xs">x{d.quantity}</span>{d.quantitySource && ['backfilled_flagged', 'unresolved_no_transaction'].includes(d.quantitySource) && (
                                 <span title={d.quantitySource === 'unresolved_no_transaction' ? 'No matching wallet transaction found — quantity is a best-effort guess' : 'Backfilled from historical data — please verify'} className="text-amber-500 cursor-help ml-1">≈</span>
                               )}
                             </td>

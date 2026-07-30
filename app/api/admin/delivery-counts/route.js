@@ -15,7 +15,7 @@ export async function GET(request) {
       .from('subscription_deliveries')
       .select('subscription_id')
       .in('subscription_id', ids)
-      .eq('not_delivered', false)
+      .eq('status', 'delivered')
 
     if (error) throw error
 
