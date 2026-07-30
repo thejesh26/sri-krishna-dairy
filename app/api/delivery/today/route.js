@@ -73,7 +73,16 @@ export async function GET(request) {
   let subscriptions
   let snapshotMissing = false
 
-  if (snapshotRows?.length) {
+  // Row count alone isn't a reliable signal: normal delivery confirmations write to this
+  // table regardless of whether the cron ran, so a handful of confirmed rows can exist
+  // even on a day the cron never fired — checking length would silently treat that
+  // partial set as "the snapshot", undercounting today without ever showing the warning.
+  // A quantity_source of 'snapshot' only ever gets written by the cron itself, so its
+  // presence is proof the cron actually ran (and therefore that every eligible
+  // subscription got a row, not just the ones an agent happened to confirm first).
+  const cronRanToday = (snapshotRows || []).some(row => row.quantity_source === 'snapshot')
+
+  if (cronRanToday) {
     subscriptions = snapshotRows
       .filter(row => row.subscriptions)
       .map(row => ({

@@ -346,7 +346,12 @@ export default function AdminDashboard() {
       // missing (e.g. the cron hasn't run yet or failed), with a visible banner below.
       let todaySubs
       let snapshotMissingToday = false
-      if (todaySnapshotRows?.length) {
+      // Row count alone isn't reliable: normal delivery confirmations write to this table
+      // regardless of whether the cron ran, so partial rows can exist even on a day the
+      // cron never fired. quantity_source='snapshot' is only ever written by the cron, so
+      // its presence proves the cron actually ran (and every eligible sub got a row).
+      const cronRanToday = (todaySnapshotRows || []).some(row => row.quantity_source === 'snapshot')
+      if (cronRanToday) {
         todaySubs = todaySnapshotRows
           .filter(row => row.subscriptions)
           .map(row => ({
