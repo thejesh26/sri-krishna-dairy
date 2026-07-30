@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../lib/db'
 import { requireCron } from '../../../lib/auth'
 import { calcDailyAmount, getISTDate } from '../../../lib/pricing'
-import { sendLowBalanceAlert } from '../../../lib/whatsapp'
+import { sendLowBalanceAlert, notifyAdmin } from '../../../lib/whatsapp'
 import { sendLowBalanceEmail } from '../../../lib/email'
+import { createAdminNotification } from '../../../lib/notify'
 
 // Called daily at 15:00 UTC (8:30 PM IST) by Vercel Cron
 export async function GET(request) {
@@ -23,6 +24,7 @@ export async function GET(request) {
 
   let warned = 0
   let skipped = 0
+  const warnedCustomers = []
 
   for (const sub of subscriptions || []) {
     if (!sub.products?.price) { skipped++; continue }
@@ -57,10 +59,33 @@ export async function GET(request) {
 
       console.log(`[LowBalanceWarning] Warned ${name} — balance ₹${wallet.balance}, threshold ₹${threshold}`)
       warned++
+      warnedCustomers.push({ name, balance: wallet.balance, phone: prof?.phone })
     } catch (err) {
       console.error('[LowBalanceWarning] Notify failed for user', sub.user_id, err?.message)
       skipped++
     }
+  }
+
+  // Single admin digest instead of one alert per customer — avoids spamming admin
+  // when several customers are low on the same day.
+  if (warnedCustomers.length) {
+    try {
+      const lines = warnedCustomers
+        .slice(0, 15)
+        .map(c => `• ${c.name} — ₹${c.balance}${c.phone ? ` (${c.phone})` : ''}`)
+        .join('\n')
+      const more = warnedCustomers.length > 15 ? `\n…and ${warnedCustomers.length - 15} more` : ''
+      await notifyAdmin(
+        `Low Balance Warning — ${warnedCustomers.length} customer(s)`,
+        `⚠️ ${warnedCustomers.length} customer(s) below the 7-day wallet threshold:\n${lines}${more}`
+      )
+      await createAdminNotification({
+        type: 'low_balance',
+        title: `${warnedCustomers.length} customer(s) low on balance`,
+        body: warnedCustomers.slice(0, 15).map(c => `${c.name}: ₹${c.balance}`).join(', ') + more,
+        link_tab: 'customers',
+      })
+    } catch { /* non-blocking */ }
   }
 
   return NextResponse.json({ warned, skipped })

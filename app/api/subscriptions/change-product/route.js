@@ -2,6 +2,8 @@
 import { supabaseAdmin } from '../../../lib/db'
 import { requireAuth } from '../../../lib/auth'
 import { calcDailyAmount } from '../../../lib/pricing'
+import { notifyAdmin } from '../../../lib/whatsapp'
+import { createAdminNotification } from '../../../lib/notify'
 
 export async function POST(request) {
   try {
@@ -49,6 +51,22 @@ export async function POST(request) {
       .eq('user_id', user.id)
 
     const newDailyAmount = calcDailyAmount(newProduct.price, sub.quantity, sub.discount_percent || 0)
+
+    // Notify admin of the change (non-blocking)
+    try {
+      const { data: profile } = await supabaseAdmin.from('profiles').select('full_name, phone').eq('id', user.id).single()
+      const name = profile?.full_name || user.email
+      await notifyAdmin(
+        `Subscription Product Changed — ${name}`,
+        `🔄 Product updated\nCustomer: ${name}\nProduct: ${sub.products?.size || 'Milk'} → ${newProduct.size}\nQuantity: ${sub.quantity}\nPhone: ${profile?.phone || 'N/A'}`
+      )
+      await createAdminNotification({
+        type: 'product_change',
+        title: `Product changed — ${name}`,
+        body: `${sub.products?.size || 'Milk'} → ${newProduct.size} (x${sub.quantity}) | Phone: ${profile?.phone || 'N/A'}`,
+        link_tab: 'customers',
+      })
+    } catch { /* non-blocking */ }
 
     return NextResponse.json({
       success: true,

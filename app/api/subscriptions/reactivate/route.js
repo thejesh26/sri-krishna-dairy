@@ -2,6 +2,8 @@
 import { supabaseAdmin } from '../../../lib/db'
 import { requireAuth } from '../../../lib/auth'
 import { calcDailyAmount, getISTDate } from '../../../lib/pricing'
+import { notifyAdmin } from '../../../lib/whatsapp'
+import { createAdminNotification } from '../../../lib/notify'
 
 export async function POST(request) {
   try {
@@ -57,6 +59,23 @@ export async function POST(request) {
       .update({ is_active: true })
       .eq('id', subscription_id)
       .eq('user_id', user.id)
+
+    // Notify admin of the reactivation (non-blocking)
+    try {
+      const { data: profile } = await supabaseAdmin.from('profiles').select('full_name, phone').eq('id', user.id).single()
+      const name = profile?.full_name || user.email
+      const product = `${sub.products?.size || 'Milk'} × ${sub.quantity}`
+      await notifyAdmin(
+        `Subscription Reactivated — ${name}`,
+        `▶️ Subscription reactivated\nCustomer: ${name}\nProduct: ${product}\nPhone: ${profile?.phone || 'N/A'}`
+      )
+      await createAdminNotification({
+        type: 'reactivation',
+        title: `Subscription reactivated — ${name}`,
+        body: `${product} | Phone: ${profile?.phone || 'N/A'}`,
+        link_tab: 'customers',
+      })
+    } catch { /* non-blocking */ }
 
     return NextResponse.json({ success: true })
   } catch (err) {

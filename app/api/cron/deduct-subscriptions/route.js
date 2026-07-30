@@ -4,6 +4,7 @@ import { getISTDate, getScheduledQuantity, avgScheduledQuantity } from '../../..
 import { requireCron } from '../../../lib/auth'
 import { sendLowBalanceEmail, sendSubscriptionExpiryReminderEmail, sendReferralCompletedEmail, sendPointsExpiryEmail } from '../../../lib/email'
 import { sendSubscriptionExpiry, notifyReferralCompleted, notifyPointsExpiring, notifyAdmin } from '../../../lib/whatsapp'
+import { createAdminNotification } from '../../../lib/notify'
 
 // Called daily by Vercel Cron at 18:30 UTC (midnight IST)
 export const maxDuration = 300
@@ -62,13 +63,17 @@ async function runDeductions() {
     console.error('[cron] step 0 failed:', err)
   }
 
-  // ── 1. Auto-deactivate expired fixed subscriptions ───────────────────────────
+  // ── 1. Auto-deactivate expired subscriptions ──────────────────────────────────
+  // Covers any active subscription with a past end_date, not just subscription_type
+  // 'fixed' — admins can set/extend end_date on an 'ongoing' subscription too (see
+  // /api/admin/extend-subscription), and those were previously never caught here,
+  // silently staying active past their end date with no expiry notification.
   try {
     const { data: expiredSubs } = await supabaseAdmin
       .from('subscriptions')
       .select('id, user_id, end_date')
       .eq('is_active', true)
-      .eq('subscription_type', 'fixed')
+      .not('end_date', 'is', null)
       .lt('end_date', today)
 
     for (const sub of expiredSubs || []) {
@@ -101,10 +106,11 @@ async function runDeductions() {
     const userIds = Object.keys(userSubMap)
 
     let alertCount = 0
+    const lowBalanceCustomers = []
     if (userIds.length) {
       const [{ data: wallets }, { data: profiles }] = await Promise.all([
         supabaseAdmin.from('wallet').select('user_id, balance').in('user_id', userIds),
-        supabaseAdmin.from('profiles').select('id, full_name, email').in('id', userIds),
+        supabaseAdmin.from('profiles').select('id, full_name, email, phone').in('id', userIds),
       ])
       const walletMap = Object.fromEntries((wallets || []).map(w => [w.user_id, w]))
       const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
@@ -119,12 +125,37 @@ async function runDeductions() {
           if (profile?.email) {
             await sendLowBalanceEmail({ to: profile.email, name: profile.full_name || 'Customer', balance }).catch(() => {})
             alertCount++
+            lowBalanceCustomers.push({ name: profile.full_name || profile.email, balance, phone: profile.phone })
           }
         }
       }
     }
     results.low_balance_alerts = alertCount
     console.log(`[cron] step 2: sent ${alertCount} low-balance alerts`)
+
+    // Single admin digest — this cron runs at midnight IST, low-balance-warning runs
+    // separately at 8:30PM IST off a slightly different (per-subscription, not per-user)
+    // query, so the two lists can differ; both are worth surfacing rather than assuming
+    // they're identical.
+    if (lowBalanceCustomers.length) {
+      try {
+        const lines = lowBalanceCustomers
+          .slice(0, 15)
+          .map(c => `• ${c.name} — ₹${c.balance}${c.phone ? ` (${c.phone})` : ''}`)
+          .join('\n')
+        const more = lowBalanceCustomers.length > 15 ? `\n…and ${lowBalanceCustomers.length - 15} more` : ''
+        await notifyAdmin(
+          `Low Balance Warning — ${lowBalanceCustomers.length} customer(s)`,
+          `⚠️ ${lowBalanceCustomers.length} customer(s) below the 7-day wallet threshold (midnight check):\n${lines}${more}`
+        ).catch(() => {})
+        await createAdminNotification({
+          type: 'low_balance',
+          title: `${lowBalanceCustomers.length} customer(s) low on balance`,
+          body: lowBalanceCustomers.slice(0, 15).map(c => `${c.name}: ₹${c.balance}`).join(', ') + more,
+          link_tab: 'customers',
+        })
+      } catch { /* non-blocking */ }
+    }
   } catch (err) {
     console.error('[cron] step 2 failed:', err)
   }
@@ -260,6 +291,7 @@ async function runDeductions() {
       .eq('end_date', in3DaysStr)
 
     let remindersCount = 0
+    const expiringCustomers = []
     for (const sub of expiringSubs || []) {
       try {
         const { data: expiryProfile } = await supabaseAdmin
@@ -274,12 +306,32 @@ async function runDeductions() {
         if (email) await sendSubscriptionExpiryReminderEmail({ to: email, name, product, endDate: endDateLabel, daysLeft: 3 })
         if (expiryProfile?.phone) await sendSubscriptionExpiry(expiryProfile.phone, name, endDateLabel, product)
         remindersCount++
+        expiringCustomers.push({ name, product, endDate: sub.end_date, phone: expiryProfile?.phone })
       } catch (err) {
         console.error('[cron] step 7 sub reminder failed:', err)
       }
     }
     results.expiry_reminders = remindersCount
     console.log(`[cron] step 7: sent ${remindersCount} expiry reminders`)
+
+    // Single admin digest — heads-up 3 days before these fixed subs auto-deactivate.
+    if (expiringCustomers.length) {
+      try {
+        const lines = expiringCustomers
+          .map(c => `• ${c.name} — ${c.product}, ends ${c.endDate}${c.phone ? ` (${c.phone})` : ''}`)
+          .join('\n')
+        await notifyAdmin(
+          `Subscriptions Ending in 3 Days — ${expiringCustomers.length}`,
+          `📅 ${expiringCustomers.length} fixed subscription(s) end in 3 days:\n${lines}`
+        )
+        await createAdminNotification({
+          type: 'subscription_ending',
+          title: `${expiringCustomers.length} subscription(s) ending in 3 days`,
+          body: expiringCustomers.map(c => `${c.name}: ${c.product}, ends ${c.endDate}`).join(', '),
+          link_tab: 'customers',
+        })
+      } catch { /* non-blocking */ }
+    }
   } catch (err) {
     console.error('[cron] step 7 failed:', err)
   }
