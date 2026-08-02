@@ -285,12 +285,21 @@ export default function DeliveryDashboard() {
       const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
       let photoUrl = null
       if (photoFile) {
+        if (photoFile.size === 0) {
+          showError('That photo appears empty — please retake it.')
+          setPhotoUploading(false)
+          return
+        }
         const ts = Date.now()
         const filePath = `delivery-photos/${today}/${photoModal.subId}_${ts}.jpg`
+        // Upload as an ArrayBuffer, not the raw File — some mobile browsers (notably iOS
+        // Safari) fail to stream a File/Blob body correctly via fetch, which the storage
+        // API reports back as "No content provided" even though a real file was selected.
+        const buffer = await photoFile.arrayBuffer()
         const { error: uploadErr } = await supabase.storage
           .from('delivery-agent-docs')
-          .upload(filePath, photoFile, { contentType: photoFile.type || 'image/jpeg', upsert: true })
-        if (uploadErr) { showError('Photo upload failed. Please try again.'); setPhotoUploading(false); return }
+          .upload(filePath, buffer, { contentType: photoFile.type || 'image/jpeg', upsert: true })
+        if (uploadErr) { showError('Photo upload failed: ' + uploadErr.message); setPhotoUploading(false); return }
         const { data: { publicUrl } } = supabase.storage.from('delivery-agent-docs').getPublicUrl(filePath)
         photoUrl = publicUrl
       }

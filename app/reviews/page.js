@@ -170,23 +170,47 @@ export default function Reviews() {
     setFormError('')
     setSubmitting(true)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      let { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
+      if (photoFile && photoFile.size === 0) {
+        throw new Error('That photo appears empty — please pick it again.')
+      }
       let photo_url = existingPhotoUrl
       if (photoFile) {
         const ext = photoFile.name.split('.').pop()
         const path = `${session.user.id}_${Date.now()}.${ext}`
+        // Upload as an ArrayBuffer, not the raw File — some mobile browsers (notably iOS
+        // Safari) fail to stream a File/Blob body correctly via fetch, which the storage
+        // API reports back as "No content provided" even though a real file was selected.
+        const buffer = await photoFile.arrayBuffer()
         const { error: uploadError } = await supabase.storage
-          .from('reviews').upload(path, photoFile, { upsert: true, contentType: photoFile.type })
+          .from('reviews').upload(path, buffer, { upsert: true, contentType: photoFile.type })
         if (uploadError) throw new Error('Photo upload failed: ' + uploadError.message)
         const { data: urlData } = supabase.storage.from('reviews').getPublicUrl(path)
         photo_url = urlData.publicUrl
       }
-      const res = await fetch('/api/reviews/submit', {
+      let res = await fetch('/api/reviews/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ rating, review: reviewText, photo_url }),
       })
+      // A stale/expired access token can 401 even though a session object still exists
+      // locally — refresh once and retry before giving up, instead of surfacing a raw
+      // "Unauthorized" that gives the customer no way to recover.
+      if (res.status === 401) {
+        const { data: refreshed } = await supabase.auth.refreshSession()
+        if (refreshed?.session) {
+          session = refreshed.session
+          res = await fetch('/api/reviews/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify({ rating, review: reviewText, photo_url }),
+          })
+        }
+      }
+      if (res.status === 401) {
+        throw new Error('Your session expired — please log in again and resubmit.')
+      }
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || 'Could not submit review.')
       setDone(true)

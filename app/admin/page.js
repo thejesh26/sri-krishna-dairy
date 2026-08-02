@@ -3713,23 +3713,26 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               try {
                 const ts = Date.now()
                 let photo_url = null, document_url = null
+                // Upload as an ArrayBuffer, not the raw File — some mobile browsers (notably
+                // iOS Safari) fail to stream a File/Blob body correctly via fetch, which the
+                // storage API reports back as "No content provided".
                 if (agentPhoto) {
-                  const { data: pData } = await supabase.storage
+                  const buffer = await agentPhoto.arrayBuffer()
+                  const { data: pData, error: pErr } = await supabase.storage
                     .from('delivery-agent-docs')
-                    .upload(`photos/${agentForm.phone}_${ts}`, agentPhoto, { upsert: true })
-                  if (pData) {
-                    const { data: { publicUrl } } = supabase.storage.from('delivery-agent-docs').getPublicUrl(pData.path)
-                    photo_url = publicUrl
-                  }
+                    .upload(`photos/${agentForm.phone}_${ts}`, buffer, { upsert: true, contentType: agentPhoto.type })
+                  if (pErr) throw new Error('Agent photo upload failed: ' + pErr.message)
+                  const { data: { publicUrl } } = supabase.storage.from('delivery-agent-docs').getPublicUrl(pData.path)
+                  photo_url = publicUrl
                 }
                 if (agentDoc) {
-                  const { data: dData } = await supabase.storage
+                  const buffer = await agentDoc.arrayBuffer()
+                  const { data: dData, error: dErr } = await supabase.storage
                     .from('delivery-agent-docs')
-                    .upload(`docs/${agentForm.phone}_${ts}`, agentDoc, { upsert: true })
-                  if (dData) {
-                    const { data: { publicUrl } } = supabase.storage.from('delivery-agent-docs').getPublicUrl(dData.path)
-                    document_url = publicUrl
-                  }
+                    .upload(`docs/${agentForm.phone}_${ts}`, buffer, { upsert: true, contentType: agentDoc.type })
+                  if (dErr) throw new Error('Agent document upload failed: ' + dErr.message)
+                  const { data: { publicUrl } } = supabase.storage.from('delivery-agent-docs').getPublicUrl(dData.path)
+                  document_url = publicUrl
                 }
                 const { data: { session } } = await supabase.auth.getSession()
                 const res = await fetch('/api/admin/create-delivery-agent', {
