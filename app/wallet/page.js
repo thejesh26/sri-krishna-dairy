@@ -174,6 +174,23 @@ export default function Wallet() {
         </div>
 
         {/* Low Balance Warnings */}
+        {wallet?.balance < 0 && (
+          <div className="bg-red-50 border-2 border-red-400 rounded-xl p-4 mb-5 flex items-start gap-3">
+            <span className="text-2xl flex-shrink-0">🚨</span>
+            <div>
+              <p className="text-red-700 font-bold text-sm">Wallet Negative — Subscription Deactivated</p>
+              <p className="text-red-600 text-xs mt-1">Your wallet is at -₹{Math.abs(wallet.balance)}. A recent delivery couldn't be fully covered, so your subscription was automatically stopped. Top up and resubscribe to resume.</p>
+              <Button
+                variant="danger"
+                size="sm"
+                className="mt-2"
+                onClick={() => document.getElementById('add-money')?.scrollIntoView({ behavior: 'smooth' })}
+              >
+                Add Balance Now →
+              </Button>
+            </div>
+          </div>
+        )}
         {wallet?.balance === 0 && (
           <div className="bg-red-50 border-2 border-red-400 rounded-xl p-4 mb-5 flex items-start gap-3">
             <span className="text-2xl flex-shrink-0">🚨</span>
@@ -211,7 +228,7 @@ export default function Wallet() {
         <div
           className="rounded-2xl p-8 mb-4 text-white relative overflow-hidden shadow-xl"
           style={{
-            background: wallet?.balance === 0
+            background: wallet?.balance <= 0
               ? 'linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%)'
               : wallet?.balance < 300
                 ? 'linear-gradient(135deg, #78350f 0%, #b45309 100%)'
@@ -225,7 +242,7 @@ export default function Wallet() {
           <div className="relative z-10">
             <p className="text-green-300 text-xs font-medium uppercase tracking-widest mb-2">Available Balance</p>
             <p className="font-[family-name:var(--font-playfair)] text-5xl font-bold text-white mb-1">
-              Rs.{wallet?.balance || 0}
+              {wallet?.balance < 0 ? `-Rs.${Math.abs(wallet.balance)}` : `Rs.${wallet?.balance || 0}`}
             </p>
             <p className="text-green-300 text-sm">Spendable · used for daily deliveries</p>
           </div>

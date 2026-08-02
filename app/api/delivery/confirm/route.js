@@ -242,8 +242,49 @@ export async function POST(request) {
         .maybeSingle()
       const effectiveQty = existingDelivery?.quantity ?? getScheduledQuantity(sub, delivery_date)
 
+      // ── Deduct wallet on delivery confirmation (atomic via DB function) ───────
+      const dailyAmount = calcDailyAmount(sub.products.price, effectiveQty, sub.discount_percent || 0)
+      const description = `Daily subscription ${subscription_id} [${delivery_date}]`
+
+      // deduct_wallet is an atomic Postgres function: it locks the wallet row,
+      // checks idempotency via description, deducts, and inserts the transaction
+      // in a single transaction — preventing double-deduction race conditions.
+      //
+      // The RPC call is wrapped in try/catch deliberately: this whole block used to run
+      // AFTER the subscription_deliveries row was already marked 'delivered', so a
+      // transient network/timeout error calling this RPC (a JS exception, not a returned
+      // {error}) would bubble past the handling below, 500 the request, and leave the row
+      // stuck showing 'delivered' with no wallet_transactions row and no failed_deductions
+      // record at all — a paid-for delivery that was never actually charged, with no trace
+      // of what happened. Marking the row delivered now happens only after this resolves
+      // one way or the other, so a genuine failure here leaves the row untouched (still
+      // 'pending' from the snapshot) and lets the agent safely retry — deduct_wallet is
+      // idempotent on `description`, so a retry can't double-charge.
+      // p_allow_negative: true — the milk is already physically delivered by the time this
+      // runs, so blocking the charge on insufficient balance doesn't undo the delivery, it
+      // just leaves it unrecorded. Instead the wallet is allowed to go negative; the
+      // subscription is deactivated below once it does, with admin notified of both.
+      let newBalanceResult, deductError
+      try {
+        const rpcResult = await supabaseAdmin.rpc('deduct_wallet', {
+          p_user_id: sub.user_id,
+          p_amount: dailyAmount,
+          p_description: description,
+          p_allow_negative: true,
+        })
+        newBalanceResult = rpcResult.data
+        deductError = rpcResult.error
+      } catch (rpcErr) {
+        console.error('[DeliveryConfirm] deduct_wallet RPC threw unexpectedly:', rpcErr?.message)
+        return NextResponse.json({ error: 'Could not process payment — please try confirming again.' }, { status: 502 })
+      }
+
+      const deductedOk = !deductError
+      const newBalance = newBalanceResult ?? 0
+
       // Record delivery log — persist the quantity actually scheduled for this date so
-      // later changes to the subscription's current quantity don't rewrite history.
+      // later changes to the subscription's current quantity don't rewrite history. Only
+      // written now that the wallet deduction outcome (success or handled failure) is known.
       const { error: upsertError } = await supabaseAdmin.from('subscription_deliveries').upsert({
         subscription_id,
         user_id: sub.user_id,
@@ -277,23 +318,6 @@ export async function POST(request) {
       } catch (waErr) {
         console.error('[Delivery] WhatsApp send failed:', waErr?.message)
       }
-
-      // ── Deduct wallet on delivery confirmation (atomic via DB function) ───────
-      const dailyAmount = calcDailyAmount(sub.products.price, effectiveQty, sub.discount_percent || 0)
-      const description = `Daily subscription ${subscription_id} [${delivery_date}]`
-
-      // deduct_wallet is an atomic Postgres function: it locks the wallet row,
-      // checks idempotency via description, deducts, and inserts the transaction
-      // in a single transaction — preventing double-deduction race conditions.
-      const { data: newBalanceResult, error: deductError } = await supabaseAdmin
-        .rpc('deduct_wallet', {
-          p_user_id: sub.user_id,
-          p_amount: dailyAmount,
-          p_description: description,
-        })
-
-      const deductedOk = !deductError
-      const newBalance = newBalanceResult ?? 0
 
       if (deductedOk) {
 
@@ -363,51 +387,72 @@ export async function POST(request) {
             console.error('[Delivery] Email notification failed:', notifyErr?.message)
           }
 
-          const lowBalanceThreshold = dailyAmount * 7
-          if (newBalance < lowBalanceThreshold) {
+          if (newBalance < 0) {
+            // Wallet went negative on this delivery — deactivate the subscription and
+            // notify admin of both the negative balance and the resulting deactivation
+            // (two distinct events, reported separately per admin request).
             try {
-              const { data: userProfile } = await supabaseAdmin
-                .from('profiles').select('full_name, phone, email').eq('id', sub.user_id).single()
+              const { data: negProfile } = await supabaseAdmin
+                .from('profiles').select('full_name, phone, email').eq('id', sub.user_id).maybeSingle()
+              const negName = negProfile?.full_name || 'Customer'
+
+              await notifyAdmin(
+                `Wallet Went Negative — ${negName}`,
+                `⚠️ ${negName}'s wallet went negative after today's delivery.\nBalance: ₹${newBalance}\nDelivery: ${sub.products?.size || 'Milk'} × ${effectiveQty} on ${delivery_date}\nPhone: ${negProfile?.phone || 'N/A'}`
+              )
+              createAdminNotification({
+                type: 'wallet_negative',
+                title: `Wallet negative — ${negName}`,
+                body: `Balance: ₹${newBalance} after delivery on ${delivery_date} | Phone: ${negProfile?.phone || 'N/A'}`,
+                link_tab: 'customers',
+              })
+
+              await supabaseAdmin.from('subscriptions').update({ is_active: false, pending_delivery: false }).eq('id', subscription_id)
+
+              await notifyAdmin(
+                `Subscription Deactivated — ${negName}`,
+                `🚫 Subscription #${subscription_id} auto-deactivated — wallet balance ₹${newBalance} is negative.\nCustomer: ${negName}\nPhone: ${negProfile?.phone || 'N/A'}`
+              )
+              createAdminNotification({
+                type: 'subscription_stopped',
+                title: `Subscription deactivated — ${negName}`,
+                body: `Negative balance ₹${newBalance} | Phone: ${negProfile?.phone || 'N/A'}`,
+                link_tab: 'customers',
+              })
+
               const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(sub.user_id)
-              const email = authUser?.user?.email || userProfile?.email
-              const name = userProfile?.full_name || email
-              if (email) await sendLowBalanceEmail({ to: email, name, balance: newBalance })
-              if (userProfile?.phone) await sendLowBalanceAlert(userProfile.phone, name, newBalance)
-            } catch { /* non-blocking */ }
+              const email = authUser?.user?.email || negProfile?.email
+              if (email) await sendLowBalanceEmail({ to: email, name: negName, balance: newBalance })
+              if (negProfile?.phone) {
+                await notifySubscriptionStopped({ phone: negProfile.phone, name: negName, balance: newBalance })
+              }
+            } catch (negErr) {
+              console.error('[DeliveryConfirm] negative-balance handling failed:', negErr?.message)
+            }
+          } else {
+            const lowBalanceThreshold = dailyAmount * 7
+            if (newBalance < lowBalanceThreshold) {
+              try {
+                const { data: userProfile } = await supabaseAdmin
+                  .from('profiles').select('full_name, phone, email').eq('id', sub.user_id).single()
+                const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(sub.user_id)
+                const email = authUser?.user?.email || userProfile?.email
+                const name = userProfile?.full_name || email
+                if (email) await sendLowBalanceEmail({ to: email, name, balance: newBalance })
+                if (userProfile?.phone) await sendLowBalanceAlert(userProfile.phone, name, newBalance)
+              } catch { /* non-blocking */ }
+            }
           }
       } else if (deductError) {
-        // Insufficient balance — deactivate subscription
-        const { data: walletSnap } = await supabaseAdmin
-          .from('wallet').select('balance').eq('user_id', sub.user_id).maybeSingle()
-        const balance = walletSnap?.balance || 0
-
-        await supabaseAdmin.from('subscriptions').update({ is_active: false, pending_delivery: false }).eq('id', subscription_id)
-        const { data: stoppedProfileInfo } = await supabaseAdmin.from('profiles').select('full_name, phone').eq('id', sub.user_id).maybeSingle()
+        // deduct_wallet now only fails here for a genuine problem (e.g. wallet row missing)
+        // — insufficient balance no longer raises, since p_allow_negative:true is passed above.
+        console.error('[DeliveryConfirm] deduct_wallet failed unexpectedly:', deductError.message)
         createAdminNotification({
           type: 'subscription_stopped',
-          title: `Subscription stopped — ${stoppedProfileInfo?.full_name || 'Customer'}`,
-          body: `Insufficient balance. Required: ₹${dailyAmount}, Available: ₹${balance} | Phone: ${stoppedProfileInfo?.phone || 'N/A'}`,
+          title: `Delivery payment failed — subscription ${subscription_id}`,
+          body: `deduct_wallet error: ${deductError.message}`,
           link_tab: 'customers',
         })
-        await supabaseAdmin.from('failed_deductions').insert({
-          user_id: sub.user_id,
-          subscription_id,
-          amount: dailyAmount,
-          reason: 'Insufficient balance — deactivated on delivery confirm',
-        }).catch(() => {})
-        await supabaseAdmin.from('wallet_transactions').insert({
-          user_id: sub.user_id,
-          amount: 0,
-          type: 'debit',
-          description: `Subscription stopped - insufficient balance [${delivery_date}]. Required: ₹${dailyAmount}, Available: ₹${balance}`,
-        })
-        try {
-          const { data: stoppedProfile } = await supabaseAdmin
-            .from('profiles').select('full_name, phone').eq('id', sub.user_id).single()
-          if (stoppedProfile?.phone) {
-            await notifySubscriptionStopped({ phone: stoppedProfile.phone, name: stoppedProfile.full_name || 'Customer', balance })
-          }
-        } catch { /* non-blocking */ }
       }
 
       // Clear pending_delivery flag

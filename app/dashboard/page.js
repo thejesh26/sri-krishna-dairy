@@ -380,7 +380,7 @@ export default function Dashboard() {
             </div>
             <div className="text-center cursor-pointer" onClick={() => router.push('/wallet')}>
               <p className={`font-[family-name:var(--font-playfair)] text-2xl font-bold ${walletBalance < 300 ? 'text-red-300' : 'text-[#d4a017]'}`}>
-                ₹{walletBalance}
+                {walletBalance < 0 ? `-₹${Math.abs(walletBalance)}` : `₹${walletBalance}`}
               </p>
               <p className="text-green-300 text-xs mt-1 uppercase tracking-widest">Wallet</p>
               {depositBalance > 0 && (
@@ -390,6 +390,17 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Wallet Negative Balance Warning */}
+        {walletBalance < 0 && (
+          <div className="bg-red-50 border-2 border-red-400 rounded-xl p-4 mb-5 flex items-start gap-3">
+            <span className="text-2xl flex-shrink-0">🚨</span>
+            <div className="flex-1">
+              <p className="text-red-700 font-bold text-sm">Wallet Negative — Subscription Deactivated</p>
+              <p className="text-red-600 text-xs mt-1">Your wallet is at -₹{Math.abs(walletBalance)}. A recent delivery couldn't be fully covered, so your subscription was automatically stopped. Top up and resubscribe to resume.</p>
+            </div>
+            <a href="/wallet" className="bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-lg flex-shrink-0 hover:bg-red-700 transition">Top Up →</a>
+          </div>
+        )}
         {/* Wallet Low Balance Warning */}
         {walletBalance === 0 && (
           <div className="bg-red-50 border-2 border-red-400 rounded-xl p-4 mb-5 flex items-start gap-3">

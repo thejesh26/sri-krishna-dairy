@@ -2879,9 +2879,9 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                               )}
                               {balance !== null && (
                                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                                  balance === 0 ? 'bg-red-100 text-red-700' : balance < 300 ? 'bg-orange-100 text-orange-700' : 'bg-[#f0faf4] text-[#1a5c38]'
+                                  balance <= 0 ? 'bg-red-100 text-red-700' : balance < 300 ? 'bg-orange-100 text-orange-700' : 'bg-[#f0faf4] text-[#1a5c38]'
                                 }`}>
-                                  💰 ₹{balance}
+                                  💰 {balance < 0 ? `-₹${Math.abs(balance)}` : `₹${balance}`}
                                 </span>
                               )}
                             </div>
@@ -4903,7 +4903,7 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
                     <p className="font-semibold text-[#1c1c1c] text-sm">{addOrderCustomer.full_name}</p>
                     <p className="text-xs text-gray-500">{addOrderCustomer.phone} · {addOrderCustomer.area}</p>
                     {walletBalance !== null && (
-                      <p className="text-xs text-[#1a5c38] font-semibold mt-0.5">Wallet: ₹{walletBalance}</p>
+                      <p className="text-xs text-[#1a5c38] font-semibold mt-0.5">Wallet: {walletBalance < 0 ? `-₹${Math.abs(walletBalance)}` : `₹${walletBalance}`}</p>
                     )}
                   </div>
                   <button onClick={() => { setAddOrderCustomer(null); setAddOrderSearch('') }}
