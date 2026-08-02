@@ -1,0 +1,55 @@
+name: Scheduled cron jobs
+
+# Vercel Hobby plan caps cron jobs at 2/project, once a day — we have 8 daily jobs,
+# so Vercel would silently drop most of them. This workflow triggers the same
+# /api/cron/* routes on schedule instead; the route handlers are unchanged.
+on:
+  schedule:
+    - cron: '30 18 * * *' # deduct-subscriptions        — 00:00 IST
+    - cron: '0 0 * * *'   # snapshot-today-deliveries    — 05:30 IST
+    - cron: '30 19 * * *' # heartbeat-check              — 01:00 IST
+    - cron: '30 4 * * *'  # check-undelivered            — 10:00 IST
+    - cron: '0 1 * * *'   # check-missed-deliveries      — 06:30 IST
+    - cron: '0 15 * * *'  # low-balance-warning          — 20:30 IST
+    - cron: '0 10 * * *'  # review-requests              — 15:30 IST
+    - cron: '30 17 * * *' # reconcile-invocations        — 23:00 IST
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'Cron route to trigger manually (e.g. deduct-subscriptions)'
+        required: true
+        type: choice
+        options:
+          - deduct-subscriptions
+          - snapshot-today-deliveries
+          - heartbeat-check
+          - check-undelivered
+          - check-missed-deliveries
+          - low-balance-warning
+          - review-requests
+          - reconcile-invocations
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve job path for this trigger
+        id: route
+        run: |
+          case "${{ github.event.schedule }}" in
+            "30 18 * * *") echo "path=deduct-subscriptions" >> "$GITHUB_OUTPUT" ;;
+            "0 0 * * *") echo "path=snapshot-today-deliveries" >> "$GITHUB_OUTPUT" ;;
+            "30 19 * * *") echo "path=heartbeat-check" >> "$GITHUB_OUTPUT" ;;
+            "30 4 * * *") echo "path=check-undelivered" >> "$GITHUB_OUTPUT" ;;
+            "0 1 * * *") echo "path=check-missed-deliveries" >> "$GITHUB_OUTPUT" ;;
+            "0 15 * * *") echo "path=low-balance-warning" >> "$GITHUB_OUTPUT" ;;
+            "0 10 * * *") echo "path=review-requests" >> "$GITHUB_OUTPUT" ;;
+            "30 17 * * *") echo "path=reconcile-invocations" >> "$GITHUB_OUTPUT" ;;
+            *) echo "path=${{ github.event.inputs.job }}" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Call cron endpoint
+        run: |
+          curl --fail-with-body -sS -X GET \
+            "https://srikrishnaadairy.in/api/cron/${{ steps.route.outputs.path }}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../../../lib/db'
 import { requireCron } from '../../../lib/auth'
 import { getScheduledQuantity } from '../../../lib/pricing'
 import { createAdminNotification } from '../../../lib/notify'
+import { withCronLog } from '../../../lib/cron'
 
 // Called daily at 01:00 UTC (6:30 AM IST) — after all deliveries should be done for the previous day.
 // Reconciles expected deliveries against actual subscription_deliveries rows for yesterday.
@@ -10,7 +11,10 @@ import { createAdminNotification } from '../../../lib/notify'
 export async function GET(request) {
   const { error } = requireCron(request)
   if (error) return error
+  return withCronLog('check-missed-deliveries', runCheckMissedDeliveries)
+}
 
+async function runCheckMissedDeliveries() {
   const now = new Date()
   const yesterday = new Date(now)
   yesterday.setDate(yesterday.getDate() - 1)

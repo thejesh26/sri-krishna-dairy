@@ -5,12 +5,16 @@ import { calcDailyAmount, getISTDate } from '../../../lib/pricing'
 import { sendLowBalanceAlert, notifyAdmin } from '../../../lib/whatsapp'
 import { sendLowBalanceEmail } from '../../../lib/email'
 import { createAdminNotification } from '../../../lib/notify'
+import { withCronLog } from '../../../lib/cron'
 
 // Called daily at 15:00 UTC (8:30 PM IST) by Vercel Cron
 export async function GET(request) {
   const { error: cronError } = requireCron(request)
   if (cronError) return cronError
+  return withCronLog('low-balance-warning', runLowBalanceWarning)
+}
 
+async function runLowBalanceWarning() {
   const today = getISTDate()
 
   const { data: subscriptions, error } = await supabaseAdmin

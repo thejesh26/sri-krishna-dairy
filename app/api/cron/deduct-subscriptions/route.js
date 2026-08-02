@@ -5,6 +5,7 @@ import { requireCron } from '../../../lib/auth'
 import { sendLowBalanceEmail, sendSubscriptionExpiryReminderEmail, sendReferralCompletedEmail, sendPointsExpiryEmail } from '../../../lib/email'
 import { sendSubscriptionExpiry, notifyReferralCompleted, notifyPointsExpiring, notifyAdmin } from '../../../lib/whatsapp'
 import { createAdminNotification } from '../../../lib/notify'
+import { withCronLog } from '../../../lib/cron'
 
 // Called daily by Vercel Cron at 18:30 UTC (midnight IST)
 export const maxDuration = 300
@@ -12,14 +13,14 @@ export const maxDuration = 300
 export async function GET(request) {
   const { error } = requireCron(request)
   if (error) return error
-  return runDeductions()
+  return withCronLog('deduct-subscriptions', runDeductions)
 }
 
 // Also accepts POST so the admin panel can trigger it manually
 export async function POST(request) {
   const { error } = requireCron(request)
   if (error) return error
-  return runDeductions()
+  return withCronLog('deduct-subscriptions', runDeductions)
 }
 
 async function runDeductions() {

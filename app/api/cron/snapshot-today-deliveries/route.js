@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../lib/db'
 import { requireCron } from '../../../lib/auth'
 import { getISTDate, getScheduledQuantity } from '../../../lib/pricing'
+import { withCronLog } from '../../../lib/cron'
 
 // Called daily at 5:30 AM IST (00:00 UTC) by Vercel Cron.
 // Freezes today's delivery list: writes one 'pending' subscription_deliveries row per
@@ -12,13 +13,13 @@ import { getISTDate, getScheduledQuantity } from '../../../lib/pricing'
 export async function GET(request) {
   const { error } = requireCron(request)
   if (error) return error
-  return runSnapshot()
+  return withCronLog('snapshot-today-deliveries', runSnapshot)
 }
 
 export async function POST(request) {
   const { error } = requireCron(request)
   if (error) return error
-  return runSnapshot()
+  return withCronLog('snapshot-today-deliveries', runSnapshot)
 }
 
 function isDeliveryDay(sub, today) {

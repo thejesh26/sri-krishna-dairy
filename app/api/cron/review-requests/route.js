@@ -2,11 +2,16 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../lib/db'
 import { requireCron } from '../../../lib/auth'
 import { sendWhatsAppMessage } from '../../../lib/whatsapp'
+import { withCronLog } from '../../../lib/cron'
 
 // Runs at 10:00 UTC daily (3:30 PM IST) — catches morning deliveries that are 24h+ old
 export async function GET(request) {
   const { error: cronError } = requireCron(request)
   if (cronError) return cronError
+  return withCronLog('review-requests', runReviewRequests)
+}
+
+async function runReviewRequests() {
   const now = new Date().toISOString()
 
   const { data: pending, error } = await supabaseAdmin

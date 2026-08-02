@@ -3,13 +3,17 @@ import { supabaseAdmin } from '../../../lib/db'
 import { requireCron } from '../../../lib/auth'
 import { getISTDate, getScheduledQuantity } from '../../../lib/pricing'
 import { notifyAdmin } from '../../../lib/whatsapp'
+import { withCronLog } from '../../../lib/cron'
 
 // Called daily at 19:30 UTC (1AM IST) — 1 hour after the midnight deduction cron.
 // Verifies that deduct-subscriptions ran by checking pending_delivery flags it sets.
 export async function GET(request) {
   const { error } = requireCron(request)
   if (error) return error
+  return withCronLog('heartbeat-check', runHeartbeatCheck)
+}
 
+async function runHeartbeatCheck() {
   const today = getISTDate()
 
   const [{ data: pendingSubs }, { count: activeCount }] = await Promise.all([

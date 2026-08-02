@@ -4,13 +4,17 @@ import { requireCron } from '../../../lib/auth'
 import { getISTDate } from '../../../lib/pricing'
 import { sendUndeliveredAlertEmail } from '../../../lib/email'
 import { notifyUndelivered, sendWhatsAppToAdmin } from '../../../lib/whatsapp'
+import { withCronLog } from '../../../lib/cron'
 
 // Called daily at 10AM IST (04:30 UTC) by Vercel Cron
 // Checks subscriptions still marked pending_delivery and clears them without charging
 export async function GET(request) {
   const { error: authError } = requireCron(request)
   if (authError) return authError
+  return withCronLog('check-undelivered', runCheckUndelivered)
+}
 
+async function runCheckUndelivered() {
   const today = getISTDate()
 
   // Find all subscriptions still in pending_delivery state (not yet confirmed by 10AM)
