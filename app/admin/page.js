@@ -106,6 +106,11 @@ export default function AdminDashboard() {
     todayRevenue: 0,
     monthlyRevenue: 0,
   })
+  // Lazy-loaded tab data flags — these datasets are only ever rendered inside their own
+  // tab, so they're fetched on first visit instead of eagerly in the initial page load
+  // (which was fetching 9 full tables nobody would look at on the default Today tab).
+  const [reviewsDataLoaded, setReviewsDataLoaded] = useState(false)
+  const [reportsDataLoaded, setReportsDataLoaded] = useState(false)
   // Settings tab state
   const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [appSettings, setAppSettings] = useState({
@@ -284,15 +289,6 @@ export default function AdminDashboard() {
         { addonOrders: allAddons = [] },
         { todaySubRevenue = 0, monthSubRevenue = 0 },
         { data: allProducts },
-        { data: allReviews },
-        { data: allReports },
-        { data: enquiries },
-        { data: custSuggestions },
-        { data: agentIssues },
-        { data: qFeedback },
-        { data: codes },
-        { data: failedDeds },
-        { data: walletReqs },
         { data: allCustomers },
         { data: daRecords },
         { data: todaySnapshotRows },
@@ -302,34 +298,21 @@ export default function AdminDashboard() {
         fetch('/api/admin/addon-orders', { headers: authHeader }).then(r => r.json()),
         fetch('/api/admin/revenue', { headers: authHeader }).then(r => r.json()),
         supabase.from('products').select('*').order('size'),
-        supabase.from('reviews').select('*, profiles(full_name, phone)').order('created_at', { ascending: false }),
-        supabase.from('missed_delivery_reports').select('*, profiles(full_name, phone, apartment_name, flat_number, area), orders(delivery_date, delivery_slot, products(size))').order('reported_at', { ascending: false }),
-        supabase.from('bulk_enquiries').select('*').order('created_at', { ascending: false }),
-        supabase.from('customer_suggestions').select('*, profiles(full_name, phone)').order('created_at', { ascending: false }),
-        supabase.from('delivery_issues').select('*').order('created_at', { ascending: false }),
-        supabase.from('quality_feedback').select('*, profiles(full_name, phone), orders(delivery_date, products(size))').order('reported_at', { ascending: false }),
-        supabase.from('discount_codes').select('*').order('created_at', { ascending: false }),
-        supabase.from('failed_deductions').select('*').order('created_at', { ascending: false }),
-        supabase.from('wallet_requests').select('*, requester:profiles!wallet_requests_requested_by_fkey(full_name, phone), target:profiles!wallet_requests_target_user_id_fkey(full_name, phone)').order('created_at', { ascending: false }),
         supabase.from('profiles').select('*').order('created_at', { ascending: false }),
         supabase.from('delivery_agents').select('*'),
         supabase.from('subscription_deliveries').select('*, subscriptions(*, products(*), profiles(*))').eq('delivery_date', today),
       ])
+      // reviews, reports/suggestions/issues/quality/failed-deductions, discount codes,
+      // bulk enquiries, and wallet requests are NOT fetched here — they're only ever
+      // rendered inside their own tab, so they're lazy-loaded on first visit via
+      // handleAdminTabChange (loadReviewsData / loadReportsData / loadAppSettings /
+      // loadWalletRequests) instead of adding 9 full-table fetches to every page load.
 
       // Set state for all round 1 results
       setOrders(allOrders)
       setAddonOrders(allAddons)
       setSubscriptions(allSubs)
       setProducts(allProducts || [])
-      setReviews(allReviews || [])
-      setMissedReports(allReports || [])
-      setBulkEnquiries(enquiries || [])
-      setSuggestions(custSuggestions || [])
-      setDeliveryIssues(agentIssues || [])
-      setQualityReports(qFeedback || [])
-      setDiscountCodes(codes || [])
-      setFailedDeductions(failedDeds || [])
-      setWalletRequests(walletReqs || [])
       setCustomers((allCustomers || []).filter(c => !c.is_admin))
       setDeliveryAgents((allCustomers || []).filter(c => c.is_delivery))
       setDeliveryAgentRecords(daRecords || [])
@@ -461,10 +444,12 @@ export default function AdminDashboard() {
 
   const handleAdminTabChange = async (id) => {
     setActiveTab(id)
-    if (id === 'customers') { await loadWallets(); loadLeads() }
+    if (id === 'customers') { await loadWallets(); loadLeads(); loadWalletRequests() }
     if (id === 'delivery_history' && !historyLoaded) loadDeliveryHistory()
     if (id === 'financials' && !transactionsLoaded) loadTransactions(txStartDate, txEndDate)
     if (id === 'settings') loadAppSettings()
+    if (id === 'reviews' && !reviewsDataLoaded) loadReviewsData()
+    if (id === 'reports' && !reportsDataLoaded) loadReportsData()
   }
 
   const loadDeliveryHistory = async (startDate, endDate) => {
@@ -750,16 +735,51 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
 
   const loadAppSettings = async () => {
     const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/admin/settings', {
-      headers: { Authorization: `Bearer ${session?.access_token}` }
-    })
-    const result = await res.json()
-    if (result.settings) {
+    const [settingsRes, { data: codes }, { data: enquiries }] = await Promise.all([
+      fetch('/api/admin/settings', { headers: { Authorization: `Bearer ${session?.access_token}` } }).then(r => r.json()),
+      supabase.from('discount_codes').select('*').order('created_at', { ascending: false }),
+      supabase.from('bulk_enquiries').select('*').order('created_at', { ascending: false }),
+    ])
+    if (settingsRes.settings) {
       const map = {}
-      result.settings.forEach(row => { map[row.key] = row.value })
+      settingsRes.settings.forEach(row => { map[row.key] = row.value })
       setAppSettings(prev => ({ ...prev, ...map }))
     }
+    setDiscountCodes(codes || [])
+    setBulkEnquiries(enquiries || [])
     setSettingsLoaded(true)
+  }
+
+  // 'reviews' tab — only fetched once, on first visit
+  const loadReviewsData = async () => {
+    const { data } = await supabase.from('reviews').select('*, profiles(full_name, phone)').order('created_at', { ascending: false })
+    setReviews(data || [])
+    setReviewsDataLoaded(true)
+  }
+
+  // 'reports' tab — all 5 sub-tabs share one load, since they're shown together
+  const loadReportsData = async () => {
+    const [{ data: reports }, { data: custSuggestions }, { data: agentIssues }, { data: qFeedback }, { data: failedDeds }] = await Promise.all([
+      supabase.from('missed_delivery_reports').select('*, profiles(full_name, phone, apartment_name, flat_number, area), orders(delivery_date, delivery_slot, products(size))').order('reported_at', { ascending: false }),
+      supabase.from('customer_suggestions').select('*, profiles(full_name, phone)').order('created_at', { ascending: false }),
+      supabase.from('delivery_issues').select('*').order('created_at', { ascending: false }),
+      supabase.from('quality_feedback').select('*, profiles(full_name, phone), orders(delivery_date, products(size))').order('reported_at', { ascending: false }),
+      supabase.from('failed_deductions').select('*').order('created_at', { ascending: false }),
+    ])
+    setMissedReports(reports || [])
+    setSuggestions(custSuggestions || [])
+    setDeliveryIssues(agentIssues || [])
+    setQualityReports(qFeedback || [])
+    setFailedDeductions(failedDeds || [])
+    setReportsDataLoaded(true)
+  }
+
+  // 'customers' tab's wallet_requests sub-tab count
+  const loadWalletRequests = async () => {
+    const { data } = await supabase.from('wallet_requests')
+      .select('*, requester:profiles!wallet_requests_requested_by_fkey(full_name, phone), target:profiles!wallet_requests_target_user_id_fkey(full_name, phone)')
+      .order('created_at', { ascending: false })
+    setWalletRequests(data || [])
   }
 
   const loadWaitlist = async () => {
@@ -3882,7 +3902,10 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
   </div>
 )}
 
-{activeTab === 'reviews' && (
+{activeTab === 'reviews' && !reviewsDataLoaded && (
+  <div className="text-center py-12 text-gray-400 text-sm">Loading reviews...</div>
+)}
+{activeTab === 'reviews' && reviewsDataLoaded && (
   <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
     <div className="px-6 py-5 border-b border-[#f5f0e8]">
       <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Customer Reviews</h3>
@@ -3945,7 +3968,10 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
 
 
 {/* Issue Reports Tab */}
-{activeTab === 'reports' && (
+{activeTab === 'reports' && !reportsDataLoaded && (
+  <div className="text-center py-12 text-gray-400 text-sm">Loading reports...</div>
+)}
+{activeTab === 'reports' && reportsDataLoaded && (
   <div className="flex flex-col gap-5">
     {/* Sub-tabs */}
     <div className="flex gap-1 bg-white border border-[#e8e0d0] rounded-xl p-1 shadow-sm overflow-x-auto">
