@@ -13,11 +13,16 @@ function ProfileInner() {
   const [user, setUser] = useState(null)
   const [form, setForm] = useState({
     full_name: '', phone: '', area: '',
-    tower: '', apartment_name: '', flat_number: '', landmark: '', pincode: '',
+    tower: '', apartment_choice: '', apartment_name: '', flat_number: '', landmark: '', pincode: '',
   })
+  const [apartments, setApartments] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const { showSuccess, showError } = useToast()
+
+  // 'other' or empty = individual house / free-text address; otherwise holds an apartment id
+  const isOtherAddress = form.apartment_choice === 'other' || !form.apartment_choice
+  const selectedApartment = !isOtherAddress ? apartments.find(a => String(a.id) === form.apartment_choice) : null
 
   // Tabs — pre-select from ?tab= URL param
   const [activeTab, setActiveTab] = useState(() => {
@@ -43,6 +48,7 @@ function ProfileInner() {
   ]
 
   useEffect(() => {
+    fetch('/api/apartments').then(r => r.json()).then(setApartments).catch(() => {})
     getUser().then(() => {
       // Fire lazy loads if the page opened directly on orders/transactions tab
       const t = searchParams?.get('tab')
@@ -64,6 +70,7 @@ function ProfileInner() {
         phone: profile.phone || '',
         area: profile.area || '',
         tower: profile.tower || '',
+        apartment_choice: profile.apartment_id ? String(profile.apartment_id) : (profile.apartment_name ? 'other' : ''),
         apartment_name: profile.apartment_name || '',
         flat_number: profile.flat_number || '',
         landmark: profile.landmark || '',
@@ -119,15 +126,17 @@ function ProfileInner() {
       return
     }
     setSaving(true)
-    const fullAddress = `${form.apartment_name}, ${form.flat_number}, ${form.area}${form.pincode ? ' - ' + form.pincode : ''}, Bangalore`
+    const apartmentName = selectedApartment ? selectedApartment.name : form.apartment_name
+    const fullAddress = `${apartmentName}, ${form.flat_number}, ${form.area}${form.pincode ? ' - ' + form.pincode : ''}, Bangalore`
     const { error } = await supabase
       .from('profiles')
       .update({
         full_name: form.full_name,
         phone: form.phone,
         area: form.area,
-        tower: form.tower || null,
-        apartment_name: form.apartment_name,
+        tower: !isOtherAddress ? (form.tower || null) : null,
+        apartment_id: selectedApartment ? selectedApartment.id : null,
+        apartment_name: apartmentName,
         flat_number: form.flat_number,
         flat_no: extractFlatNo(form.flat_number),
         landmark: form.landmark,
@@ -236,14 +245,28 @@ function ProfileInner() {
                   </select>
                 </div>
 
+                <div className="mb-4">
+                  <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Apartment</label>
+                  <select name="apartment_choice" value={form.apartment_choice} onChange={handleChange} required
+                    className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]">
+                    <option value="">-- Select your apartment --</option>
+                    {apartments.map(a => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                    <option value="other">Individual House / Other</option>
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Building / House Name</label>
-                    <input name="apartment_name" value={form.apartment_name} onChange={handleChange} required
-                      autoComplete="address-line1"
-                      className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
-                  </div>
-                  <div>
+                  {isOtherAddress && (
+                    <div>
+                      <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Building / House Name</label>
+                      <input name="apartment_name" value={form.apartment_name} onChange={handleChange} required
+                        autoComplete="address-line1"
+                        className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+                    </div>
+                  )}
+                  <div className={isOtherAddress ? '' : 'col-span-2'}>
                     <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Flat / Door Number</label>
                     <input name="flat_number" value={form.flat_number} onChange={handleChange} required
                       autoComplete="address-line2"
@@ -251,17 +274,19 @@ function ProfileInner() {
                   </div>
                 </div>
 
-                <div className="mb-4">
-                  <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Tower (Optional)</label>
-                  <select name="tower" value={form.tower} onChange={handleChange}
-                    className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] text-[#1c1c1c]">
-                    <option value="">-- No tower / standalone house --</option>
-                    {TOWER_OPTIONS.map(t => (
-                      <option key={t} value={t}>Tower {t}</option>
-                    ))}
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
+                {!isOtherAddress && (
+                  <div className="mb-4">
+                    <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Tower (Optional)</label>
+                    <select name="tower" value={form.tower} onChange={handleChange}
+                      className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] text-[#1c1c1c]">
+                      <option value="">-- No tower --</option>
+                      {TOWER_OPTIONS.map(t => (
+                        <option key={t} value={t}>Tower {t}</option>
+                      ))}
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>

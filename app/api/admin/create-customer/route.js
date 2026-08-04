@@ -6,7 +6,7 @@ export async function POST(request) {
   const { error: authError } = await requireAdmin(request)
   if (authError) return authError
 
-  const { full_name, phone, apartment_name, flat_number, area, landmark } = await request.json()
+  const { full_name, phone, apartment_id, apartment_name, flat_number, area, landmark } = await request.json()
 
   if (!full_name || !phone) {
     return NextResponse.json({ error: 'Name and phone are required' }, { status: 400 })
@@ -46,6 +46,7 @@ export async function POST(request) {
       id: authUser.user.id,
       full_name,
       phone: cleanPhone,
+      apartment_id: apartment_id || null,
       apartment_name: apartment_name || null,
       flat_number: flat_number || null,
       area: area || null,

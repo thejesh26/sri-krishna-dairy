@@ -1,5 +1,5 @@
 ﻿'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import Footer from '../components/Footer'
@@ -9,11 +9,20 @@ export default function SignUp() {
   const router = useRouter()
   const [form, setForm] = useState({
     full_name: '', phone: '', email: '', password: '',
-    area: '', tower: '', building_name: '', flat_number: '', landmark: '', referral_code: ''
+    area: '', tower: '', apartment_choice: '', building_name: '', flat_number: '', landmark: '', referral_code: ''
   })
+  const [apartments, setApartments] = useState([])
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    fetch('/api/apartments').then(r => r.json()).then(setApartments).catch(() => {})
+  }, [])
+
+  // 'other' or empty = individual house / free-text address; otherwise holds an apartment id
+  const isOtherAddress = form.apartment_choice === 'other' || !form.apartment_choice
+  const selectedApartment = !isOtherAddress ? apartments.find(a => String(a.id) === form.apartment_choice) : null
 
   const serviceAreas = [
     'Kattigenahalli',
@@ -80,7 +89,8 @@ export default function SignUp() {
       return
     }
 
-    const fullAddress = form.building_name + ', ' + form.flat_number + ', ' + form.area + ', Bangalore'
+    const apartmentName = selectedApartment ? selectedApartment.name : form.building_name
+    const fullAddress = apartmentName + ', ' + form.flat_number + ', ' + form.area + ', Bangalore'
     // Generate a unique referral code for this new user
     const newReferralCode = data.user.id.replace(/-/g, '').substring(0, 8).toUpperCase()
 
@@ -89,12 +99,13 @@ export default function SignUp() {
       full_name: form.full_name,
       phone: form.phone,
       address: fullAddress,
-      apartment_name: form.building_name,
+      apartment_id: selectedApartment ? selectedApartment.id : null,
+      apartment_name: apartmentName,
       flat_number: form.flat_number,
       area: form.area,
       landmark: form.landmark,
       referral_code: newReferralCode,
-      tower: form.tower || null,
+      tower: !isOtherAddress ? (form.tower || null) : null,
       flat_no: extractFlatNo(form.flat_number),
     })
 
@@ -254,14 +265,28 @@ export default function SignUp() {
                 </select>
               </div>
 
+              <div className="mb-4">
+                <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Apartment</label>
+                <select name="apartment_choice" required value={form.apartment_choice} onChange={handleChange}
+                  className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] text-[#1c1c1c]">
+                  <option value="">-- Select your apartment --</option>
+                  {apartments.map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                  <option value="other">Individual House / Other</option>
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Building / House Name</label>
-                  <input name="building_name" placeholder="Eg: Green Valley Apts" required
-                    className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
-                    onChange={handleChange} />
-                </div>
-                <div>
+                {isOtherAddress && (
+                  <div>
+                    <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Building / House Name</label>
+                    <input name="building_name" placeholder="Eg: Green Valley Apts" required
+                      className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
+                      onChange={handleChange} />
+                  </div>
+                )}
+                <div className={isOtherAddress ? '' : 'col-span-2'}>
                   <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Flat / Door Number</label>
                   <input name="flat_number" placeholder="Eg: T1-404" required
                     className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
@@ -269,17 +294,19 @@ export default function SignUp() {
                 </div>
               </div>
 
-              <div className="mb-4">
-                <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Tower (Optional)</label>
-                <select name="tower" onChange={handleChange}
-                  className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] text-[#1c1c1c]">
-                  <option value="">-- No tower / standalone house --</option>
-                  {TOWER_OPTIONS.map(t => (
-                    <option key={t} value={t}>Tower {t}</option>
-                  ))}
-                  <option value="Other">Other</option>
-                </select>
-              </div>
+              {!isOtherAddress && (
+                <div className="mb-4">
+                  <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Tower (Optional)</label>
+                  <select name="tower" onChange={handleChange}
+                    className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] text-[#1c1c1c]">
+                    <option value="">-- No tower --</option>
+                    {TOWER_OPTIONS.map(t => (
+                      <option key={t} value={t}>Tower {t}</option>
+                    ))}
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Landmark (Optional)</label>

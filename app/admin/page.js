@@ -27,6 +27,25 @@ function matchesAddressFilter(item, query) {
   return true
 }
 
+// Today tab's combined Apartment + Tower + Name filter.
+// apartmentFilter: 'all' | 'individual' (no apartment_id) | an apartment id (as string)
+// towerFilter: 'all' | a tower value
+function matchesTodayFilters(item, apartmentFilter, towerFilter, nameFilter) {
+  const profile = item.profiles
+  if (apartmentFilter === 'individual') {
+    if (profile?.apartment_id) return false
+  } else if (apartmentFilter !== 'all') {
+    if (String(profile?.apartment_id ?? '') !== apartmentFilter) return false
+  }
+  if (towerFilter !== 'all') {
+    if (getAddress(profile).tower !== towerFilter) return false
+  }
+  if (nameFilter.trim()) {
+    if (!profile?.full_name?.toLowerCase().includes(nameFilter.trim().toLowerCase())) return false
+  }
+  return true
+}
+
 function FreqBadge({ freq }) {
   if (!freq || freq === 'daily') return null
   return freq === 'alternate'
@@ -99,6 +118,8 @@ export default function AdminDashboard() {
   const [discountCodes, setDiscountCodes] = useState([])
   const [newCode, setNewCode] = useState({ code: '', percent: '', description: '', one_time_per_customer: true, applies_to: 'all' })
   const [discountSaving, setDiscountSaving] = useState(false)
+  const [newApartmentName, setNewApartmentName] = useState('')
+  const [apartmentSaving, setApartmentSaving] = useState(false)
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalSubscriptions: 0,
@@ -174,10 +195,13 @@ export default function AdminDashboard() {
   const [customersSubTab, setCustomersSubTab] = useState('all')
   const [areaFilter, setAreaFilter] = useState('all')
   const [customerListSearch, setCustomerListSearch] = useState('')
-  const [todayAddressFilter, setTodayAddressFilter] = useState('')
+  const [todayApartmentFilter, setTodayApartmentFilter] = useState('all')
+  const [todayTowerFilter, setTodayTowerFilter] = useState('all')
+  const [todayNameFilter, setTodayNameFilter] = useState('')
   const [ordersAddressFilter, setOrdersAddressFilter] = useState('')
   const [showAddCustomer, setShowAddCustomer] = useState(false)
-  const [addCustomerForm, setAddCustomerForm] = useState({ full_name: '', phone: '', apartment_name: '', flat_number: '', area: '', landmark: '' })
+  const [apartments, setApartments] = useState([])
+  const [addCustomerForm, setAddCustomerForm] = useState({ full_name: '', phone: '', apartment_id: '', apartment_name: '', flat_number: '', area: '', landmark: '' })
   const [addCustomerLoading, setAddCustomerLoading] = useState(false)
   const [leads, setLeads] = useState([])
   const [leadsLoading, setLeadsLoading] = useState(false)
@@ -292,6 +316,7 @@ export default function AdminDashboard() {
         { data: allCustomers },
         { data: daRecords },
         { data: todaySnapshotRows },
+        { data: apartmentsData },
       ] = await Promise.all([
         fetch('/api/admin/orders', { headers: authHeader }).then(r => r.json()),
         fetch('/api/admin/subscriptions', { headers: authHeader }).then(r => r.json()),
@@ -301,6 +326,11 @@ export default function AdminDashboard() {
         supabase.from('profiles').select('*').order('created_at', { ascending: false }),
         supabase.from('delivery_agents').select('*'),
         supabase.from('subscription_deliveries').select('*, subscriptions(*, products(*), profiles(*))').eq('delivery_date', today),
+        // Tiny table (a handful of rows) needed immediately for the Today tab's apartment
+        // filter, so it's fetched eagerly here rather than lazily like the heavier tables
+        // below. Admin's own session sees inactive rows too (RLS "Admins manage apartments"
+        // policy), which the Settings tab's toggle needs.
+        supabase.from('apartments').select('*').order('name'),
       ])
       // reviews, reports/suggestions/issues/quality/failed-deductions, discount codes,
       // bulk enquiries, and wallet requests are NOT fetched here — they're only ever
@@ -316,6 +346,7 @@ export default function AdminDashboard() {
       setCustomers((allCustomers || []).filter(c => !c.is_admin))
       setDeliveryAgents((allCustomers || []).filter(c => c.is_delivery))
       setDeliveryAgentRecords(daRecords || [])
+      setApartments(apartmentsData || [])
 
       // Compute derived values
       const todayO = allOrders.filter(o => o.delivery_date === today)
@@ -1407,13 +1438,50 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
               </span>
             </div>
-            <div className="px-6 py-3 border-b border-[#f5f0e8]">
+            <div className="px-6 py-3 border-b border-[#f5f0e8] flex flex-col sm:flex-row gap-2">
+              <select
+                value={todayApartmentFilter}
+                onChange={e => { setTodayApartmentFilter(e.target.value); setTodayTowerFilter('all') }}
+                className="text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] sm:w-48">
+                <option value="all">All Apartments</option>
+                {apartments.filter(a => a.is_active).map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+                <option value="individual">Individual Houses</option>
+              </select>
+              {(() => {
+                if (todayApartmentFilter === 'all' || todayApartmentFilter === 'individual') return null
+                const items = [...todaySubscriptions, ...todayAddons, ...todayOrders]
+                const towers = new Set()
+                items.forEach(item => {
+                  if (String(item.profiles?.apartment_id ?? '') === todayApartmentFilter) {
+                    const tower = getAddress(item.profiles).tower
+                    if (tower) towers.add(tower)
+                  }
+                })
+                const sortedTowers = [...towers].sort((a, b) => {
+                  const na = parseInt(a, 10), nb = parseInt(b, 10)
+                  if (!isNaN(na) && !isNaN(nb)) return na - nb
+                  return String(a).localeCompare(String(b))
+                })
+                return (
+                  <select
+                    value={todayTowerFilter}
+                    onChange={e => setTodayTowerFilter(e.target.value)}
+                    className="text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] sm:w-40">
+                    <option value="all">All Towers</option>
+                    {sortedTowers.map(t => (
+                      <option key={t} value={t}>Tower {t}</option>
+                    ))}
+                  </select>
+                )
+              })()}
               <input
                 type="text"
-                placeholder="Filter by Tower + Flat (e.g. T1 1, T2 4)..."
-                value={todayAddressFilter}
-                onChange={e => setTodayAddressFilter(e.target.value)}
-                className="w-full text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
+                placeholder="Search by customer name..."
+                value={todayNameFilter}
+                onChange={e => setTodayNameFilter(e.target.value)}
+                className="flex-1 text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
               />
             </div>
 
@@ -1425,7 +1493,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
             ) : (
               <div>
                 {/* Subscription deliveries */}
-                {[...todaySubscriptions].sort(sortByTowerFlat).filter(s => matchesAddressFilter(s, todayAddressFilter)).map((sub) => {
+                {[...todaySubscriptions].sort(sortByTowerFlat).filter(s => matchesTodayFilters(s, todayApartmentFilter, todayTowerFilter, todayNameFilter)).map((sub) => {
                   const subStatus = subDeliveryStatuses[sub.id] || 'pending'
                   const statusCls = subStatus === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
                     : subStatus === 'out_for_delivery' ? 'bg-blue-50 text-blue-600 border-blue-200'
@@ -1491,7 +1559,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                   )
                 })}
                 {/* Extra (add-on) orders */}
-                {todayAddons.filter(a => matchesAddressFilter(a, todayAddressFilter)).map((addon, index) => {
+                {todayAddons.filter(a => matchesTodayFilters(a, todayApartmentFilter, todayTowerFilter, todayNameFilter)).map((addon, index) => {
                   const addonCls = addon.status === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]'
                     : addon.status === 'out_for_delivery' ? 'bg-blue-50 text-blue-600 border-blue-200'
                     : addon.status === 'cancelled' ? 'bg-red-50 text-red-500 border-red-200'
@@ -1560,7 +1628,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                   )
                 })}
                 {/* One-time orders */}
-                {todayOrders.filter(o => matchesAddressFilter(o, todayAddressFilter)).map((order, index) => {
+                {todayOrders.filter(o => matchesTodayFilters(o, todayApartmentFilter, todayTowerFilter, todayNameFilter)).map((order, index) => {
                   const TRIAL_METHODS = ['COD', 'wallet', 'razorpay']
                   const isTrial = TRIAL_METHODS.includes(order.payment_method)
                   const trialDay = isTrial ? (() => {
@@ -2579,10 +2647,15 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                   setAddCustomerLoading(true)
                   try {
                     const { data: { session } } = await supabase.auth.getSession()
+                    const selectedApt = apartments.find(a => String(a.id) === addCustomerForm.apartment_id)
                     const res = await fetch('/api/admin/create-customer', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-                      body: JSON.stringify(addCustomerForm),
+                      body: JSON.stringify({
+                        ...addCustomerForm,
+                        apartment_id: selectedApt ? selectedApt.id : null,
+                        apartment_name: selectedApt ? selectedApt.name : addCustomerForm.apartment_name,
+                      }),
                     })
                     const data = await res.json()
                     if (!res.ok) {
@@ -2590,7 +2663,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                     } else {
                       showSuccess(`Customer ${addCustomerForm.full_name} created successfully.`)
                       setShowAddCustomer(false)
-                      setAddCustomerForm({ full_name: '', phone: '', apartment_name: '', flat_number: '', area: '', landmark: '' })
+                      setAddCustomerForm({ full_name: '', phone: '', apartment_id: '', apartment_name: '', flat_number: '', area: '', landmark: '' })
                       loadAllData()
                     }
                   } catch {
@@ -2614,10 +2687,22 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-gray-500 mb-1 block">Apartment / Building</label>
-                      <input value={addCustomerForm.apartment_name} onChange={e => setAddCustomerForm(f => ({ ...f, apartment_name: e.target.value }))}
-                        placeholder="Green Villa"
-                        className="w-full text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+                      <select value={addCustomerForm.apartment_id} onChange={e => setAddCustomerForm(f => ({ ...f, apartment_id: e.target.value }))}
+                        className="w-full text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]">
+                        <option value="">-- Individual House / Other --</option>
+                        {apartments.filter(a => a.is_active).map(a => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                      </select>
                     </div>
+                    {!addCustomerForm.apartment_id && (
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 mb-1 block">House / Building Name</label>
+                        <input value={addCustomerForm.apartment_name} onChange={e => setAddCustomerForm(f => ({ ...f, apartment_name: e.target.value }))}
+                          placeholder="Green Villa"
+                          className="w-full text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]" />
+                      </div>
+                    )}
                     <div>
                       <label className="text-xs font-semibold text-gray-500 mb-1 block">Flat / House No.</label>
                       <input value={addCustomerForm.flat_number} onChange={e => setAddCustomerForm(f => ({ ...f, flat_number: e.target.value }))}
@@ -4755,6 +4840,67 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       Delete
                     </button>
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* G2. Apartments */}
+        <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-2">🏢 Apartments</h3>
+          <p className="text-sm text-gray-500 mb-4">Apartments shown here appear in the signup form and the Today tab's filter. Disabling one hides it from new selections without affecting existing customers.</p>
+          <div className="flex gap-3 mb-5">
+            <input type="text" placeholder="e.g. Sattva Exotic"
+              value={newApartmentName}
+              onChange={e => setNewApartmentName(e.target.value)}
+              className="flex-1 border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
+            <button
+              disabled={apartmentSaving || !newApartmentName.trim()}
+              onClick={async () => {
+                setApartmentSaving(true)
+                const { data: { session } } = await supabase.auth.getSession()
+                const res = await fetch('/api/admin/apartments', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                  body: JSON.stringify({ name: newApartmentName.trim() }),
+                })
+                const json = await res.json()
+                if (res.ok) {
+                  setApartments(prev => [...prev, json.data].sort((a, b) => a.name.localeCompare(b.name)))
+                  setNewApartmentName('')
+                } else {
+                  showError(json.error || 'Failed to add apartment.')
+                }
+                setApartmentSaving(false)
+              }}
+              className="bg-[#1a5c38] text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-[#14472c] transition disabled:opacity-50 whitespace-nowrap">
+              {apartmentSaving ? 'Saving...' : '+ Add Apartment'}
+            </button>
+          </div>
+          {apartments.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">No apartments yet.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {apartments.map((apt) => (
+                <div key={apt.id} className="flex items-center gap-4 bg-[#f5f0e8] rounded-xl px-4 py-3">
+                  <div className="flex-1 flex items-center gap-2">
+                    <span className="font-semibold text-[#1c1c1c]">{apt.name}</span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${apt.is_active ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-gray-100 text-gray-400'}`}>
+                      {apt.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <button onClick={async () => {
+                    const { data: { session } } = await supabase.auth.getSession()
+                    const res = await fetch('/api/admin/apartments', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                      body: JSON.stringify({ id: apt.id, is_active: !apt.is_active }),
+                    })
+                    if (res.ok) setApartments(prev => prev.map(x => x.id === apt.id ? { ...x, is_active: !apt.is_active } : x))
+                  }} className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition flex-shrink-0 ${apt.is_active ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4] hover:bg-[#e0f5ea]'}`}>
+                    {apt.is_active ? 'Disable' : 'Enable'}
+                  </button>
                 </div>
               ))}
             </div>
