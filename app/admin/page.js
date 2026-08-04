@@ -1447,7 +1447,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 {apartments.filter(a => a.is_active).map(a => (
                   <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
-                <option value="individual">Individual Houses</option>
+                <option value="individual">Others</option>
               </select>
               {(() => {
                 if (todayApartmentFilter === 'all' || todayApartmentFilter === 'individual') return null
