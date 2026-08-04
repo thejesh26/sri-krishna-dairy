@@ -46,6 +46,14 @@ function matchesAddressFilter(item, query) {
   return true
 }
 
+// apartmentFilter: 'all' | 'individual' (no apartment_id) | an apartment id (as string)
+function matchesApartmentFilter(item, apartmentFilter) {
+  if (apartmentFilter === 'all') return true
+  const apartmentId = item.profiles?.apartment_id
+  if (apartmentFilter === 'individual') return !apartmentId
+  return String(apartmentId ?? '') === apartmentFilter
+}
+
 function formatSubDateRange(sub) {
   const start = new Date(sub.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
   const end = sub.end_date
@@ -83,6 +91,8 @@ export default function DeliveryDashboard() {
   const [historyLoaded, setHistoryLoaded] = useState(false)
   const [deliverySort, setDeliverySort] = useState('area')
   const [addressFilter, setAddressFilter] = useState('')
+  const [apartments, setApartments] = useState([])
+  const [apartmentFilter, setApartmentFilter] = useState('all')
   const [deliveringId, setDeliveringId] = useState(null)
   const [deliveredSubs, setDeliveredSubs] = useState(new Set())
   const [addonOrders, setAddonOrders] = useState([])
@@ -121,6 +131,9 @@ export default function DeliveryDashboard() {
   const { showSuccess, showError, showInfo } = useToast()
 
   useEffect(() => { checkDelivery() }, [])
+  useEffect(() => {
+    fetch('/api/apartments').then(r => r.json()).then(setApartments).catch(() => {})
+  }, [])
 
   const checkDelivery = async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -406,7 +419,7 @@ export default function DeliveryDashboard() {
     : activeTab === 'delivered'
     ? orders.filter(o => o.status === 'delivered')
     : orders
-  ).filter(o => matchesAddressFilter(o, addressFilter)).slice().sort((a, b) => {
+  ).filter(o => matchesAddressFilter(o, addressFilter) && matchesApartmentFilter(o, apartmentFilter)).slice().sort((a, b) => {
     const pa = a.profiles, pb = b.profiles
     if (deliverySort === 'area') return (pa?.area || '').localeCompare(pb?.area || '')
     if (deliverySort === 'building') return (pa?.apartment_name || '').localeCompare(pb?.apartment_name || '')
@@ -557,7 +570,7 @@ export default function DeliveryDashboard() {
                 <option value="name">Sort by Name</option>
               </select>
             </div>
-            {[...subscriptions].filter(s => matchesAddressFilter(s, addressFilter)).sort((a, b) => {
+            {[...subscriptions].filter(s => matchesAddressFilter(s, addressFilter) && matchesApartmentFilter(s, apartmentFilter)).sort((a, b) => {
               const pa = a.profiles, pb = b.profiles
               if (deliverySort === 'area') return (pa?.area || '').localeCompare(pb?.area || '')
               if (deliverySort === 'building') return (pa?.apartment_name || '').localeCompare(pb?.apartment_name || '')
@@ -630,7 +643,7 @@ export default function DeliveryDashboard() {
               <h3 className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c]">Extra Orders (Add-ons)</h3>
               <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-bold px-3 py-1 rounded-full border border-[#f0dfa0]">EXTRA</span>
             </div>
-            {addonOrders.filter(a => matchesAddressFilter(a, addressFilter)).map((addon, index) => (
+            {addonOrders.filter(a => matchesAddressFilter(a, addressFilter) && matchesApartmentFilter(a, apartmentFilter)).map((addon, index) => (
               <div key={addon.id} className={`px-5 py-4 ${index !== addonOrders.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-full bg-[#d4a017] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
@@ -688,6 +701,14 @@ export default function DeliveryDashboard() {
           />
         </div>
         <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <select value={apartmentFilter} onChange={e => setApartmentFilter(e.target.value)}
+            className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 text-[#1c1c1c] bg-white focus:outline-none focus:border-[#1a5c38] shadow-sm">
+            <option value="all">All Apartments</option>
+            {apartments.filter(a => a.is_active).map(a => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+            <option value="individual">Others</option>
+          </select>
           <select value={deliverySort} onChange={e => setDeliverySort(e.target.value)}
             className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 text-[#1c1c1c] bg-white focus:outline-none focus:border-[#1a5c38] shadow-sm">
             <option value="area">Sort by Area</option>
@@ -742,7 +763,7 @@ export default function DeliveryDashboard() {
                   <div>
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Subscriptions ({tomorrowSubs.length})</p>
                     <div className="flex flex-col gap-2">
-                      {tomorrowSubs.map(sub => (
+                      {tomorrowSubs.filter(s => matchesApartmentFilter(s, apartmentFilter)).map(sub => (
                         <div key={sub.id} className="bg-white border border-[#e8e0d0] rounded-xl p-4 shadow-sm">
                           <div className="flex items-start justify-between gap-2">
                             <div>
@@ -765,7 +786,7 @@ export default function DeliveryDashboard() {
                   <div>
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Addon Orders ({tomorrowAddons.length})</p>
                     <div className="flex flex-col gap-2">
-                      {tomorrowAddons.map(ao => (
+                      {tomorrowAddons.filter(a => matchesApartmentFilter(a, apartmentFilter)).map(ao => (
                         <div key={ao.id} className="bg-white border border-cyan-200 rounded-xl p-4 shadow-sm">
                           <div className="flex items-start justify-between gap-2">
                             <div>

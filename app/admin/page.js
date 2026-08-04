@@ -46,6 +46,56 @@ function matchesTodayFilters(item, apartmentFilter, towerFilter, nameFilter) {
   return true
 }
 
+// Reusable Apartment + Tower + Name filter bar — used on the Today, Tomorrow, and
+// Upcoming tabs. `items` is the full (unfiltered) list of subs/orders/addons currently
+// shown in that tab, used only to derive which towers actually exist within the
+// selected apartment for the tower dropdown.
+function ApartmentTowerNameFilter({ items, apartments, apartmentFilter, setApartmentFilter, towerFilter, setTowerFilter, nameFilter, setNameFilter }) {
+  const availableTowers = (() => {
+    if (apartmentFilter === 'all' || apartmentFilter === 'individual') return []
+    const towers = new Set()
+    items.forEach(item => {
+      if (String(item.profiles?.apartment_id ?? '') === apartmentFilter) {
+        const tower = getAddress(item.profiles).tower
+        if (tower) towers.add(tower)
+      }
+    })
+    return [...towers].sort((a, b) => {
+      const na = parseInt(a, 10), nb = parseInt(b, 10)
+      if (!isNaN(na) && !isNaN(nb)) return na - nb
+      return String(a).localeCompare(String(b))
+    })
+  })()
+  return (
+    <div className="px-6 py-3 border-b border-[#f5f0e8] flex flex-col sm:flex-row gap-2">
+      <select value={apartmentFilter} onChange={e => { setApartmentFilter(e.target.value); setTowerFilter('all') }}
+        className="text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] sm:w-48">
+        <option value="all">All Apartments</option>
+        {apartments.filter(a => a.is_active).map(a => (
+          <option key={a.id} value={a.id}>{a.name}</option>
+        ))}
+        <option value="individual">Others</option>
+      </select>
+      {availableTowers.length > 0 && (
+        <select value={towerFilter} onChange={e => setTowerFilter(e.target.value)}
+          className="text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] sm:w-40">
+          <option value="all">All Towers</option>
+          {availableTowers.map(t => (
+            <option key={t} value={t}>Tower {t}</option>
+          ))}
+        </select>
+      )}
+      <input
+        type="text"
+        placeholder="Search by customer name..."
+        value={nameFilter}
+        onChange={e => setNameFilter(e.target.value)}
+        className="flex-1 text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
+      />
+    </div>
+  )
+}
+
 function FreqBadge({ freq }) {
   if (!freq || freq === 'daily') return null
   return freq === 'alternate'
@@ -198,6 +248,12 @@ export default function AdminDashboard() {
   const [todayApartmentFilter, setTodayApartmentFilter] = useState('all')
   const [todayTowerFilter, setTodayTowerFilter] = useState('all')
   const [todayNameFilter, setTodayNameFilter] = useState('')
+  const [tomorrowApartmentFilter, setTomorrowApartmentFilter] = useState('all')
+  const [tomorrowTowerFilter, setTomorrowTowerFilter] = useState('all')
+  const [tomorrowNameFilter, setTomorrowNameFilter] = useState('')
+  const [upcomingApartmentFilter, setUpcomingApartmentFilter] = useState('all')
+  const [upcomingTowerFilter, setUpcomingTowerFilter] = useState('all')
+  const [upcomingNameFilter, setUpcomingNameFilter] = useState('')
   const [ordersAddressFilter, setOrdersAddressFilter] = useState('')
   const [showAddCustomer, setShowAddCustomer] = useState(false)
   const [apartments, setApartments] = useState([])
@@ -1438,52 +1494,13 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
               </span>
             </div>
-            <div className="px-6 py-3 border-b border-[#f5f0e8] flex flex-col sm:flex-row gap-2">
-              <select
-                value={todayApartmentFilter}
-                onChange={e => { setTodayApartmentFilter(e.target.value); setTodayTowerFilter('all') }}
-                className="text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] sm:w-48">
-                <option value="all">All Apartments</option>
-                {apartments.filter(a => a.is_active).map(a => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-                <option value="individual">Others</option>
-              </select>
-              {(() => {
-                if (todayApartmentFilter === 'all' || todayApartmentFilter === 'individual') return null
-                const items = [...todaySubscriptions, ...todayAddons, ...todayOrders]
-                const towers = new Set()
-                items.forEach(item => {
-                  if (String(item.profiles?.apartment_id ?? '') === todayApartmentFilter) {
-                    const tower = getAddress(item.profiles).tower
-                    if (tower) towers.add(tower)
-                  }
-                })
-                const sortedTowers = [...towers].sort((a, b) => {
-                  const na = parseInt(a, 10), nb = parseInt(b, 10)
-                  if (!isNaN(na) && !isNaN(nb)) return na - nb
-                  return String(a).localeCompare(String(b))
-                })
-                return (
-                  <select
-                    value={todayTowerFilter}
-                    onChange={e => setTodayTowerFilter(e.target.value)}
-                    className="text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] sm:w-40">
-                    <option value="all">All Towers</option>
-                    {sortedTowers.map(t => (
-                      <option key={t} value={t}>Tower {t}</option>
-                    ))}
-                  </select>
-                )
-              })()}
-              <input
-                type="text"
-                placeholder="Search by customer name..."
-                value={todayNameFilter}
-                onChange={e => setTodayNameFilter(e.target.value)}
-                className="flex-1 text-sm border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
-              />
-            </div>
+            <ApartmentTowerNameFilter
+              items={[...todaySubscriptions, ...todayAddons, ...todayOrders]}
+              apartments={apartments}
+              apartmentFilter={todayApartmentFilter} setApartmentFilter={setTodayApartmentFilter}
+              towerFilter={todayTowerFilter} setTowerFilter={setTodayTowerFilter}
+              nameFilter={todayNameFilter} setNameFilter={setTodayNameFilter}
+            />
 
             {todayOrders.length === 0 && todaySubscriptions.length === 0 && todayAddons.length === 0 ? (
               <div className="px-6 py-12 text-center">
@@ -1759,6 +1776,13 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                     {new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                   </span>
                 </div>
+                <ApartmentTowerNameFilter
+                  items={[...tSubs, ...tOrders, ...tAddons]}
+                  apartments={apartments}
+                  apartmentFilter={tomorrowApartmentFilter} setApartmentFilter={setTomorrowApartmentFilter}
+                  towerFilter={tomorrowTowerFilter} setTowerFilter={setTomorrowTowerFilter}
+                  nameFilter={tomorrowNameFilter} setNameFilter={setTomorrowNameFilter}
+                />
                 {!upcomingLoaded ? (
                   <div className="px-6 py-12 text-center text-gray-400">Loading...</div>
                 ) : total === 0 ? (
@@ -1768,7 +1792,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                   </div>
                 ) : (
                   <div>
-                    {tSubs.map(sub => (
+                    {tSubs.filter(item => matchesTodayFilters(item, tomorrowApartmentFilter, tomorrowTowerFilter, tomorrowNameFilter)).map(sub => (
                       <div key={sub.id} className="px-6 py-4 border-b border-[#f5f0e8] flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-[#f0faf4] flex items-center justify-center flex-shrink-0 p-1.5">
                           <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain" />
@@ -1786,7 +1810,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                         </div>
                       </div>
                     ))}
-                    {tOrders.map(order => (
+                    {tOrders.filter(item => matchesTodayFilters(item, tomorrowApartmentFilter, tomorrowTowerFilter, tomorrowNameFilter)).map(order => (
                       <div key={order.id} className="px-6 py-4 border-b border-[#f5f0e8] flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-[#f5f0e8] flex items-center justify-center text-xl flex-shrink-0">
                           {['COD', 'wallet', 'razorpay'].includes(order.payment_method) ? '🎁' : '🛒'}
@@ -1804,7 +1828,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                         </div>
                       </div>
                     ))}
-                    {tAddons.map(addon => (
+                    {tAddons.filter(item => matchesTodayFilters(item, tomorrowApartmentFilter, tomorrowTowerFilter, tomorrowNameFilter)).map(addon => (
                       <div key={addon.id} className="px-6 py-4 border-b border-[#f5f0e8] flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-xl flex-shrink-0">➕</div>
                         <div className="flex-1">
@@ -1827,11 +1851,23 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           {/* Upcoming sub-tab */}
           {overviewSubTab === 'upcoming' && (
             <div className="flex flex-col gap-4">
+              <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
+                <ApartmentTowerNameFilter
+                  items={Object.values(upcomingDeliveries).flatMap(d => [...d.subscriptions, ...d.orders]).concat(addonOrders)}
+                  apartments={apartments}
+                  apartmentFilter={upcomingApartmentFilter} setApartmentFilter={setUpcomingApartmentFilter}
+                  towerFilter={upcomingTowerFilter} setTowerFilter={setUpcomingTowerFilter}
+                  nameFilter={upcomingNameFilter} setNameFilter={setUpcomingNameFilter}
+                />
+              </div>
               {!upcomingLoaded ? (
                 <div className="text-center py-12 text-gray-400">Loading...</div>
               ) : Object.entries(upcomingDeliveries).map(([date, { subscriptions, orders }]) => {
                 const dateAddons = addonOrders.filter(a => a.delivery_date === date && a.status !== 'cancelled')
-                const total = subscriptions.length + orders.length + dateAddons.length
+                subscriptions = subscriptions.filter(item => matchesTodayFilters(item, upcomingApartmentFilter, upcomingTowerFilter, upcomingNameFilter))
+                orders = orders.filter(item => matchesTodayFilters(item, upcomingApartmentFilter, upcomingTowerFilter, upcomingNameFilter))
+                const filteredDateAddons = dateAddons.filter(item => matchesTodayFilters(item, upcomingApartmentFilter, upcomingTowerFilter, upcomingNameFilter))
+                const total = subscriptions.length + orders.length + filteredDateAddons.length
                 if (total === 0) return null
                 return (
                   <div key={date} className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
@@ -1870,7 +1906,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                           </div>
                         </div>
                       ))}
-                      {dateAddons.map(addon => (
+                      {filteredDateAddons.map(addon => (
                         <div key={addon.id} className="px-6 py-4 border-b border-[#f5f0e8] flex items-center justify-between">
                           <div>
                             <div className="flex items-center gap-2 mb-0.5">
