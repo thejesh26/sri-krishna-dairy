@@ -99,7 +99,7 @@ async function sendOrderConfirmed(phone, name, product, date, slot, amount) {
 }
 
 async function sendSubscriptionActivated(phone, name, product, startDate, slot, dailyAmount, frequency) {
-  const freqSuffix = frequency === 'alternate' ? ' • Every 2 Days' : frequency === 'weekly' ? ' • Weekly' : ''
+  const freqSuffix = frequency === 'alternate' ? ' • Every 2 Days' : frequency === 'every_3_days' ? ' • Every 3 Days' : ''
   return sendTemplate(phone, 'subscription_activated_v2', [name, product, startDate, slot + freqSuffix, String(dailyAmount)])
 }
 
@@ -169,8 +169,8 @@ async function notifySubscriptionActivated({ phone, name, size, quantity, startD
     ? new Date(startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
     : '-'
   const slotLabel = slot === 'morning' ? 'Morning 7-9AM' : 'Evening 5-7PM'
-  const freqLabel = frequency === 'alternate' ? 'Every 2 days delivery' : frequency === 'weekly' ? 'Weekly delivery' : 'Daily delivery'
-  const freqSuffix = frequency === 'alternate' ? ' • Every 2 Days' : frequency === 'weekly' ? ' • Weekly' : ''
+  const freqLabel = frequency === 'alternate' ? 'Every 2 days delivery' : frequency === 'every_3_days' ? 'Every 3 days delivery' : 'Daily delivery'
+  const freqSuffix = frequency === 'alternate' ? ' • Every 2 Days' : frequency === 'every_3_days' ? ' • Every 3 Days' : ''
   await sendTemplate(phone, 'subscription_activated_v2', [name, product, date, slotLabel + freqSuffix, String(dailyAmount || 0)])
   await notifyAdmin(
     `New Subscription – ${name}`,

@@ -29,7 +29,7 @@ function isDeliveryDay(sub, today) {
   const check = new Date(today + 'T00:00:00+05:30')
   const daysDiff = Math.round((check - start) / (1000 * 60 * 60 * 24))
   if (freq === 'alternate') return daysDiff % 2 === 0
-  if (freq === 'weekly') return daysDiff % 7 === 0
+  if (freq === 'every_3_days') return daysDiff % 3 === 0
   return true
 }
 

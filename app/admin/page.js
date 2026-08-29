@@ -13,7 +13,7 @@ function isDeliveryDay(sub, dateStr) {
     : new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) + 'T00:00:00+05:30')
   const daysDiff = Math.round((checkDate - start) / (1000 * 60 * 60 * 24))
   if (freq === 'alternate') return daysDiff % 2 === 0
-  if (freq === 'weekly') return daysDiff % 7 === 0
+  if (freq === 'every_3_days') return daysDiff % 3 === 0
   return true
 }
 
@@ -100,7 +100,7 @@ function FreqBadge({ freq }) {
   if (!freq || freq === 'daily') return null
   return freq === 'alternate'
     ? <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">🔄 Every 2 Days</span>
-    : <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200">📅 Weekly</span>
+    : <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200">📅 Every 3 Days</span>
 }
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
@@ -659,7 +659,7 @@ export default function AdminDashboard() {
       const diff = Math.round((day - start) / (1000 * 60 * 60 * 24))
       const freq = sub.delivery_frequency || 'daily'
       if (freq === 'alternate' && diff % 2 !== 0) continue
-      if (freq === 'weekly' && diff % 7 !== 0) continue
+      if (freq === 'every_3_days' && diff % 3 !== 0) continue
       if (getScheduledQuantity(sub, dateStr) === 0) continue
       schedule[dateStr].subscriptions.push(sub)
     }
@@ -1048,8 +1048,8 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
     const freq = sub.delivery_frequency || 'daily'
     const totalDeliveries = freq === 'alternate'
       ? Math.ceil(calendarDays / 2)
-      : freq === 'weekly'
-        ? Math.ceil(calendarDays / 7)
+      : freq === 'every_3_days'
+        ? Math.ceil(calendarDays / 3)
         : calendarDays
     return `Day ${dayX} of ${totalDeliveries}`
   }
@@ -2444,7 +2444,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                               : null
                             const deliveryDaysLeft = daysLeft === null ? null
                               : freq === 'alternate' ? Math.ceil(daysLeft / 2)
-                              : freq === 'weekly' ? Math.ceil(daysLeft / 7)
+                              : freq === 'every_3_days' ? Math.ceil(daysLeft / 3)
                               : daysLeft
                             return (
                               <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-medium px-2 py-0.5 rounded-full border border-[#f0dfa0]">
@@ -5300,7 +5300,7 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
                   <div>
                     <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Frequency</label>
                     <div className="flex gap-2">
-                      {[{ id: 'daily', label: 'Daily' }, { id: 'alternate', label: 'Every 2 Days' }, { id: 'weekly', label: 'Weekly' }].map(({ id, label }) => (
+                      {[{ id: 'daily', label: 'Daily' }, { id: 'alternate', label: 'Every 2 Days' }, { id: 'every_3_days', label: 'Every 3 Days' }].map(({ id, label }) => (
                         <button key={id} onClick={() => setAddOrderFrequency(id)}
                           className={`flex-1 py-2 rounded-lg text-xs font-semibold transition border ${
                             addOrderFrequency === id ? 'bg-[#1a5c38] text-white border-[#1a5c38]' : 'bg-white text-gray-600 border-[#e8e0d0] hover:border-[#1a5c38]'

@@ -8,7 +8,7 @@ import { notifySubscriptionActivated } from '../../../lib/whatsapp'
 const VALID_DELIVERY_SLOTS = ['morning', 'evening']
 const VALID_DELIVERY_MODES = ['keep_bottle', 'direct']
 const VALID_SUBSCRIPTION_TYPES = ['ongoing', 'fixed', 'oneday']
-const VALID_FREQUENCIES = ['daily', 'alternate', 'weekly']
+const VALID_FREQUENCIES = ['daily', 'alternate', 'every_3_days']
 
 const DISCOUNT_CODES = {
   ...(process.env.DISCOUNT_CODE_1 ? { [process.env.DISCOUNT_CODE_1]: 10 } : {}),

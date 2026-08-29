@@ -138,7 +138,7 @@ export default function Dashboard() {
       d.setDate(d.getDate() + i)
       const checkStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
       const daysDiff = Math.round((d - start) / (1000 * 60 * 60 * 24))
-      const isDay = freq === 'daily' ? true : freq === 'alternate' ? daysDiff % 2 === 0 : daysDiff % 7 === 0
+      const isDay = freq === 'daily' ? true : freq === 'alternate' ? daysDiff % 2 === 0 : daysDiff % 3 === 0
       if (isDay && !(sub.paused_dates || []).includes(checkStr)) {
         return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
       }
@@ -520,7 +520,7 @@ export default function Dashboard() {
                     const dailyAmount = Math.round(sub.products?.price * sub.quantity * (1 - (sub.discount_percent || 0) / 100))
                     const isUpcoming = sub.start_date > todayIST
                     const freq = sub.delivery_frequency || 'daily'
-                    const freqLabel = freq === 'alternate' ? 'Every 2 Days' : freq === 'weekly' ? 'Weekly' : 'Daily'
+                    const freqLabel = freq === 'alternate' ? 'Every 2 Days' : freq === 'every_3_days' ? 'Every 3 Days' : 'Daily'
                     const daysCompleted = subDeliveries.filter(d => d.subscription_id === sub.id && !d.not_delivered).length
                     const daysLeft = sub.end_date
                       ? Math.max(0, Math.ceil((new Date(sub.end_date) - new Date(todayIST)) / (1000 * 60 * 60 * 24)))

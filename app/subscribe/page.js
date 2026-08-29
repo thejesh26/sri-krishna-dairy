@@ -13,14 +13,14 @@ function getDeliveryCount(startDate, endDate, frequency) {
   const end = new Date(endDate)
   const calendarDays = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1
   if (frequency === 'alternate') return Math.floor(calendarDays / 2) + (calendarDays % 2 === 1 ? 1 : 0)
-  if (frequency === 'weekly') return Math.floor(calendarDays / 7) + 1
+  if (frequency === 'every_3_days') return Math.ceil(calendarDays / 3)
   return calendarDays
 }
 
 function getUpcomingDeliveryDates(startDate, frequency, count = 6) {
   if (!startDate) return []
   const dates = []
-  const step = frequency === 'alternate' ? 2 : frequency === 'weekly' ? 7 : 1
+  const step = frequency === 'alternate' ? 2 : frequency === 'every_3_days' ? 3 : 1
   for (let i = 0; i < count; i++) {
     const d = new Date(startDate + 'T00:00:00')
     d.setDate(d.getDate() + i * step)
@@ -162,12 +162,12 @@ export default function Subscribe() {
   const deliveryCount = (() => {
     if (subscriptionType !== 'fixed' || !endDate) {
       if (deliveryFrequency === 'alternate') return 15
-      if (deliveryFrequency === 'weekly') return 5
+      if (deliveryFrequency === 'every_3_days') return 10
       return 30
     }
     const calendarDays = Math.max(1, Math.round((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1)
     if (deliveryFrequency === 'alternate') return Math.floor(calendarDays / 2) + (calendarDays % 2 === 1 ? 1 : 0)
-    if (deliveryFrequency === 'weekly') return Math.floor(calendarDays / 7) + 1
+    if (deliveryFrequency === 'every_3_days') return Math.ceil(calendarDays / 3)
     return calendarDays
   })()
 
@@ -525,9 +525,9 @@ export default function Subscribe() {
             <p className="text-sm font-bold text-[#1c1c1c] mb-4 font-[family-name:var(--font-playfair)]">Delivery Frequency</p>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { value: 'daily',     icon: '📦', label: 'Daily',        sub: 'Fresh milk every day'           },
-                { value: 'alternate', icon: '🔄', label: 'Every 2 Days', sub: 'Alternate days (~15/month)'     },
-                { value: 'weekly',    icon: '📅', label: 'Weekly',       sub: 'Once a week (7 deliveries/mo)' },
+                { value: 'daily',        icon: '📦', label: 'Daily',        sub: 'Fresh milk every day'          },
+                { value: 'alternate',    icon: '🔄', label: 'Every 2 Days', sub: 'Alternate days (~15/month)'    },
+                { value: 'every_3_days', icon: '📅', label: 'Every 3 Days', sub: 'Every 3rd day (~10/month)'     },
               ].map(({ value, icon, label, sub }) => (
                 <button type="button" key={value}
                   onClick={() => setDeliveryFrequency(value)}
@@ -544,10 +544,10 @@ export default function Subscribe() {
 
           {/* Delivery dates preview — only for non-daily frequencies */}
           {deliveryFrequency !== 'daily' && startDate && (() => {
-            const count = deliveryFrequency === 'weekly' ? 4 : 6
+            const count = 6
             const dates = getUpcomingDeliveryDates(startDate, deliveryFrequency, count)
-            const label = deliveryFrequency === 'weekly' ? 'Your weekly delivery dates' : 'Your delivery dates (Every 2 Days)'
-            const suffix = deliveryFrequency === 'weekly' ? 'every 7 days' : 'every 2 days'
+            const label = deliveryFrequency === 'every_3_days' ? 'Your delivery dates (Every 3 Days)' : 'Your delivery dates (Every 2 Days)'
+            const suffix = deliveryFrequency === 'every_3_days' ? 'every 3 days' : 'every 2 days'
             return (
               <div className="bg-white border-2 border-[#c8e6d4] rounded-xl p-4">
                 <p className="text-xs font-bold text-[#1a5c38] mb-3">📅 {label}:</p>
@@ -705,7 +705,7 @@ export default function Subscribe() {
           {selectedProductList.length > 0 && (
             <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-xl p-4">
               {(() => {
-                const freqLabel = deliveryFrequency === 'alternate' ? 'Every 2 Days' : deliveryFrequency === 'weekly' ? 'Weekly' : 'Daily'
+                const freqLabel = deliveryFrequency === 'alternate' ? 'Every 2 Days' : deliveryFrequency === 'every_3_days' ? 'Every 3 Days' : 'Daily'
                 const durationLabel = subscriptionType === 'ongoing' ? 'Ongoing'
                   : fixedPreset === 7 ? '1 Week' : fixedPreset === 14 ? '2 Weeks'
                   : fixedPreset === 30 ? '1 Month' : fixedPreset === 90 ? '3 Months'
@@ -780,7 +780,7 @@ export default function Subscribe() {
             {subscriptionType === 'ongoing' && selectedProductList.length > 0 && (
               <div className="flex justify-between text-sm mb-2 text-green-300">
                 <span>Est. monthly</span>
-                <span>~₹{Math.round(dailyPrice * (deliveryFrequency === 'alternate' ? 15 : deliveryFrequency === 'weekly' ? 4 : 30))}/mo</span>
+                <span>~₹{Math.round(dailyPrice * (deliveryFrequency === 'alternate' ? 15 : deliveryFrequency === 'every_3_days' ? 10 : 30))}/mo</span>
               </div>
             )}
             <div className="border-t border-green-700 mt-4 pt-4">
