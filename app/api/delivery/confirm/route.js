@@ -313,7 +313,7 @@ export async function POST(request) {
         const dateLabel = new Date(delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
         const productLabel = sub.products?.size || 'Milk'
         if (deliveryProfile?.phone) {
-          await sendDeliveryConfirmed(deliveryProfile.phone, deliveryName, dateLabel, productLabel)
+          await sendDeliveryConfirmed(deliveryProfile.phone, deliveryName, dateLabel, productLabel, newBalance)
         }
       } catch (waErr) {
         console.error('[Delivery] WhatsApp send failed:', waErr?.message)

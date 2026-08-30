@@ -110,8 +110,14 @@ async function sendLowBalanceAlert(phone, name, balance) {
   return sendTemplate(phone, 'low_balance_alert_v2', [name, balanceStr])
 }
 
-async function sendDeliveryConfirmed(phone, name, date, product) {
-  return sendTemplate(phone, 'delivery_confirmed_v2', [name, date, product])
+function formatWalletBalance(balance) {
+  const n = Number(balance)
+  if (isNaN(n)) return '₹0'
+  return n < 0 ? `⚠️ -₹${Math.abs(n)} (please top up)` : `₹${n}`
+}
+
+async function sendDeliveryConfirmed(phone, name, date, product, balance) {
+  return sendTemplate(phone, 'delivery_confirmed_v2', [name, date, product, formatWalletBalance(balance)])
 }
 
 async function sendSubscriptionExpiry(phone, name, endDate, product) {
