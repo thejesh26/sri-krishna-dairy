@@ -14,6 +14,18 @@ export async function GET(request) {
   return withCronLog('check-missed-deliveries', runCheckMissedDeliveries)
 }
 
+// Same day-of-cycle eligibility check used by snapshot-today-deliveries — keep these in sync.
+function isDeliveryDay(sub, dateStr) {
+  const freq = sub.delivery_frequency || 'daily'
+  if (freq === 'daily') return true
+  const start = new Date(sub.start_date + 'T00:00:00+05:30')
+  const check = new Date(dateStr + 'T00:00:00+05:30')
+  const daysDiff = Math.round((check - start) / (1000 * 60 * 60 * 24))
+  if (freq === 'alternate') return daysDiff % 2 === 0
+  if (freq === 'every_3_days') return daysDiff % 3 === 0
+  return true
+}
+
 async function runCheckMissedDeliveries() {
   const now = new Date()
   const yesterday = new Date(now)
@@ -25,7 +37,7 @@ async function runCheckMissedDeliveries() {
   // All subscriptions that were active yesterday
   const { data: candidates, error: subErr } = await supabaseAdmin
     .from('subscriptions')
-    .select('id, user_id, weekly_schedule, quantity, paused_dates')
+    .select('id, user_id, weekly_schedule, quantity, paused_dates, delivery_frequency, start_date')
     .eq('is_active', true)
     .lte('start_date', yesterdayStr)
     .or(`end_date.is.null,end_date.gte.${yesterdayStr}`)
@@ -38,6 +50,7 @@ async function runCheckMissedDeliveries() {
   // Filter to subscriptions that should have received a delivery yesterday
   const expectedSubs = (candidates || []).filter(sub => {
     if ((sub.paused_dates || []).includes(yesterdayStr)) return false
+    if (!isDeliveryDay(sub, yesterdayStr)) return false
     return getScheduledQuantity(sub, yesterdayStr) > 0
   })
 
