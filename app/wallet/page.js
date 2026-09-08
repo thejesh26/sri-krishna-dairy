@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Script from 'next/script'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ToastContext'
@@ -162,6 +163,7 @@ export default function Wallet() {
 
   return (
     <div className="min-h-screen bg-[#fdfbf7]">
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
       <Header showBack backUrl="/dashboard" />
 
       <div className="max-w-2xl mx-auto px-6 py-8">

@@ -1,3 +1,4 @@
+import Script from 'next/script'
 import { Playfair_Display, Inter } from 'next/font/google'
 import './globals.css'
 import PWAInstallBanner from './components/PWAInstallBanner'
@@ -79,21 +80,6 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-MB9J216FPB"></script>
-  <script dangerouslySetInnerHTML={{__html: `
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-MB9J216FPB');
-  `}} />
-        <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-        <script dangerouslySetInnerHTML={{__html: `
-          if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-              navigator.serviceWorker.register('/sw.js');
-            });
-          }
-        `}} />
         <link rel="manifest" href="/manifest.json" />
         <link rel="shortcut icon" href="/favicon.ico" />
         <link rel="icon" href="/favicon.ico" />
@@ -102,19 +88,34 @@ export default function RootLayout({ children }) {
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="SK Dairy" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <script type="text/javascript" dangerouslySetInnerHTML={{__html: `
-    (function(c,l,a,r,i,t,y){
-      c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-      t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-      y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-    })(window, document, "clarity", "script", "w6131yjrnm");
-  `}} />
       </head>
       <body className={`${playfair.variable} ${inter.variable} antialiased`}>
         <ToastProvider>
           {children}
           <PWAInstallBanner />
         </ToastProvider>
+
+        <Script src="https://www.googletagmanager.com/gtag/js?id=G-MB9J216FPB" strategy="afterInteractive" />
+        <Script id="ga-init" strategy="afterInteractive">{`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-MB9J216FPB');
+        `}</Script>
+        <Script id="clarity-init" strategy="lazyOnload">{`
+          (function(c,l,a,r,i,t,y){
+            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+          })(window, document, "clarity", "script", "w6131yjrnm");
+        `}</Script>
+        <Script id="sw-register" strategy="afterInteractive">{`
+          if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+              navigator.serviceWorker.register('/sw.js');
+            });
+          }
+        `}</Script>
       </body>
     </html>
   )
