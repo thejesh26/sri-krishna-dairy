@@ -91,7 +91,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fdfbf7] font-[family-name:var(--font-inter)]">
+    <div className="min-h-screen bg-[#fdfbf7] font-[family-name:var(--font-inter)] pb-20 md:pb-0">
       <JsonLd />
 
       {/* Bulk Enquiry Success Modal */}
@@ -899,6 +899,15 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* Sticky mobile CTA */}
+      {authChecked && !isLoggedIn && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#e8e0d0] px-4 py-3 shadow-[0_-2px_12px_rgba(0,0,0,0.08)]">
+          <Link href="/signup" className="block w-full bg-[#1a5c38] text-white text-center font-bold py-3 rounded-lg">
+            Start Your 3-Day Free Trial →
+          </Link>
+        </div>
+      )}
 
     </div>
   )
