@@ -83,7 +83,7 @@ export default function Home() {
       setBulkSubmitting(false)
       setBulkModal(true)
       setBulkForm({ name: '', phone: '', institution: '', quantity: '', message: '' })
-      setTimeout(() => setBulkModal(false), 5000)
+      setTimeout(() => setBulkModal(false), 10000)
     }
   }
 
@@ -93,13 +93,18 @@ export default function Home() {
 
       {/* Bulk Enquiry Success Modal */}
       {bulkModal && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center px-4" style={{background:'rgba(0,0,0,0.5)'}}>
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center border border-[#e8e0d0]">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center px-4" style={{background:'rgba(0,0,0,0.5)'}}
+          onClick={() => setBulkModal(false)}>
+          <div role="dialog" aria-modal="true" aria-labelledby="bulk-modal-title"
+            onClick={(e) => e.stopPropagation()}
+            ref={(el) => el?.querySelector('button')?.focus()}
+            onKeyDown={(e) => { if (e.key === 'Escape') setBulkModal(false) }}
+            className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center border border-[#e8e0d0]">
             <div className="text-5xl mb-4">🎉</div>
-            <h3 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">
+            <h3 id="bulk-modal-title" className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">
               Thank you for your enquiry!
             </h3>
-            <p className="text-gray-500 text-sm leading-relaxed mb-4">
+            <p className="text-gray-600 text-sm leading-relaxed mb-4">
               We'll contact you within 24 hours to discuss your bulk milk requirements.
             </p>
             <p className="text-[#d4a017] font-semibold text-sm">— Sri Krishnaa Dairy Team</p>
@@ -546,36 +551,37 @@ export default function Home() {
         <form onSubmit={handleBulkEnquiry} className="bg-white rounded-2xl p-6 shadow-sm border border-[#e8e0d0] flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-semibold text-gray-600 mb-1 block">Your Name *</label>
-              <input required type="text" placeholder="Ravi Kumar"
+              <label htmlFor="bulk-name" className="text-xs font-semibold text-gray-600 mb-1 block">Your Name *</label>
+              <input id="bulk-name" name="name" required type="text" placeholder="Ravi Kumar" autoComplete="name"
                 value={bulkForm.name} onChange={e => setBulkForm(f => ({...f, name: e.target.value}))}
                 className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-600 mb-1 block">Phone Number *</label>
-              <input required type="tel" placeholder="9876543210"
-                pattern="[0-9]{10}" maxLength={10} inputMode="numeric"
+              <label htmlFor="bulk-phone" className="text-xs font-semibold text-gray-600 mb-1 block">Phone Number *</label>
+              <input id="bulk-phone" name="phone" required type="tel" placeholder="9876543210"
+                pattern="[0-9]{10}" maxLength={10} inputMode="numeric" autoComplete="tel-national"
+                aria-invalid={!!bulkPhoneError} aria-describedby={bulkPhoneError ? 'bulk-phone-error' : undefined}
                 value={bulkForm.phone}
                 onChange={e => { const v = e.target.value.replace(/\D/g, ''); setBulkForm(f => ({...f, phone: v})); setBulkPhoneError('') }}
                 className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none ${bulkPhoneError ? 'border-red-400 focus:border-red-400' : 'border-[#e8e0d0] focus:border-[#1a5c38]'}`} />
-              {bulkPhoneError && <p className="text-red-500 text-xs mt-1">{bulkPhoneError}</p>}
+              {bulkPhoneError && <p id="bulk-phone-error" className="text-red-500 text-xs mt-1">{bulkPhoneError}</p>}
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">Institution / Business Name *</label>
-            <input required type="text" placeholder="Hotel Sunshine, ABC School, etc."
+            <label htmlFor="bulk-institution" className="text-xs font-semibold text-gray-600 mb-1 block">Institution / Business Name *</label>
+            <input id="bulk-institution" name="institution" required type="text" placeholder="Hotel Sunshine, ABC School, etc." autoComplete="organization"
               value={bulkForm.institution} onChange={e => setBulkForm(f => ({...f, institution: e.target.value}))}
               className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
           </div>
           <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">Approximate Daily Quantity (litres)</label>
-            <input type="text" placeholder="e.g. 20 litres/day"
+            <label htmlFor="bulk-quantity" className="text-xs font-semibold text-gray-600 mb-1 block">Approximate Daily Quantity (litres)</label>
+            <input id="bulk-quantity" name="quantity" type="text" placeholder="e.g. 20 litres/day"
               value={bulkForm.quantity} onChange={e => setBulkForm(f => ({...f, quantity: e.target.value}))}
               className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
           </div>
           <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">Message (optional)</label>
-            <textarea rows={3} placeholder="Any special requirements, delivery timing preferences..."
+            <label htmlFor="bulk-message" className="text-xs font-semibold text-gray-600 mb-1 block">Message (optional)</label>
+            <textarea id="bulk-message" name="message" rows={3} placeholder="Any special requirements, delivery timing preferences..."
               value={bulkForm.message} onChange={e => setBulkForm(f => ({...f, message: e.target.value}))}
               className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38] resize-none" />
           </div>

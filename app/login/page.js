@@ -97,7 +97,7 @@ export default function Login() {
               <img src="/Logo.jpg" alt="Sri Krishnaa Dairy" className="h-24 w-24 rounded-full mx-auto border-4 border-[#d4a017] object-cover shadow-lg hover:opacity-90 transition" />
             </a>
             <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38] mt-4">Welcome Back!</h2>
-            <p className="text-sm text-gray-500 mt-1">Login to Sri Krishnaa Dairy Farms</p>
+            <p className="text-sm text-gray-500 mt-1">Log in to Sri Krishnaa Dairy Farms</p>
           </div>
 
           {nextPath && (
@@ -107,38 +107,44 @@ export default function Login() {
             </div>
           )}
 
-          {message && (
-            <div className="bg-red-50 border border-red-200 text-red-600 rounded-lg px-4 py-3 text-sm mb-5 text-center">
-              {message}
-            </div>
-          )}
+          <div aria-live="assertive" role="alert">
+            {message && (
+              <div className="bg-red-50 border border-red-200 text-red-600 rounded-lg px-4 py-3 text-sm mb-5 text-center">
+                {message}
+              </div>
+            )}
+          </div>
 
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
 
             <div>
-              <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">
+              <label htmlFor="login-input" className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">
                 Email or Phone Number
               </label>
               <input
+                id="login-input"
                 type="text"
                 placeholder="Email address or 10-digit phone"
                 required
+                autoComplete="username"
                 value={loginInput}
                 onChange={(e) => setLoginInput(e.target.value)}
                 className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
               />
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-gray-500 mt-1">
                 {isPhone(loginInput) ? '📱 Logging in with phone number' : '📧 Logging in with email'}
               </p>
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Password</label>
+              <label htmlFor="login-password" className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Password</label>
               <div className="relative">
                 <input
+                  id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Your password"
                   required
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] pr-12"
@@ -171,11 +177,11 @@ export default function Login() {
 
           <div className="flex items-center gap-3 my-5">
             <hr className="flex-1 border-[#e8e0d0]" />
-            <span className="text-xs text-gray-400">OR</span>
+            <span className="text-xs text-gray-500">OR</span>
             <hr className="flex-1 border-[#e8e0d0]" />
           </div>
 
-          <p className="text-center text-sm text-gray-400">
+          <p className="text-center text-sm text-gray-500">
             Don't have an account?{' '}
             <a href="/signup" className="text-[#1a5c38] font-semibold hover:underline">Sign Up Free</a>
           </p>

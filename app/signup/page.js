@@ -47,12 +47,16 @@ export default function SignUp() {
     upper:   /[A-Z]/.test(form.password),
     lower:   /[a-z]/.test(form.password),
     number:  /[0-9]/.test(form.password),
-    special: /[!@#$%^&*(),.?":{}|<>_\-+=[\]\\\/;'`~]/.test(form.password),
   }
   const isPasswordStrong = Object.values(pwdChecks).every(Boolean)
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value })
+    const { name, value } = e.target
+    if (name === 'phone') {
+      setForm({ ...form, phone: value.replace(/\D/g, '').slice(0, 10) })
+      return
+    }
+    setForm({ ...form, [name]: value })
   }
 
   const handleSignUp = async (e) => {
@@ -67,9 +71,9 @@ export default function SignUp() {
       return
     }
 
-    // Enforce strong password policy
+    // Enforce password policy
     if (!isPasswordStrong) {
-      setMessage('Please make sure your password meets all the requirements shown below.')
+      setMessage('Password needs at least 8 characters, including an uppercase letter, a lowercase letter, and a number.')
       setLoading(false)
       return
     }
@@ -179,29 +183,32 @@ export default function SignUp() {
               <img src="/Logo.jpg" alt="Sri Krishnaa Dairy" className="h-24 w-24 rounded-full mx-auto border-4 border-[#d4a017] object-cover shadow-lg hover:opacity-90 transition" />
             </a>
             <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38] mt-4">Create Account</h2>
-            <p className="text-sm text-gray-400 mt-1">Join Sri Krishnaa Dairy Farms</p>
+            <p className="text-sm text-gray-500 mt-1">Join Sri Krishnaa Dairy Farms</p>
           </div>
 
-          {message && (
-            <div className={`rounded-lg px-4 py-3 text-sm mb-5 text-center ${
-              message.startsWith('Account') ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-red-50 text-red-600 border border-red-200'
-            }`}>
-              {message}
-            </div>
-          )}
+          <div aria-live="assertive" role="alert">
+            {message && (
+              <div className={`rounded-lg px-4 py-3 text-sm mb-5 text-center ${
+                message.startsWith('Account') ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-red-50 text-red-600 border border-red-200'
+              }`}>
+                {message}
+              </div>
+            )}
+          </div>
 
           <form onSubmit={handleSignUp} className="flex flex-col gap-4">
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Full Name</label>
-                <input name="full_name" placeholder="Your full name" required
+                <label htmlFor="full_name" className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Full Name</label>
+                <input id="full_name" name="full_name" placeholder="Your full name" required autoComplete="name"
                   className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
                   onChange={handleChange} />
               </div>
               <div>
-                <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Phone Number</label>
-                <input name="phone" placeholder="10 digit mobile" required maxLength={10}
+                <label htmlFor="phone" className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Phone Number</label>
+                <input id="phone" name="phone" placeholder="10 digit mobile" required maxLength={10}
+                  type="tel" inputMode="numeric" autoComplete="tel-national" value={form.phone}
                   className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
                   onChange={handleChange} />
               </div>
@@ -209,15 +216,15 @@ export default function SignUp() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Email Address</label>
-                <input name="email" type="email" placeholder="your@email.com" required
+                <label htmlFor="email" className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Email Address</label>
+                <input id="email" name="email" type="email" placeholder="your@email.com" required autoComplete="email"
                   className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
                   onChange={handleChange} />
               </div>
               <div>
-                <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Password</label>
+                <label htmlFor="password" className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Password</label>
                 <div className="relative">
-                  <input name="password" type={showPassword ? 'text' : 'password'} placeholder="Min. 8 characters" required
+                  <input id="password" name="password" type={showPassword ? 'text' : 'password'} placeholder="Min. 8 characters" required autoComplete="new-password"
                     className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] pr-12"
                     onChange={handleChange} />
                   <button type="button" onClick={() => setShowPassword(!showPassword)}
@@ -242,9 +249,8 @@ export default function SignUp() {
                       { key: 'upper',   label: 'Uppercase letter' },
                       { key: 'lower',   label: 'Lowercase letter' },
                       { key: 'number',  label: 'Number' },
-                      { key: 'special', label: 'Special character' },
                     ].map(({ key, label }) => (
-                      <span key={key} className={`text-xs flex items-center gap-1 ${pwdChecks[key] ? 'text-[#1a5c38]' : 'text-gray-400'}`}>
+                      <span key={key} className={`text-xs flex items-center gap-1 ${pwdChecks[key] ? 'text-[#1a5c38]' : 'text-gray-500'}`}>
                         {pwdChecks[key] ? '✓' : '○'} {label}
                       </span>
                     ))}
@@ -257,8 +263,8 @@ export default function SignUp() {
               <p className="text-xs font-semibold text-[#d4a017] uppercase tracking-widest mb-3">Delivery Address</p>
 
               <div className="mb-4">
-                <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Select Your Area</label>
-                <select name="area" required onChange={handleChange}
+                <label htmlFor="area" className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Select Your Area</label>
+                <select id="area" name="area" required onChange={handleChange}
                   className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] text-[#1c1c1c]">
                   <option value="">-- Select your area --</option>
                   {serviceAreas.map(area => (
@@ -269,8 +275,8 @@ export default function SignUp() {
               </div>
 
               <div className="mb-4">
-                <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Apartment</label>
-                <select name="apartment_choice" required value={form.apartment_choice} onChange={handleChange}
+                <label htmlFor="apartment_choice" className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Apartment</label>
+                <select id="apartment_choice" name="apartment_choice" required value={form.apartment_choice} onChange={handleChange}
                   className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] text-[#1c1c1c]">
                   <option value="">-- Select your apartment --</option>
                   {apartments.map(a => (
@@ -283,15 +289,15 @@ export default function SignUp() {
               <div className="grid grid-cols-2 gap-4 mb-4">
                 {isOtherAddress && (
                   <div>
-                    <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Building / House Name</label>
-                    <input name="building_name" placeholder="Eg: Green Valley Apts" required
+                    <label htmlFor="building_name" className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Building / House Name</label>
+                    <input id="building_name" name="building_name" placeholder="Eg: Green Valley Apts" required autoComplete="address-line1"
                       className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
                       onChange={handleChange} />
                   </div>
                 )}
                 <div className={isOtherAddress ? '' : 'col-span-2'}>
-                  <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Flat / Door Number</label>
-                  <input name="flat_number" placeholder="Eg: T1-404" required
+                  <label htmlFor="flat_number" className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Flat / Door Number</label>
+                  <input id="flat_number" name="flat_number" placeholder="Eg: T1-404" required autoComplete="address-line2"
                     className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
                     onChange={handleChange} />
                 </div>
@@ -299,8 +305,8 @@ export default function SignUp() {
 
               {!isOtherAddress && (
                 <div className="mb-4">
-                  <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Tower (Optional)</label>
-                  <select name="tower" onChange={handleChange}
+                  <label htmlFor="tower" className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Tower (Optional)</label>
+                  <select id="tower" name="tower" onChange={handleChange}
                     className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7] text-[#1c1c1c]">
                     <option value="">-- No tower --</option>
                     {TOWER_OPTIONS.map(t => (
@@ -312,20 +318,20 @@ export default function SignUp() {
               )}
 
               <div>
-                <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Landmark (Optional)</label>
-                <input name="landmark" placeholder="Eg: Near main gate, opposite park"
+                <label htmlFor="landmark" className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Landmark (Optional)</label>
+                <input id="landmark" name="landmark" placeholder="Eg: Near main gate, opposite park"
                   className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1a5c38] bg-[#fdfbf7]"
                   onChange={handleChange} />
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Referral Code (Optional)</label>
-              <input name="referral_code" placeholder="Enter referral code if you have one"
+              <label htmlFor="referral_code" className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Referral Code (Optional)</label>
+              <input id="referral_code" name="referral_code" placeholder="Enter referral code if you have one" autoComplete="off"
                 value={form.referral_code}
                 onChange={(e) => setForm({ ...form, referral_code: e.target.value.toUpperCase() })}
                 className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#d4a017] bg-[#fdfbf7]" />
-              <p className="text-xs text-gray-400 mt-1">🎁 Both you and your friend earn 100 reward points after you subscribe for 30 days!</p>
+              <p className="text-xs text-gray-500 mt-1">🎁 Both you and your friend earn 100 reward points after you subscribe for 30 days!</p>
             </div>
 
             <label className="flex items-start gap-3 cursor-pointer bg-[#f0faf4] border border-[#c8e6d4] rounded-lg px-4 py-3">
@@ -360,11 +366,11 @@ export default function SignUp() {
 
           <div className="flex items-center gap-3 my-5">
             <hr className="flex-1 border-[#e8e0d0]" />
-            <span className="text-xs text-gray-400">OR</span>
+            <span className="text-xs text-gray-500">OR</span>
             <hr className="flex-1 border-[#e8e0d0]" />
           </div>
 
-          <p className="text-center text-sm text-gray-400">
+          <p className="text-center text-sm text-gray-500">
             Already have an account?{' '}
             <a href="/login" className="text-[#1a5c38] font-semibold hover:underline">Login</a>
           </p>
