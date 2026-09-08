@@ -49,7 +49,7 @@ export const metadata = {
     type: 'website',
   },
   twitter: {
-    card: 'summary_large_image',
+    card: 'summary',
     title: 'Sri Krishnaa Dairy Farms | Fresh Cow Milk Delivery Bangalore',
     description: 'Pure fresh cow milk delivered daily to your doorstep in Kattigenahalli & nearby areas.',
     images: ['/Logo.jpg'],
