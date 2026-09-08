@@ -2,9 +2,12 @@
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { supabase } from './lib/supabase'
 import { FAQ_ITEMS } from './lib/faq'
 import JsonLd from './components/JsonLd'
+import heroImg from '../public/product-hero.png'
+import bottleImg from '../public/bottle.png'
 
 export default function Home() {
   const router = useRouter()
@@ -209,10 +212,12 @@ export default function Home() {
         {/* Right column — image */}
         <div className="relative z-10 h-64 sm:h-80 md:h-auto md:min-h-[520px]">
           <div className="hidden md:block" style={{position:'absolute', top:'50%', left:'40%', transform:'translate(-50%,-50%)', width:'600px', height:'600px', maxWidth:'100%', borderRadius:'50%', background:'radial-gradient(circle, rgba(212,160,23,0.18) 0%, transparent 65%)', pointerEvents:'none'}} />
-          <img
-            src="/product-hero.png"
+          <Image
+            src={heroImg}
             alt="Sri Krishnaa Dairy — Fresh Milk Bottle and Glass"
-            className="absolute inset-0 w-full h-full"
+            fill
+            priority
+            sizes="(max-width: 768px) 100vw, 50vw"
             style={{
               objectFit:'contain',
               objectPosition:'center bottom',
@@ -241,7 +246,7 @@ export default function Home() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
           {products.length > 0 ? products.map((product) => (
             <div key={product.id} className="border border-[#e8e0d0] rounded-lg p-8 hover:shadow-lg transition bg-white">
-              <div className="flex justify-center mb-5"><img src="/bottle.png" alt="Fresh Cow Milk" className="h-28 object-contain drop-shadow-md" /></div>
+              <div className="flex justify-center mb-5"><Image src={bottleImg} alt="Fresh Cow Milk" width={112} height={112} className="h-28 w-auto object-contain drop-shadow-md" /></div>
               <h4 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c] text-center mb-1">Fresh Cow Milk</h4>
               <p className="text-center text-[#d4a017] font-semibold text-sm mb-3">{product.size} Bottle</p>
               <p className="text-gray-600 text-center text-sm mb-5">{product.size === '500ml' ? 'Perfect trial · No deposit · COD' : 'Best value for families'}</p>
