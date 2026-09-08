@@ -73,7 +73,6 @@ export const viewport = {
   themeColor: '#1a5c38',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
 }
 
 export default function RootLayout({ children }) {
@@ -86,26 +85,6 @@ export default function RootLayout({ children }) {
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
     gtag('config', 'G-MB9J216FPB');
-  `}} />
-  <script dangerouslySetInnerHTML={{__html: `
-    function _initProtect() {
-      document.addEventListener('contextmenu', function(e) {
-        if (e.target.tagName === 'IMG') e.preventDefault();
-      });
-      document.addEventListener('dragstart', function(e) {
-        if (e.target.tagName === 'IMG') e.preventDefault();
-      });
-      document.addEventListener('keydown', function(e) {
-        if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S' || e.key === 'u' || e.key === 'U')) {
-          e.preventDefault();
-        }
-      });
-    }
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', _initProtect);
-    } else {
-      _initProtect();
-    }
   `}} />
         <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
         <script dangerouslySetInnerHTML={{__html: `

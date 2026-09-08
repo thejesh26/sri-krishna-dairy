@@ -328,13 +328,12 @@ export default function SignUp() {
             <label className="flex items-start gap-3 cursor-pointer bg-[#f0faf4] border border-[#c8e6d4] rounded-lg px-4 py-3">
               <input
                 type="checkbox"
-                defaultChecked
                 required
                 className="mt-0.5 w-4 h-4 flex-shrink-0 accent-[#1a5c38] cursor-pointer"
               />
               <span className="text-xs text-[#1a5c38] leading-relaxed">
-                I agree to receive order updates, delivery notifications, and alerts on WhatsApp from{' '}
-                <strong>Sri Krishnaa Dairy (8105054473)</strong>. Standard messaging rates may apply.
+                I agree to receive order confirmations and delivery notifications on WhatsApp from{' '}
+                <strong>Sri Krishnaa Dairy (8105054473)</strong>. These are required to run your subscription. Standard messaging rates may apply.
               </span>
             </label>
 
@@ -348,7 +347,7 @@ export default function SignUp() {
               After signing up, check your email for a confirmation link.
               <br />
               Didn't receive it?{' '}
-              <a href="https://wa.me/918553666002" target="_blank"
+              <a href="https://wa.me/918105054473" target="_blank"
                 className="text-[#1a5c38] font-semibold underline">
                 Contact us on WhatsApp
               </a>

@@ -15,6 +15,7 @@ export default function Home() {
   const [bulkSubmitted, setBulkSubmitted] = useState(false)
   const [bulkModal, setBulkModal] = useState(false)
   const [bulkPhoneError, setBulkPhoneError] = useState('')
+  const [mobileMenu, setMobileMenu] = useState(false)
 
   useEffect(() => {
     const checkUser = async () => {
@@ -122,80 +123,89 @@ export default function Home() {
     <a href="#products" className="hover:text-[#1a5c38] transition">Products</a>
     <a href="#contact" className="hover:text-[#1a5c38] transition">Contact</a>
   </nav>
-  <div className="flex gap-2">
+  <div className="flex items-center gap-2">
     {isLoggedIn ? (
       <Link href="/dashboard" className="bg-[#1a5c38] text-white font-semibold px-3 py-1.5 rounded text-xs sm:text-sm sm:px-4 sm:py-2 hover:bg-[#14472c] transition whitespace-nowrap">Dashboard</Link>
     ) : (
       <>
         <Link href="/login" className="border border-[#1a5c38] text-[#1a5c38] font-semibold px-3 py-1.5 rounded text-xs sm:text-sm sm:px-4 sm:py-2 hover:bg-[#1a5c38] hover:text-white transition whitespace-nowrap">Login</Link>
-        <Link href="/signup" className="bg-[#1a5c38] text-white font-semibold px-3 py-1.5 rounded text-xs sm:text-sm sm:px-4 sm:py-2 hover:bg-[#14472c] transition whitespace-nowrap">Sign Up</Link>
+        <Link href="/signup" className="hidden sm:inline-block bg-[#1a5c38] text-white font-semibold px-3 py-1.5 rounded text-xs sm:text-sm sm:px-4 sm:py-2 hover:bg-[#14472c] transition whitespace-nowrap">Sign Up</Link>
       </>
     )}
+    <button type="button" onClick={() => setMobileMenu(o => !o)} aria-label="Toggle menu" aria-expanded={mobileMenu}
+      className="md:hidden p-2 text-[#1a5c38]">
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d={mobileMenu ? 'M6 18L18 6M6 6l12 12' : 'M4 6h16M4 12h16M4 18h16'} />
+      </svg>
+    </button>
   </div>
+  {mobileMenu && (
+    <nav className="md:hidden absolute top-full left-0 right-0 bg-[#fdfbf7] border-b border-[#e8e0d0] shadow-md flex flex-col px-4 py-2 text-sm font-medium text-[#1c1c1c]">
+      {[['#about','About'],['#how-it-works','How It Works'],['#products','Products'],['#faq','FAQ'],['#contact','Contact']].map(([href,label]) => (
+        <a key={href} href={href} onClick={() => setMobileMenu(false)} className="py-2.5 border-b border-[#e8e0d0] last:border-0 hover:text-[#1a5c38]">{label}</a>
+      ))}
+      {!isLoggedIn && <Link href="/signup" onClick={() => setMobileMenu(false)} className="mt-2 mb-1 bg-[#1a5c38] text-white text-center font-semibold py-2.5 rounded">Sign Up</Link>}
+    </nav>
+  )}
 </header>
 
 
       {/* Hero */}
-      <section className="relative overflow-hidden"
-        style={{background:'linear-gradient(135deg, #0d3320 0%, #1a5c38 40%, #2d7a50 70%, #1a5c38 100%)', minHeight:'90vh', display:'grid', gridTemplateColumns:'1fr 1fr'}}>
+      <section className="relative overflow-hidden grid grid-cols-1 md:grid-cols-2"
+        style={{background:'linear-gradient(135deg, #0d3320 0%, #1a5c38 40%, #2d7a50 70%, #1a5c38 100%)'}}>
 
         {/* Decorative glows */}
-        <div className="absolute top-[-100px] right-[-100px] w-[500px] h-[500px] rounded-full opacity-10" style={{background:'radial-gradient(circle, #d4a017, transparent)'}} />
-        <div className="absolute bottom-[-150px] left-[-150px] w-[600px] h-[600px] rounded-full opacity-10" style={{background:'radial-gradient(circle, #d4a017, transparent)'}} />
-        <div className="absolute top-[20%] left-[5%] w-2 h-2 rounded-full bg-[#d4a017] opacity-40" />
-        <div className="absolute bottom-[30%] left-[15%] w-2 h-2 rounded-full bg-white opacity-20" />
+        <div className="absolute top-[-100px] right-[-100px] w-[300px] h-[300px] md:w-[500px] md:h-[500px] rounded-full opacity-10" style={{background:'radial-gradient(circle, #d4a017, transparent)'}} />
+        <div className="absolute bottom-[-150px] left-[-150px] w-[300px] h-[300px] md:w-[600px] md:h-[600px] rounded-full opacity-10" style={{background:'radial-gradient(circle, #d4a017, transparent)'}} />
 
-        {/* Left column — 50% */}
-        <div className="relative z-20 flex items-center" style={{padding:'80px 4% 80px 8%'}}>
-          <div className="flex flex-col gap-6" style={{width:'100%'}}>
-            <p style={{color:'#d4a017', fontWeight:'700', fontSize:'11px', letterSpacing:'3px', textTransform:'uppercase'}}>
+        {/* Left column */}
+        <div className="relative z-20 flex items-center px-6 py-14 md:pl-[8%] md:pr-[4%] md:py-20">
+          <div className="flex flex-col gap-5 md:gap-6 w-full">
+            <p className="text-[#d4a017] font-bold uppercase" style={{fontSize:'11px', letterSpacing:'3px'}}>
               Pure · Fresh · Delivered Daily
             </p>
-            <h2 className="font-[family-name:var(--font-playfair)] font-bold text-white" style={{fontSize:'3.2rem', lineHeight:'1.08'}}>
+            <h2 className="font-[family-name:var(--font-playfair)] font-bold text-white text-3xl sm:text-4xl md:text-[3.2rem] leading-tight">
               Farm-Fresh Milk,<br />
               <span className="text-[#d4a017]">Straight to Your Door</span>
             </h2>
-            <p className="text-green-200 text-base leading-relaxed">
-              Direct from our cows at 4 AM. No middlemen, no preservatives — at your doorstep by 9 AM.
+            <p className="text-green-100 text-base leading-relaxed">
+              Direct from our farm, delivered to your doorstep within your slot — 7–9 AM or 5–7 PM. No middlemen, no preservatives.
             </p>
-            <div className="flex gap-3">
-              <Link href="/order" className="bg-[#d4a017] text-white px-7 py-3.5 rounded-xl font-bold text-base hover:bg-[#b8860b] transition shadow-lg whitespace-nowrap">
-                Order Now →
+            <p className="text-white font-semibold text-sm">
+              🥛 Start with a 3-day free trial · No deposit · Pay cash on delivery · Cancel anytime
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Link href="/signup" className="bg-[#d4a017] text-white px-7 py-3.5 rounded-xl font-bold text-base hover:bg-[#b8860b] transition shadow-lg text-center whitespace-nowrap">
+                Start Your 3-Day Free Trial →
               </Link>
-              <Link href="/subscribe" className="text-white px-7 py-3.5 rounded-xl font-bold text-base hover:bg-white hover:text-[#1a5c38] transition whitespace-nowrap" style={{border:'2px solid rgba(255,255,255,0.45)'}}>
+              <Link href="/subscribe" className="text-white px-7 py-3.5 rounded-xl font-bold text-base hover:bg-white hover:text-[#1a5c38] transition text-center whitespace-nowrap" style={{border:'2px solid rgba(255,255,255,0.45)'}}>
                 Subscribe
               </Link>
             </div>
             {/* Stat strip */}
-            <div className="flex items-center" style={{borderTop:'1px solid rgba(255,255,255,0.12)', paddingTop:'20px'}}>
+            <div className="flex flex-wrap gap-x-5 gap-y-2 mt-1 pt-5" style={{borderTop:'1px solid rgba(255,255,255,0.12)'}}>
               {[
-                { value:'4 AM',    label:'Milked fresh daily' },
-                { value:'By 9 AM', label:'At your doorstep'   },
-                { value:'Zero',    label:'Preservatives added' },
+                { value:'Farm fresh', label:'Milked daily at dawn' },
+                { value:'Your slot', label:'7–9 AM or 5–7 PM' },
+                { value:'Zero', label:'Preservatives added' },
               ].map((stat, i) => (
-                <div key={i} className="flex items-stretch">
-                  <div className="text-center" style={{paddingLeft: i === 0 ? 0 : '20px', paddingRight:'20px'}}>
-                    <p className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#d4a017]">{stat.value}</p>
-                    <p className="text-green-300 text-xs mt-0.5 whitespace-nowrap">{stat.label}</p>
-                  </div>
-                  {i < 2 && <div style={{width:'1px', background:'rgba(255,255,255,0.15)'}} />}
+                <div key={i} className="text-left">
+                  <p className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#d4a017]">{stat.value}</p>
+                  <p className="text-green-200 text-xs mt-0.5">{stat.label}</p>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Right column — 50%, image fills full column height */}
-        <div className="relative z-10">
-          <div style={{position:'absolute', top:'50%', left:'40%', transform:'translate(-50%,-50%)', width:'600px', height:'600px', borderRadius:'50%', background:'radial-gradient(circle, rgba(212,160,23,0.18) 0%, transparent 65%)', pointerEvents:'none'}} />
+        {/* Right column — image */}
+        <div className="relative z-10 h-64 sm:h-80 md:h-auto md:min-h-[520px]">
+          <div className="hidden md:block" style={{position:'absolute', top:'50%', left:'40%', transform:'translate(-50%,-50%)', width:'600px', height:'600px', maxWidth:'100%', borderRadius:'50%', background:'radial-gradient(circle, rgba(212,160,23,0.18) 0%, transparent 65%)', pointerEvents:'none'}} />
           <img
             src="/product-hero.png"
             alt="Sri Krishnaa Dairy — Fresh Milk Bottle and Glass"
+            className="absolute inset-0 w-full h-full"
             style={{
-              position:'absolute',
-              inset:0,
-              width:'100%',
-              height:'100%',
               objectFit:'contain',
               objectPosition:'center bottom',
               filter:'drop-shadow(0 32px 80px rgba(0,0,0,0.4)) drop-shadow(0 0 60px rgba(212,160,23,0.1))',
@@ -331,34 +341,13 @@ export default function Home() {
       </section>
 
       {/* Testimonials */}
+      {dbReviews.length > 0 && (
       <section className="bg-[#f5f0e8] px-6 py-12">
         <div className="max-w-4xl mx-auto">
           <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">Happy Customers</p>
           <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-8">What Our Customers Say</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {(dbReviews.length > 0 ? dbReviews : [
-              {
-                profiles: { full_name: 'Priya Sharma', area: 'Dwaraka Nagar' },
-                review: 'Been getting milk from Sri Krishnaa for 6 months now. Genuinely the freshest I have had in Bangalore. My kids love it and I feel good knowing exactly where it comes from.',
-                rating: 5,
-                photo_url: null,
-                created_at: null,
-              },
-              {
-                profiles: { full_name: 'Rajesh Kumar', area: 'Baba Nagar' },
-                review: 'The subscription model is super convenient. Wallet top-up once, milk delivered daily without any hassle. Customer service is responsive and very helpful.',
-                rating: 5,
-                photo_url: null,
-                created_at: null,
-              },
-              {
-                profiles: { full_name: 'Anitha Reddy', area: 'Kattigenahalli' },
-                review: 'Switched from packet milk to Sri Krishnaa and the difference in taste is night and day. Love the pause feature — used it during our holiday trip to Mysore.',
-                rating: 5,
-                photo_url: null,
-                created_at: null,
-              },
-            ]).map((r, idx) => {
+            {dbReviews.map((r, idx) => {
               const firstName = (r.profiles?.full_name || 'Customer').split(' ')[0]
               const area = r.profiles?.area || 'Bangalore'
               const dateLabel = r.created_at
@@ -390,6 +379,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+      )}
 
       {/* Refer a Friend */}
       <section className="bg-white px-6 py-12">
@@ -414,10 +404,10 @@ export default function Home() {
               </div>
             ))}
           </div>
-          <Link href="/dashboard" className="inline-block bg-[#1a5c38] text-white font-bold px-8 py-3 rounded hover:bg-[#14472c] transition shadow-md">
+          <Link href={isLoggedIn ? '/dashboard' : '/login'} className="inline-block bg-[#1a5c38] text-white font-bold px-8 py-3 rounded hover:bg-[#14472c] transition shadow-md">
             Get Your Referral Link →
           </Link>
-          <p className="text-xs text-gray-400 mt-3">Log in to your dashboard to find your personal referral link.</p>
+          <p className="text-xs text-gray-500 mt-3">Log in to your dashboard to find your personal referral link.</p>
         </div>
       </section>
 
