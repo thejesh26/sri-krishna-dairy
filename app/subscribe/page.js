@@ -106,7 +106,7 @@ export default function Subscribe() {
 
   const getUser = async () => {
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session) { router.push('/login'); return }
+    if (!session) { router.push('/login?next=/subscribe'); return }
     const u = session.user
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
     setProfile(prof)

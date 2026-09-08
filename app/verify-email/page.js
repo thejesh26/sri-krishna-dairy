@@ -34,6 +34,8 @@ function getEmailProvider(email) {
 function VerifyEmailContent() {
   const searchParams = useSearchParams()
   const email = searchParams.get('email') || ''
+  const nextParam = searchParams.get('next')
+  const loginHref = nextParam ? `/login?next=${encodeURIComponent(nextParam)}` : '/login'
   const provider = getEmailProvider(email)
   const [resendStatus, setResendStatus] = useState(null) // null | 'sending' | 'sent' | 'error'
 
@@ -164,7 +166,7 @@ function VerifyEmailContent() {
             <p className="text-sm text-gray-500 mb-3">
               Questions? Call <strong className="text-[#1c1c1c]">8105054473</strong>
             </p>
-            <a href="/login" className="text-sm text-[#1a5c38] font-semibold hover:underline">
+            <a href={loginHref} className="text-sm text-[#1a5c38] font-semibold hover:underline">
               Already confirmed? Go to Login →
             </a>
           </div>

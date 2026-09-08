@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import Footer from '../components/Footer'
@@ -11,6 +11,12 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [nextPath, setNextPath] = useState('')
+
+  useEffect(() => {
+    const n = new URLSearchParams(window.location.search).get('next')
+    if (n && n.startsWith('/') && !n.startsWith('//')) setNextPath(n)
+  }, [])
 
   const isPhone = (input) => /^[0-9]{10}$/.test(input)
 
@@ -60,7 +66,7 @@ export default function Login() {
         return
       }
 
-      router.push('/dashboard')
+      router.push(nextPath || '/dashboard')
     } catch {
       setMessage('Something went wrong. Please try again.')
     }
@@ -91,8 +97,15 @@ export default function Login() {
               <img src="/Logo.jpg" alt="Sri Krishnaa Dairy" className="h-24 w-24 rounded-full mx-auto border-4 border-[#d4a017] object-cover shadow-lg hover:opacity-90 transition" />
             </a>
             <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38] mt-4">Welcome Back!</h2>
-            <p className="text-sm text-gray-400 mt-1">Login to Sri Krishnaa Dairy Farms</p>
+            <p className="text-sm text-gray-500 mt-1">Login to Sri Krishnaa Dairy Farms</p>
           </div>
+
+          {nextPath && (
+            <div className="bg-[#f0faf4] border border-[#c8e6d4] text-[#1a5c38] rounded-lg px-4 py-3 text-sm mb-5 text-center">
+              Log in to continue. New here?{' '}
+              <a href={`/signup?next=${encodeURIComponent(nextPath)}`} className="font-semibold underline">Create a free account</a>.
+            </div>
+          )}
 
           {message && (
             <div className="bg-red-50 border border-red-200 text-red-600 rounded-lg px-4 py-3 text-sm mb-5 text-center">

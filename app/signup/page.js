@@ -15,9 +15,12 @@ export default function SignUp() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [message, setMessage] = useState('')
+  const [nextPath, setNextPath] = useState('')
 
   useEffect(() => {
     fetch('/api/apartments').then(r => r.json()).then(setApartments).catch(() => {})
+    const n = new URLSearchParams(window.location.search).get('next')
+    if (n && n.startsWith('/') && !n.startsWith('//')) setNextPath(n)
   }, [])
 
   // 'other' or empty = individual house / free-text address; otherwise holds an apartment id
@@ -147,7 +150,7 @@ export default function SignUp() {
           body: JSON.stringify({ user_id: data.user.id, phone: form.phone, name: form.full_name }),
         })
       } catch { /* non-blocking */ }
-      router.push(`/verify-email?email=${encodeURIComponent(form.email)}`)
+      router.push(`/verify-email?email=${encodeURIComponent(form.email)}${nextPath ? `&next=${encodeURIComponent(nextPath)}` : ''}`)
     }
     setLoading(false)
   }

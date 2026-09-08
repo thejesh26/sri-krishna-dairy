@@ -84,7 +84,7 @@ export default function Order() {
 
   const getUser = async () => {
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session) { router.push('/login'); return }
+    if (!session) { router.push('/login?next=/order'); return }
     const u = session.user
     setUser(u)
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
