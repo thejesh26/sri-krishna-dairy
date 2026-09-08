@@ -101,7 +101,7 @@ export default function Home() {
             </p>
             <p className="text-[#d4a017] font-semibold text-sm">— Sri Krishnaa Dairy Team</p>
             <button onClick={() => setBulkModal(false)}
-              className="mt-5 text-xs text-gray-400 hover:text-[#1a5c38] transition underline">
+              className="mt-5 text-xs text-gray-600 hover:text-[#1a5c38] transition underline">
               Close
             </button>
           </div>
@@ -236,8 +236,8 @@ export default function Home() {
               <div className="flex justify-center mb-5"><img src="/bottle.png" alt="Fresh Cow Milk" className="h-28 object-contain drop-shadow-md" /></div>
               <h4 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c] text-center mb-1">Fresh Cow Milk</h4>
               <p className="text-center text-[#d4a017] font-semibold text-sm mb-3">{product.size} Bottle</p>
-              <p className="text-gray-400 text-center text-sm mb-5">{product.size === '500ml' ? 'Perfect trial · No deposit · COD' : 'Best value for families'}</p>
-              <p className="text-3xl font-bold text-center text-[#1a5c38] mb-6">₹{product.price} <span className="text-sm font-normal text-gray-400">/ bottle</span></p>
+              <p className="text-gray-600 text-center text-sm mb-5">{product.size === '500ml' ? 'Perfect trial · No deposit · COD' : 'Best value for families'}</p>
+              <p className="text-3xl font-bold text-center text-[#1a5c38] mb-6">₹{product.price} <span className="text-sm font-normal text-gray-600">/ bottle</span></p>
               <Link href={`/order`} className="block bg-[#1a5c38] text-white text-center py-3 rounded font-semibold hover:bg-[#14472c] transition">Order Now</Link>
               <Link href={`/subscribe`} className="block mt-2 border border-[#d4a017] text-[#d4a017] text-center py-2 rounded font-semibold hover:bg-[#d4a017] hover:text-white transition text-sm">Subscribe (Prepaid)</Link>
             </div>
@@ -292,7 +292,7 @@ export default function Home() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-6">
             {[
-              { icon: '🐄', step: '01', title: 'Milking', desc: 'Cows milked hygienically at 4–6 AM with sanitized equipment at our farm in Kammasandra, Bangalore Rural.' },
+              { icon: '🐄', step: '01', title: 'Milking', desc: 'Cows milked hygienically at 4–6 AM with sanitized equipment at our farm in Kattigenahalli, North Bangalore.' },
               { icon: '🧪', step: '02', title: 'Quality Check', desc: 'Each batch inspected and tested for freshness, purity, and fat content before bottling.' },
               { icon: '🫧', step: '03', title: 'Bottle Cleaning', desc: 'All returned bottles thoroughly washed with food-grade agents, rinsed, and sterilized.' },
               { icon: '🍼', step: '04', title: 'Filling & Sealing', desc: 'Measured quantities poured into sterilized bottles and hygienically sealed.' },
@@ -324,7 +324,7 @@ export default function Home() {
           {[
             { icon: '🌿', title: '100% Pure', desc: 'No additives or preservatives' },
             { icon: '🍼', title: 'Delivered on Time', desc: 'Fresh at your door every day' },
-            { icon: '🐄', title: 'Farm to Door in 2hrs', desc: 'Straight from our farm' },
+            { icon: '🐄', title: 'Same-Day Fresh', desc: 'Milked at dawn, delivered the same morning' },
             { icon: '📅', title: 'Pause Anytime', desc: 'Flexible subscriptions' },
             { icon: '💳', title: 'Flexible Payment', desc: 'First order COD, then easy wallet top-ups' },
             { icon: '🛵', title: 'Reliable Delivery', desc: 'Every day without fail' },
@@ -334,7 +334,7 @@ export default function Home() {
             <div key={title} className="bg-white border border-[#e8e0d0] rounded-lg p-5 hover:shadow-md transition">
               <div className="text-3xl mb-3">{icon}</div>
               <p className="font-semibold text-[#1c1c1c] text-sm">{title}</p>
-              <p className="text-xs text-gray-400 mt-1">{desc}</p>
+              <p className="text-xs text-gray-600 mt-1">{desc}</p>
             </div>
           ))}
         </div>
@@ -370,7 +370,7 @@ export default function Home() {
                     </div>
                     <div>
                       <p className="font-semibold text-[#1c1c1c] text-sm">{firstName}</p>
-                      <p className="text-xs text-gray-400">{area}{dateLabel ? ` · ${dateLabel}` : ''}</p>
+                      <p className="text-xs text-gray-600">{area}{dateLabel ? ` · ${dateLabel}` : ''}</p>
                     </div>
                   </div>
                 </div>
@@ -459,16 +459,16 @@ export default function Home() {
             <p className="text-[#d4a017] text-sm font-medium mt-1">Farm Fresh • Bangalore</p>
             <div className="flex justify-center gap-6 mt-5">
               <div>
-                <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">2hrs</p>
-                <p className="text-xs text-gray-400 font-[family-name:var(--font-playfair)]">Farm to Door</p>
+                <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">Same day</p>
+                <p className="text-xs text-gray-500 font-[family-name:var(--font-playfair)]">Farm to Door</p>
               </div>
               <div>
                 <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">100%</p>
-                <p className="text-xs text-gray-400 font-[family-name:var(--font-playfair)]">Pure & Natural</p>
+                <p className="text-xs text-gray-600 font-[family-name:var(--font-playfair)]">Pure & Natural</p>
               </div>
               <div>
                 <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">Daily</p>
-                <p className="text-xs text-gray-400 font-[family-name:var(--font-playfair)]">Fresh Delivery</p>
+                <p className="text-xs text-gray-600 font-[family-name:var(--font-playfair)]">Fresh Delivery</p>
               </div>
             </div>
           </div>
@@ -499,7 +499,7 @@ export default function Home() {
         <div key={title} className="bg-white border border-[#e8e0d0] rounded-xl p-5 text-center hover:shadow-md transition">
           <div className="text-4xl mb-3">{icon}</div>
           <p className="font-semibold text-[#1c1c1c]">{title}</p>
-          <p className="text-xs text-gray-400 mt-1">{desc}</p>
+          <p className="text-xs text-gray-600 mt-1">{desc}</p>
         </div>
       ))}
     </div>
@@ -518,7 +518,7 @@ export default function Home() {
           <div key={title}>
             <div className="text-4xl mb-3">{icon}</div>
             <p className="font-semibold text-[#1c1c1c] mb-2">{title}</p>
-            <p className="text-sm text-gray-400">{desc}</p>
+            <p className="text-sm text-gray-600">{desc}</p>
           </div>
         ))}
       </div>
@@ -581,7 +581,7 @@ export default function Home() {
             style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
             {bulkSubmitting ? 'Sending...' : '📩 Send Enquiry'}
           </button>
-          <p className="text-xs text-gray-400 text-center">We'll respond within 24 hours. Prefer instant help? <a href="https://wa.me/918105054473" target="_blank" className="text-[#25D366] font-semibold">Chat on WhatsApp</a></p>
+          <p className="text-xs text-gray-600 text-center">We'll respond within 24 hours. Prefer instant help? <a href="https://wa.me/918105054473" target="_blank" className="text-[#25D366] font-semibold">Chat on WhatsApp</a></p>
         </form>
       )}
     </div>
@@ -626,7 +626,7 @@ export default function Home() {
           <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">Where We Deliver</p>
           <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-2">Our Delivery Zones</h3>
           <p className="text-center text-gray-500 text-sm mb-8 max-w-lg mx-auto">
-            We currently serve North Bangalore — Yelahanka and surrounding neighbourhoods. Not sure if we cover your area? <a href="https://wa.me/918105054473" target="_blank" className="text-[#1a5c38] font-semibold hover:underline">WhatsApp us</a>.
+            We currently serve Kattigenahalli and surrounding neighbourhoods in North Bangalore. Not sure if we cover your area? <a href="https://wa.me/918105054473" target="_blank" className="text-[#1a5c38] font-semibold hover:underline">WhatsApp us</a>.
           </p>
 
           {/* Map-style graphic */}
@@ -646,7 +646,7 @@ export default function Home() {
             {/* Compass rose */}
             <div className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white border border-[#e8e0d0] shadow flex items-center justify-center text-xs font-bold text-[#1a5c38] flex-col leading-none select-none">
               <span className="text-[10px]">N</span>
-              <span className="text-[8px] text-gray-400">↑</span>
+              <span className="text-[8px] text-gray-600">↑</span>
             </div>
 
             {/* Farm origin badge */}
@@ -730,7 +730,7 @@ export default function Home() {
             </div>
           </div>
 
-          <p className="text-center text-xs text-gray-400 mt-4">
+          <p className="text-center text-xs text-gray-600 mt-4">
             Expanding soon — <a href="/waitlist" className="text-[#1a5c38] font-semibold hover:underline">join the priority list</a> to be first in your area.
           </p>
         </div>
@@ -743,7 +743,7 @@ export default function Home() {
         <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#1c1c1c] mb-5">Contact Us</h3>
         <p className="text-gray-500 mb-10">Have questions? We're always happy to help!</p>
         <div className="flex flex-wrap justify-center gap-8 text-sm text-gray-600">
-          <span className="flex items-center gap-2">📞 <a href="tel:8105054473" className="text-[#1a5c38] font-semibold hover:underline">8105054473</a> <span className="text-gray-400 text-xs">(Mon–Sun, 6AM–8PM)</span></span>
+          <span className="flex items-center gap-2">📞 <a href="tel:8105054473" className="text-[#1a5c38] font-semibold hover:underline">8105054473</a> <span className="text-gray-600 text-xs">(Mon–Sun, 6AM–8PM)</span></span>
           <span className="flex items-center gap-2">💬 <a href="https://wa.me/918105054473" target="_blank" className="text-[#1a5c38] font-semibold hover:underline">WhatsApp Us</a></span>
           <span className="flex items-center gap-2">✉️ <a href="mailto:hello@srikrishnaadairy.in" className="text-[#1a5c38] font-semibold hover:underline">hello@srikrishnaadairy.in</a></span>
           <span className="flex items-center gap-2">📍 <span>Kattigenahalli, Bangalore, Karnataka</span></span>
@@ -797,7 +797,7 @@ export default function Home() {
                   <p className="font-[family-name:var(--font-playfair)] font-bold text-lg leading-tight">Sri Krishnaa<br />Dairy Farms</p>
                 </div>
               </div>
-              <p className="text-gray-400 text-sm leading-relaxed">
+              <p className="text-gray-300 text-sm leading-relaxed">
                 Pure, fresh cow milk delivered straight from our farm to your doorstep every day.
               </p>
             </div>
@@ -805,7 +805,7 @@ export default function Home() {
             {/* Quick Links */}
             <div>
               <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Quick Links</p>
-              <ul className="flex flex-col gap-3 text-sm text-gray-400">
+              <ul className="flex flex-col gap-3 text-sm text-gray-300">
                 <li><a href="#about" className="hover:text-[#d4a017] transition">About Us</a></li>
                 <li><a href="#how-it-works" className="hover:text-[#d4a017] transition">How It Works</a></li>
                 <li><a href="#products" className="hover:text-[#d4a017] transition">Our Products</a></li>
@@ -818,7 +818,7 @@ export default function Home() {
             {/* Products */}
             <div>
               <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Our Products</p>
-              <ul className="flex flex-col gap-3 text-sm text-gray-400">
+              <ul className="flex flex-col gap-3 text-sm text-gray-300">
                 {products.length > 0 ? products.map(p => (
                   <li key={p.id} className="flex justify-between">
                     <span>Fresh Cow Milk {p.size}</span>
@@ -842,7 +842,7 @@ export default function Home() {
             {/* Contact */}
             <div>
               <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Contact Us</p>
-              <ul className="flex flex-col gap-4 text-sm text-gray-400">
+              <ul className="flex flex-col gap-4 text-sm text-gray-300">
                 <li className="flex items-start gap-3">
                   <span className="text-[#d4a017] mt-0.5">📞</span>
                   <a href="tel:8105054473" className="hover:text-white transition">8105054473</a>
@@ -874,19 +874,19 @@ export default function Home() {
               ].map(({ icon, text }) => (
                 <div key={text} className="flex items-center justify-center gap-2">
                   <span>{icon}</span>
-                  <span className="text-gray-400 text-sm">{text}</span>
+                  <span className="text-gray-300 text-sm">{text}</span>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Bottom Footer */}
-          <div className="pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-gray-500">
+          <div className="pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-gray-400">
             <div className="text-center sm:text-left">
               <p>© 2026 Sri Krishnaa Dairy Farms. All rights reserved.</p>
-              <p className="text-gray-600 mt-0.5">FSSAI Lic. No: <span className="text-gray-400">21225008004544</span></p>
+              <p className="text-gray-400 mt-0.5">FSSAI Lic. No: <span className="text-gray-300">21225008004544</span></p>
             </div>
-            <p className="text-gray-600">Made with ❤️ in Bangalore</p>
+            <p className="text-gray-400">Made with ❤️ in Bangalore</p>
             <div className="flex flex-wrap justify-center gap-4">
               <Link href="/privacy-policy" className="hover:text-gray-300 transition">Privacy Policy</Link>
               <Link href="/terms-of-service" className="hover:text-gray-300 transition">Terms of Service</Link>
