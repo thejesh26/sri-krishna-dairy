@@ -1,165 +1,45 @@
-﻿'use client'
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { supabase } from './lib/supabase'
+import { createServerClient } from './lib/supabase-server'
 import { FAQ_ITEMS } from './lib/faq'
 import JsonLd from './components/JsonLd'
+import HomeHeader from './components/home/HomeHeader'
+import StickyMobileCta from './components/home/StickyMobileCta'
+import BulkEnquiryForm from './components/home/BulkEnquiryForm'
 import heroImg from '../public/product-hero.png'
 import bottleImg from '../public/bottle.png'
 
-export default function Home() {
-  const router = useRouter()
-  const [authChecked, setAuthChecked] = useState(false)
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [products, setProducts] = useState([])
-  const [dbReviews, setDbReviews] = useState([])
-  const [bulkForm, setBulkForm] = useState({ name: '', phone: '', institution: '', quantity: '', message: '' })
-  const [bulkSubmitting, setBulkSubmitting] = useState(false)
-  const [bulkSubmitted, setBulkSubmitted] = useState(false)
-  const [bulkModal, setBulkModal] = useState(false)
-  const [bulkPhoneError, setBulkPhoneError] = useState('')
-  const [mobileMenu, setMobileMenu] = useState(false)
+export const revalidate = 300
 
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        setIsLoggedIn(true)
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('is_admin, is_delivery')
-          .eq('id', session.user.id)
-          .single()
+async function getProducts() {
+  const supabase = createServerClient()
+  const { data } = await supabase
+    .from('products')
+    .select('id, name, size, price, description, is_available')
+    .eq('is_available', true)
+    .order('price')
+  return data || []
+}
 
-        if (profile?.is_admin) {
-          router.push('/admin')
-          return
-        } else if (profile?.is_delivery) {
-          router.push('/delivery')
-          return
-        }
-      }
-      setAuthChecked(true)
-    }
-    const loadProducts = async () => {
-      try {
-        const res = await fetch('/api/products')
-        const data = await res.json()
-        setProducts(data || [])
-      } catch {
-        setProducts([])
-      }
-    }
-    const loadReviews = async () => {
-      const { data } = await supabase
-        .from('reviews')
-        .select('rating, review, photo_url, created_at, profiles(full_name, area)')
-        .eq('is_approved', true)
-        .order('created_at', { ascending: false })
-        .limit(6)
-      if (data && data.length > 0) setDbReviews(data)
-    }
-    checkUser()
-    loadProducts()
-    loadReviews()
-  }, [])
+async function getReviews() {
+  const supabase = createServerClient()
+  const { data } = await supabase
+    .from('reviews')
+    .select('rating, review, photo_url, created_at, profiles(full_name, area)')
+    .eq('is_approved', true)
+    .order('created_at', { ascending: false })
+    .limit(6)
+  return data || []
+}
 
-  const handleBulkEnquiry = async (e) => {
-    e.preventDefault()
-    if (!/^[0-9]{10}$/.test(bulkForm.phone)) {
-      setBulkPhoneError('Please enter a valid 10-digit phone number.')
-      return
-    }
-    setBulkPhoneError('')
-    setBulkSubmitting(true)
-    try {
-      await fetch('/api/bulk-enquiry', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bulkForm),
-      })
-    } catch {
-      // best-effort — still show success
-    } finally {
-      setBulkSubmitting(false)
-      setBulkModal(true)
-      setBulkForm({ name: '', phone: '', institution: '', quantity: '', message: '' })
-      setTimeout(() => setBulkModal(false), 10000)
-    }
-  }
+export default async function Home() {
+  const [products, dbReviews] = await Promise.all([getProducts(), getReviews()])
 
   return (
     <div className="min-h-screen bg-[#fdfbf7] font-[family-name:var(--font-inter)] pb-20 md:pb-0">
       <JsonLd />
 
-      {/* Bulk Enquiry Success Modal */}
-      {bulkModal && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center px-4" style={{background:'rgba(0,0,0,0.5)'}}
-          onClick={() => setBulkModal(false)}>
-          <div role="dialog" aria-modal="true" aria-labelledby="bulk-modal-title"
-            onClick={(e) => e.stopPropagation()}
-            ref={(el) => el?.querySelector('button')?.focus()}
-            onKeyDown={(e) => { if (e.key === 'Escape') setBulkModal(false) }}
-            className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center border border-[#e8e0d0]">
-            <div className="text-5xl mb-4">🎉</div>
-            <h3 id="bulk-modal-title" className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1a5c38] mb-3">
-              Thank you for your enquiry!
-            </h3>
-            <p className="text-gray-600 text-sm leading-relaxed mb-4">
-              We'll contact you within 24 hours to discuss your bulk milk requirements.
-            </p>
-            <p className="text-[#d4a017] font-semibold text-sm">— Sri Krishnaa Dairy Team</p>
-            <button onClick={() => setBulkModal(false)}
-              className="mt-5 text-xs text-gray-600 hover:text-[#1a5c38] transition underline">
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Header */}
-      <header className="bg-[#fdfbf7] px-4 py-3 flex items-center justify-between shadow-sm sticky top-0 z-50 border-b border-[#e8e0d0]">
-  <a href="/" onClick={(e) => { if (window.location.pathname === '/') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }) } }} className="flex items-center gap-2">
-    <img src="/Logo.jpg" alt="Sri Krishnaa Dairy" className="h-10 w-10 sm:h-14 sm:w-14 rounded-full object-cover shadow border-2 border-[#d4a017]" />
-    <div>
-      <h1 className="text-sm sm:text-lg font-bold text-[#1a5c38] font-[family-name:var(--font-playfair)] leading-tight">Sri Krishnaa Dairy</h1>
-      <p className="text-xs text-[#d4a017] font-medium tracking-wide hidden sm:block">FARM FRESH • PURE • NATURAL</p>
-    </div>
-  </a>
-  <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-[#1c1c1c]">
-    <a href="#about" className="hover:text-[#1a5c38] transition">About</a>
-    <a href="#how-it-works" className="hover:text-[#1a5c38] transition">How It Works</a>
-    <a href="#products" className="hover:text-[#1a5c38] transition">Products</a>
-    <a href="#contact" className="hover:text-[#1a5c38] transition">Contact</a>
-  </nav>
-  <div className="flex items-center gap-2">
-    {isLoggedIn ? (
-      <Link href="/dashboard" className="bg-[#1a5c38] text-white font-semibold px-3 py-1.5 rounded text-xs sm:text-sm sm:px-4 sm:py-2 hover:bg-[#14472c] transition whitespace-nowrap">Dashboard</Link>
-    ) : (
-      <>
-        <Link href="/login" className="border border-[#1a5c38] text-[#1a5c38] font-semibold px-3 py-1.5 rounded text-xs sm:text-sm sm:px-4 sm:py-2 hover:bg-[#1a5c38] hover:text-white transition whitespace-nowrap">Login</Link>
-        <Link href="/signup" className="hidden sm:inline-block bg-[#1a5c38] text-white font-semibold px-3 py-1.5 rounded text-xs sm:text-sm sm:px-4 sm:py-2 hover:bg-[#14472c] transition whitespace-nowrap">Sign Up</Link>
-      </>
-    )}
-    <button type="button" onClick={() => setMobileMenu(o => !o)} aria-label="Toggle menu" aria-expanded={mobileMenu}
-      className="md:hidden p-2 text-[#1a5c38]">
-      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d={mobileMenu ? 'M6 18L18 6M6 6l12 12' : 'M4 6h16M4 12h16M4 18h16'} />
-      </svg>
-    </button>
-  </div>
-  {mobileMenu && (
-    <nav className="md:hidden absolute top-full left-0 right-0 bg-[#fdfbf7] border-b border-[#e8e0d0] shadow-md flex flex-col px-4 py-2 text-sm font-medium text-[#1c1c1c]">
-      {[['#about','About'],['#how-it-works','How It Works'],['#products','Products'],['#faq','FAQ'],['#contact','Contact']].map(([href,label]) => (
-        <a key={href} href={href} onClick={() => setMobileMenu(false)} className="py-2.5 border-b border-[#e8e0d0] last:border-0 hover:text-[#1a5c38]">{label}</a>
-      ))}
-      {!isLoggedIn && <Link href="/signup" onClick={() => setMobileMenu(false)} className="mt-2 mb-1 bg-[#1a5c38] text-white text-center font-semibold py-2.5 rounded">Sign Up</Link>}
-    </nav>
-  )}
-</header>
-
+      <HomeHeader />
 
       {/* Hero */}
       <section className="relative overflow-hidden grid grid-cols-1 md:grid-cols-2"
@@ -255,17 +135,7 @@ export default function Home() {
               <Link href={`/subscribe`} className="block mt-2 border border-[#d4a017] text-[#d4a017] text-center py-2 rounded font-semibold hover:bg-[#d4a017] hover:text-white transition text-sm">Subscribe (Prepaid)</Link>
             </div>
           )) : (
-            // Fallback skeleton while products load
-            [1, 2].map((i) => (
-              <div key={i} className="border border-[#e8e0d0] rounded-lg p-8 bg-white animate-pulse">
-                <div className="h-12 w-12 rounded-full bg-gray-100 mx-auto mb-5"></div>
-                <div className="h-5 bg-gray-100 rounded mb-3 mx-8"></div>
-                <div className="h-4 bg-gray-100 rounded mb-5 mx-12"></div>
-                <div className="h-8 bg-gray-100 rounded mb-6 mx-16"></div>
-                <div className="h-10 bg-gray-100 rounded mb-2"></div>
-                <div className="h-8 bg-gray-100 rounded"></div>
-              </div>
-            ))
+            <p className="col-span-2 text-center text-gray-500 text-sm">Products are being updated — check back shortly, or contact us on WhatsApp.</p>
           )}
         </div>
       </section>
@@ -417,7 +287,7 @@ export default function Home() {
               </div>
             ))}
           </div>
-          <Link href={isLoggedIn ? '/dashboard' : '/login'} className="inline-block bg-[#1a5c38] text-white font-bold px-8 py-3 rounded hover:bg-[#14472c] transition shadow-md">
+          <Link href="/dashboard" className="inline-block bg-[#1a5c38] text-white font-bold px-8 py-3 rounded hover:bg-[#14472c] transition shadow-md">
             Get Your Referral Link →
           </Link>
           <p className="text-xs text-gray-500 mt-3">Log in to your dashboard to find your personal referral link.</p>
@@ -489,140 +359,79 @@ export default function Home() {
       </section>
 
       {/* Bulk Orders */}
-<section className="px-6 py-12 bg-[#f5f0e8]">
-  <div className="max-w-4xl mx-auto">
-    <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">Large Quantity?</p>
-    <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-5">
-      Bulk Milk Orders
-    </h3>
-    <p className="text-center text-gray-500 mb-10 max-w-2xl mx-auto">
-      We supply fresh pure cow milk in bulk to institutions across Kattigenahalli and nearby areas in Bangalore. Special pricing and dedicated delivery timings available.
-    </p>
+      <section className="px-6 py-12 bg-[#f5f0e8]">
+        <div className="max-w-4xl mx-auto">
+          <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">Large Quantity?</p>
+          <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-5">
+            Bulk Milk Orders
+          </h3>
+          <p className="text-center text-gray-500 mb-10 max-w-2xl mx-auto">
+            We supply fresh pure cow milk in bulk to institutions across Kattigenahalli and nearby areas in Bangalore. Special pricing and dedicated delivery timings available.
+          </p>
 
-    {/* Who we serve */}
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10">
-      {[
-        { icon: '🏫', title: 'Schools', desc: 'Daily morning supply' },
-        { icon: '🏨', title: 'Hotels & Resorts', desc: 'Fresh daily delivery' },
-        { icon: '🏥', title: 'Hospitals & Clinics', desc: 'Reliable supply' },
-        { icon: '🏢', title: 'Offices & Corporates', desc: 'Bulk subscription' },
-        { icon: '🏠', title: 'Hostels & PGs', desc: 'Daily delivery' },
-        { icon: '🍽️', title: 'Restaurants & Cafes', desc: 'Fresh daily' },
-      ].map(({ icon, title, desc }) => (
-        <div key={title} className="bg-white border border-[#e8e0d0] rounded-xl p-5 text-center hover:shadow-md transition">
-          <div className="text-4xl mb-3">{icon}</div>
-          <p className="font-semibold text-[#1c1c1c]">{title}</p>
-          <p className="text-xs text-gray-600 mt-1">{desc}</p>
-        </div>
-      ))}
-    </div>
-
-    {/* Benefits */}
-    <div className="bg-white border border-[#e8e0d0] rounded-2xl p-8 mb-8">
-      <h4 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c] mb-6 text-center">
-        Why Choose Us for Bulk Orders?
-      </h4>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
-        {[
-          { icon: '💰', title: 'Special Pricing', desc: 'Discounted rates for bulk orders — the more you order, the more you save' },
-          { icon: '🚴', title: 'Dedicated Delivery', desc: 'Separate delivery timings for bulk orders — no delay to your operations' },
-          { icon: '📞', title: 'Account Manager', desc: 'Dedicated point of contact for all your bulk order needs' },
-        ].map(({ icon, title, desc }) => (
-          <div key={title}>
-            <div className="text-4xl mb-3">{icon}</div>
-            <p className="font-semibold text-[#1c1c1c] mb-2">{title}</p>
-            <p className="text-sm text-gray-600">{desc}</p>
+          {/* Who we serve */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10">
+            {[
+              { icon: '🏫', title: 'Schools', desc: 'Daily morning supply' },
+              { icon: '🏨', title: 'Hotels & Resorts', desc: 'Fresh daily delivery' },
+              { icon: '🏥', title: 'Hospitals & Clinics', desc: 'Reliable supply' },
+              { icon: '🏢', title: 'Offices & Corporates', desc: 'Bulk subscription' },
+              { icon: '🏠', title: 'Hostels & PGs', desc: 'Daily delivery' },
+              { icon: '🍽️', title: 'Restaurants & Cafes', desc: 'Fresh daily' },
+            ].map(({ icon, title, desc }) => (
+              <div key={title} className="bg-white border border-[#e8e0d0] rounded-xl p-5 text-center hover:shadow-md transition">
+                <div className="text-4xl mb-3">{icon}</div>
+                <p className="font-semibold text-[#1c1c1c]">{title}</p>
+                <p className="text-xs text-gray-600 mt-1">{desc}</p>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-    </div>
 
-    {/* Bulk Enquiry Form */}
-    <div className="mt-10 max-w-xl mx-auto">
-      <h4 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c] mb-2 text-center">Send a Bulk Enquiry</h4>
-      <p className="text-gray-500 text-sm text-center mb-6">Fill in your details and we'll get back to you within 24 hours with a custom quote.</p>
-      {bulkSubmitted ? (
-        <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-2xl p-8 text-center">
-          <div className="text-4xl mb-3">✅</div>
-          <p className="font-bold text-[#1a5c38] text-lg">Enquiry Received!</p>
-          <p className="text-gray-500 text-sm mt-2">We'll contact you within 24 hours. You can also reach us directly on WhatsApp.</p>
-          <a href="https://wa.me/918105054473" target="_blank"
-            className="inline-flex items-center gap-2 mt-4 text-white text-sm font-bold px-5 py-2.5 rounded-lg hover:opacity-90 transition"
-            style={{background:'#25D366'}}>
-            WhatsApp Us
-          </a>
-        </div>
-      ) : (
-        <form onSubmit={handleBulkEnquiry} className="bg-white rounded-2xl p-6 shadow-sm border border-[#e8e0d0] flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="bulk-name" className="text-xs font-semibold text-gray-600 mb-1 block">Your Name *</label>
-              <input id="bulk-name" name="name" required type="text" placeholder="Ravi Kumar" autoComplete="name"
-                value={bulkForm.name} onChange={e => setBulkForm(f => ({...f, name: e.target.value}))}
-                className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
-            </div>
-            <div>
-              <label htmlFor="bulk-phone" className="text-xs font-semibold text-gray-600 mb-1 block">Phone Number *</label>
-              <input id="bulk-phone" name="phone" required type="tel" placeholder="9876543210"
-                pattern="[0-9]{10}" maxLength={10} inputMode="numeric" autoComplete="tel-national"
-                aria-invalid={!!bulkPhoneError} aria-describedby={bulkPhoneError ? 'bulk-phone-error' : undefined}
-                value={bulkForm.phone}
-                onChange={e => { const v = e.target.value.replace(/\D/g, ''); setBulkForm(f => ({...f, phone: v})); setBulkPhoneError('') }}
-                className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none ${bulkPhoneError ? 'border-red-400 focus:border-red-400' : 'border-[#e8e0d0] focus:border-[#1a5c38]'}`} />
-              {bulkPhoneError && <p id="bulk-phone-error" className="text-red-500 text-xs mt-1">{bulkPhoneError}</p>}
+          {/* Benefits */}
+          <div className="bg-white border border-[#e8e0d0] rounded-2xl p-8 mb-8">
+            <h4 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#1c1c1c] mb-6 text-center">
+              Why Choose Us for Bulk Orders?
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
+              {[
+                { icon: '💰', title: 'Special Pricing', desc: 'Discounted rates for bulk orders — the more you order, the more you save' },
+                { icon: '🚴', title: 'Dedicated Delivery', desc: 'Separate delivery timings for bulk orders — no delay to your operations' },
+                { icon: '📞', title: 'Account Manager', desc: 'Dedicated point of contact for all your bulk order needs' },
+              ].map(({ icon, title, desc }) => (
+                <div key={title}>
+                  <div className="text-4xl mb-3">{icon}</div>
+                  <p className="font-semibold text-[#1c1c1c] mb-2">{title}</p>
+                  <p className="text-sm text-gray-600">{desc}</p>
+                </div>
+              ))}
             </div>
           </div>
-          <div>
-            <label htmlFor="bulk-institution" className="text-xs font-semibold text-gray-600 mb-1 block">Institution / Business Name *</label>
-            <input id="bulk-institution" name="institution" required type="text" placeholder="Hotel Sunshine, ABC School, etc." autoComplete="organization"
-              value={bulkForm.institution} onChange={e => setBulkForm(f => ({...f, institution: e.target.value}))}
-              className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
-          </div>
-          <div>
-            <label htmlFor="bulk-quantity" className="text-xs font-semibold text-gray-600 mb-1 block">Approximate Daily Quantity (litres)</label>
-            <input id="bulk-quantity" name="quantity" type="text" placeholder="e.g. 20 litres/day"
-              value={bulkForm.quantity} onChange={e => setBulkForm(f => ({...f, quantity: e.target.value}))}
-              className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38]" />
-          </div>
-          <div>
-            <label htmlFor="bulk-message" className="text-xs font-semibold text-gray-600 mb-1 block">Message (optional)</label>
-            <textarea id="bulk-message" name="message" rows={3} placeholder="Any special requirements, delivery timing preferences..."
-              value={bulkForm.message} onChange={e => setBulkForm(f => ({...f, message: e.target.value}))}
-              className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1a5c38] resize-none" />
-          </div>
-          <button type="submit" disabled={bulkSubmitting}
-            className="text-white py-3 rounded-lg font-bold transition disabled:opacity-60"
-            style={{background:'linear-gradient(135deg, #1a5c38, #2d7a50)'}}>
-            {bulkSubmitting ? 'Sending...' : '📩 Send Enquiry'}
-          </button>
-          <p className="text-xs text-gray-600 text-center">We'll respond within 24 hours. Prefer instant help? <a href="https://wa.me/918105054473" target="_blank" className="text-[#25D366] font-semibold">Chat on WhatsApp</a></p>
-        </form>
-      )}
-    </div>
-  </div>
-</section>
 
-{/* FAQ */}
-<section id="faq" className="bg-white px-6 py-12">
-  <div className="max-w-3xl mx-auto">
-    <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">Got Questions?</p>
-    <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-8">Frequently Asked Questions</h3>
-    <div className="flex flex-col gap-3">
-      {FAQ_ITEMS.map(({ q, a }, index) => (
-        <details key={q} className="bg-[#fdfbf7] border border-[#e8e0d0] rounded-xl overflow-hidden group">
-          <summary className="px-5 py-4 cursor-pointer flex items-center justify-between font-semibold text-[#1c1c1c] font-[family-name:var(--font-playfair)] list-none hover:bg-[#f5f0e8] transition">
-            <span>{q}</span>
-            <span className="text-[#d4a017] text-xl font-bold group-open:rotate-45 transition-transform duration-200 flex-shrink-0 ml-4">+</span>
-          </summary>
-          <div className="px-5 pb-4 pt-1 border-t border-[#e8e0d0]">
-            <p className="text-gray-500 text-sm leading-relaxed">{a}</p>
+          <BulkEnquiryForm />
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section id="faq" className="bg-white px-6 py-12">
+        <div className="max-w-3xl mx-auto">
+          <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-3">Got Questions?</p>
+          <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-center text-[#1c1c1c] mb-8">Frequently Asked Questions</h3>
+          <div className="flex flex-col gap-3">
+            {FAQ_ITEMS.map(({ q, a }) => (
+              <details key={q} className="bg-[#fdfbf7] border border-[#e8e0d0] rounded-xl overflow-hidden group">
+                <summary className="px-5 py-4 cursor-pointer flex items-center justify-between font-semibold text-[#1c1c1c] font-[family-name:var(--font-playfair)] list-none hover:bg-[#f5f0e8] transition">
+                  <span>{q}</span>
+                  <span className="text-[#d4a017] text-xl font-bold group-open:rotate-45 transition-transform duration-200 flex-shrink-0 ml-4">+</span>
+                </summary>
+                <div className="px-5 pb-4 pt-1 border-t border-[#e8e0d0]">
+                  <p className="text-gray-500 text-sm leading-relaxed">{a}</p>
+                </div>
+              </details>
+            ))}
           </div>
-        </details>
-      ))}
-    </div>
-  </div>
-</section>
-      
+        </div>
+      </section>
+
       {/* Delivery Zones */}
       <section className="bg-[#fdfbf7] px-6 py-12">
         <div className="max-w-4xl mx-auto">
@@ -740,19 +549,19 @@ export default function Home() {
       </section>
 
       {/* Contact */}
-<section id="contact" className="bg-[#f5f0e8] px-6 py-12">
-<div className="max-w-4xl mx-auto text-center">
-        <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase mb-3">Get In Touch</p>
-        <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#1c1c1c] mb-5">Contact Us</h3>
-        <p className="text-gray-500 mb-10">Have questions? We're always happy to help!</p>
-        <div className="flex flex-wrap justify-center gap-8 text-sm text-gray-600">
-          <span className="flex items-center gap-2">📞 <a href="tel:8105054473" className="text-[#1a5c38] font-semibold hover:underline">8105054473</a> <span className="text-gray-600 text-xs">(Mon–Sun, 6AM–8PM)</span></span>
-          <span className="flex items-center gap-2">💬 <a href="https://wa.me/918105054473" target="_blank" className="text-[#1a5c38] font-semibold hover:underline">WhatsApp Us</a></span>
-          <span className="flex items-center gap-2">✉️ <a href="mailto:hello@srikrishnaadairy.in" className="text-[#1a5c38] font-semibold hover:underline">hello@srikrishnaadairy.in</a></span>
-          <span className="flex items-center gap-2">📍 <span>Kattigenahalli, Bangalore, Karnataka</span></span>
+      <section id="contact" className="bg-[#f5f0e8] px-6 py-12">
+        <div className="max-w-4xl mx-auto text-center">
+          <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase mb-3">Get In Touch</p>
+          <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#1c1c1c] mb-5">Contact Us</h3>
+          <p className="text-gray-500 mb-10">Have questions? We're always happy to help!</p>
+          <div className="flex flex-wrap justify-center gap-8 text-sm text-gray-600">
+            <span className="flex items-center gap-2">📞 <a href="tel:8105054473" className="text-[#1a5c38] font-semibold hover:underline">8105054473</a> <span className="text-gray-600 text-xs">(Mon–Sun, 6AM–8PM)</span></span>
+            <span className="flex items-center gap-2">💬 <a href="https://wa.me/918105054473" target="_blank" className="text-[#1a5c38] font-semibold hover:underline">WhatsApp Us</a></span>
+            <span className="flex items-center gap-2">✉️ <a href="mailto:hello@srikrishnaadairy.in" className="text-[#1a5c38] font-semibold hover:underline">hello@srikrishnaadairy.in</a></span>
+            <span className="flex items-center gap-2">📍 <span>Kattigenahalli, Bangalore, Karnataka</span></span>
+          </div>
         </div>
-      </div>
-</section>
+      </section>
 
       {/* CTA */}
       <section className="relative overflow-hidden px-6 py-12 text-center"
@@ -828,16 +637,7 @@ export default function Home() {
                     <span className="text-[#d4a017] font-semibold">₹{p.price}</span>
                   </li>
                 )) : (
-                  <>
-                    <li className="flex justify-between">
-                      <span>Fresh Cow Milk 500ml</span>
-                      <span className="text-[#d4a017] font-semibold animate-pulse">—</span>
-                    </li>
-                    <li className="flex justify-between">
-                      <span>Fresh Cow Milk 1000ml</span>
-                      <span className="text-[#d4a017] font-semibold animate-pulse">—</span>
-                    </li>
-                  </>
+                  <li className="text-gray-400">Updating shortly</li>
                 )}
               </ul>
             </div>
@@ -900,14 +700,7 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* Sticky mobile CTA */}
-      {authChecked && !isLoggedIn && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#e8e0d0] px-4 py-3 shadow-[0_-2px_12px_rgba(0,0,0,0.08)]">
-          <Link href="/signup" className="block w-full bg-[#1a5c38] text-white text-center font-bold py-3 rounded-lg">
-            Start Your 3-Day Free Trial →
-          </Link>
-        </div>
-      )}
+      <StickyMobileCta />
 
     </div>
   )
