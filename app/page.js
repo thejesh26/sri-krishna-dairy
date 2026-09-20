@@ -1,5 +1,10 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import {
+  Phone, Mail, MapPin, Clock, CheckCircle2, RotateCcw, MessageCircle,
+  Share2, PartyPopper, School, Hotel, Hospital, Building2, Home as HomeIcon, UtensilsCrossed,
+  IndianRupee, Bike,
+} from 'lucide-react'
 import { createServerClient } from './lib/supabase-server'
 import { FAQ_ITEMS } from './lib/faq'
 import JsonLd from './components/JsonLd'
@@ -276,12 +281,12 @@ export default async function Home() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
             {[
-              { icon: '📲', step: '1', title: 'Share Your Link', desc: 'Send your referral link to a friend via WhatsApp or any app' },
-              { icon: '✅', step: '2', title: 'They Subscribe', desc: 'Your friend signs up and starts their first subscription' },
-              { icon: '🎉', step: '3', title: 'You Both Win', desc: 'A free delivery is credited to both your wallets automatically' },
-            ].map(({ icon, step, title, desc }) => (
+              { Icon: Share2, step: '1', title: 'Share Your Link', desc: 'Send your referral link to a friend via WhatsApp or any app' },
+              { Icon: CheckCircle2, step: '2', title: 'They Subscribe', desc: 'Your friend signs up and starts their first subscription' },
+              { Icon: PartyPopper, step: '3', title: 'You Both Win', desc: 'A free delivery is credited to both your wallets automatically' },
+            ].map(({ Icon, step, title, desc }) => (
               <div key={step} className="bg-[#f5f0e8] rounded-xl p-6 text-center border border-[#e8e0d0]">
-                <div className="text-4xl mb-3">{icon}</div>
+                <Icon className="w-9 h-9 mx-auto mb-3 text-[#1a5c38]" strokeWidth={1.75} />
                 <p className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c] mb-1">{title}</p>
                 <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
               </div>
@@ -306,12 +311,12 @@ export default async function Home() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
             {[
-              { icon: '✅', title: 'Quality Guarantee', desc: 'Report by 6PM the same day — we replace it next delivery' },
-              { icon: '⏰', title: 'On-Time Guarantee', desc: 'Delivered within your chosen slot (7AM–9AM or 5PM–7PM), guaranteed' },
-              { icon: '🔄', title: 'Flexibility Guarantee', desc: 'Pause or cancel anytime with 12 hours notice' },
-            ].map(({ icon, title, desc }) => (
+              { Icon: CheckCircle2, title: 'Quality Guarantee', desc: 'Report by 6PM the same day — we replace it next delivery' },
+              { Icon: Clock, title: 'On-Time Guarantee', desc: 'Delivered within your chosen slot (7AM–9AM or 5PM–7PM), guaranteed' },
+              { Icon: RotateCcw, title: 'Flexibility Guarantee', desc: 'Pause or cancel anytime with 12 hours notice' },
+            ].map(({ Icon, title, desc }) => (
               <div key={title} className="bg-[#14472c] rounded-lg p-6">
-                <div className="text-3xl mb-3">{icon}</div>
+                <Icon className="w-8 h-8 mx-auto mb-3 text-[#d4a017]" strokeWidth={1.75} />
                 <p className="font-semibold text-white">{title}</p>
                 <p className="text-green-300 text-sm mt-1">{desc}</p>
               </div>
@@ -372,15 +377,15 @@ export default async function Home() {
           {/* Who we serve */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10">
             {[
-              { icon: '🏫', title: 'Schools', desc: 'Daily morning supply' },
-              { icon: '🏨', title: 'Hotels & Resorts', desc: 'Fresh daily delivery' },
-              { icon: '🏥', title: 'Hospitals & Clinics', desc: 'Reliable supply' },
-              { icon: '🏢', title: 'Offices & Corporates', desc: 'Bulk subscription' },
-              { icon: '🏠', title: 'Hostels & PGs', desc: 'Daily delivery' },
-              { icon: '🍽️', title: 'Restaurants & Cafes', desc: 'Fresh daily' },
-            ].map(({ icon, title, desc }) => (
+              { Icon: School, title: 'Schools', desc: 'Daily morning supply' },
+              { Icon: Hotel, title: 'Hotels & Resorts', desc: 'Fresh daily delivery' },
+              { Icon: Hospital, title: 'Hospitals & Clinics', desc: 'Reliable supply' },
+              { Icon: Building2, title: 'Offices & Corporates', desc: 'Bulk subscription' },
+              { Icon: HomeIcon, title: 'Hostels & PGs', desc: 'Daily delivery' },
+              { Icon: UtensilsCrossed, title: 'Restaurants & Cafes', desc: 'Fresh daily' },
+            ].map(({ Icon, title, desc }) => (
               <div key={title} className="bg-white border border-[#e8e0d0] rounded-xl p-5 text-center hover:shadow-md transition">
-                <div className="text-4xl mb-3">{icon}</div>
+                <Icon className="w-8 h-8 mx-auto mb-3 text-[#1a5c38]" strokeWidth={1.75} />
                 <p className="font-semibold text-[#1c1c1c]">{title}</p>
                 <p className="text-xs text-gray-600 mt-1">{desc}</p>
               </div>
@@ -394,12 +399,12 @@ export default async function Home() {
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
               {[
-                { icon: '💰', title: 'Special Pricing', desc: 'Discounted rates for bulk orders — the more you order, the more you save' },
-                { icon: '🚴', title: 'Dedicated Delivery', desc: 'Separate delivery timings for bulk orders — no delay to your operations' },
-                { icon: '📞', title: 'Account Manager', desc: 'Dedicated point of contact for all your bulk order needs' },
-              ].map(({ icon, title, desc }) => (
+                { Icon: IndianRupee, title: 'Special Pricing', desc: 'Discounted rates for bulk orders — the more you order, the more you save' },
+                { Icon: Bike, title: 'Dedicated Delivery', desc: 'Separate delivery timings for bulk orders — no delay to your operations' },
+                { Icon: Phone, title: 'Account Manager', desc: 'Dedicated point of contact for all your bulk order needs' },
+              ].map(({ Icon, title, desc }) => (
                 <div key={title}>
-                  <div className="text-4xl mb-3">{icon}</div>
+                  <Icon className="w-8 h-8 mx-auto mb-3 text-[#1a5c38]" strokeWidth={1.75} />
                   <p className="font-semibold text-[#1c1c1c] mb-2">{title}</p>
                   <p className="text-sm text-gray-600">{desc}</p>
                 </div>
@@ -555,10 +560,10 @@ export default async function Home() {
           <h3 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#1c1c1c] mb-5">Contact Us</h3>
           <p className="text-gray-500 mb-10">Have questions? We're always happy to help!</p>
           <div className="flex flex-wrap justify-center gap-8 text-sm text-gray-600">
-            <span className="flex items-center gap-2">📞 <a href="tel:8105054473" className="text-[#1a5c38] font-semibold hover:underline">8105054473</a> <span className="text-gray-600 text-xs">(Mon–Sun, 6AM–8PM)</span></span>
-            <span className="flex items-center gap-2">💬 <a href="https://wa.me/918105054473" target="_blank" className="text-[#1a5c38] font-semibold hover:underline">WhatsApp Us</a></span>
-            <span className="flex items-center gap-2">✉️ <a href="mailto:hello@srikrishnaadairy.in" className="text-[#1a5c38] font-semibold hover:underline">hello@srikrishnaadairy.in</a></span>
-            <span className="flex items-center gap-2">📍 <span>Kattigenahalli, Bangalore, Karnataka</span></span>
+            <span className="flex items-center gap-2"><Phone className="w-4 h-4 text-[#1a5c38]" strokeWidth={2} /> <a href="tel:8105054473" className="text-[#1a5c38] font-semibold hover:underline">8105054473</a> <span className="text-gray-600 text-xs">(Mon–Sun, 6AM–8PM)</span></span>
+            <span className="flex items-center gap-2"><MessageCircle className="w-4 h-4 text-[#1a5c38]" strokeWidth={2} /> <a href="https://wa.me/918105054473" target="_blank" className="text-[#1a5c38] font-semibold hover:underline">WhatsApp Us</a></span>
+            <span className="flex items-center gap-2"><Mail className="w-4 h-4 text-[#1a5c38]" strokeWidth={2} /> <a href="mailto:hello@srikrishnaadairy.in" className="text-[#1a5c38] font-semibold hover:underline">hello@srikrishnaadairy.in</a></span>
+            <span className="flex items-center gap-2"><MapPin className="w-4 h-4 text-[#1a5c38]" strokeWidth={2} /> <span>Kattigenahalli, Bangalore, Karnataka</span></span>
           </div>
         </div>
       </section>
@@ -591,7 +596,7 @@ export default async function Home() {
       <section className="max-w-3xl mx-auto px-6 py-6">
         <a href="https://wa.me/918105054473?text=Hi" target="_blank"
           className="flex items-center gap-3 bg-[#25D366] text-white rounded-xl px-4 py-3 text-sm font-semibold">
-          <span>💬</span>
+          <MessageCircle className="w-5 h-5 flex-shrink-0" strokeWidth={2} />
           <span>Save our number & send us a Hi on WhatsApp to receive delivery updates!</span>
         </a>
       </section>
@@ -647,19 +652,19 @@ export default async function Home() {
               <p className="font-semibold text-white text-sm uppercase tracking-widest mb-5">Contact Us</p>
               <ul className="flex flex-col gap-4 text-sm text-gray-300">
                 <li className="flex items-start gap-3">
-                  <span className="text-[#d4a017] mt-0.5">📞</span>
+                  <Phone className="w-4 h-4 text-[#d4a017] mt-0.5 flex-shrink-0" strokeWidth={2} />
                   <a href="tel:8105054473" className="hover:text-white transition">8105054473</a>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="text-[#d4a017] mt-0.5">✉️</span>
+                  <Mail className="w-4 h-4 text-[#d4a017] mt-0.5 flex-shrink-0" strokeWidth={2} />
                   <a href="mailto:hello@srikrishnaadairy.in" className="hover:text-white transition">hello@srikrishnaadairy.in</a>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="text-[#d4a017] mt-0.5">📍</span>
+                  <MapPin className="w-4 h-4 text-[#d4a017] mt-0.5 flex-shrink-0" strokeWidth={2} />
                   <span>Kattigenahalli,<br />Bangalore, Karnataka</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="text-[#d4a017] mt-0.5">🕐</span>
+                  <Clock className="w-4 h-4 text-[#d4a017] mt-0.5 flex-shrink-0" strokeWidth={2} />
                   <span>Morning: 7AM – 9AM<br />Evening: 5PM – 7PM</span>
                 </li>
               </ul>

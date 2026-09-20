@@ -238,12 +238,12 @@ export default function Order() {
         <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1c1c1c] mb-2 text-center">Try Before You Subscribe 🥛</h2>
         <p className="text-center text-gray-600 text-sm mb-4">Fresh milk delivered for 3 days — no subscription, no deposit</p>
 
-        {/* Raw milk safety disclaimer */}
-        <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 mb-6">
-          <span className="text-xl flex-shrink-0 mt-0.5">⚠️</span>
-          <p className="text-amber-800 text-sm leading-relaxed">
-            <span className="font-semibold">Raw Milk Advisory:</span> Our milk is farm-fresh and unprocessed.{' '}
-            <span className="font-semibold">Please boil before consumption</span>, especially for children, elderly, pregnant women, and immunocompromised individuals.
+        {/* Raw milk safety note */}
+        <div className="flex items-start gap-3 bg-[#f0faf4] border border-[#c8e6d4] rounded-xl px-4 py-3 mb-6">
+          <span className="text-xl flex-shrink-0 mt-0.5">🌿</span>
+          <p className="text-[#1a5c38] text-sm leading-relaxed">
+            <span className="font-semibold">About your milk:</span> It's 100% natural and farm-fresh — never processed, just like it should be.{' '}
+            <span className="font-semibold">We recommend boiling it before use</span>, especially for children, elderly, pregnant women, and immunocompromised individuals — this is standard practice for all raw milk.
           </p>
         </div>
 
