@@ -191,7 +191,7 @@ export default function AddonOrder() {
       <div className="max-w-lg mx-auto px-6 py-8">
         <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-2">Add-on Order</p>
         <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1c1c1c] mb-1 text-center">Order Extra Milk 🥛</h2>
-        <p className="text-center text-gray-400 text-sm mb-6">Subscribers only • Wallet payment only</p>
+        <p className="text-center text-gray-600 text-sm mb-6">Subscribers only • Wallet payment only</p>
 
         {/* Current Subscription */}
         <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-xl p-4 mb-5">
@@ -224,7 +224,7 @@ export default function AddonOrder() {
                   <div className="flex justify-between items-center">
                     <div>
                       <p className="font-semibold text-[#1c1c1c] text-sm">{p.name} - {p.size}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">₹{p.price}/bottle</p>
+                      <p className="text-xs text-gray-600 mt-0.5">₹{p.price}/bottle</p>
                     </div>
                     {selectedProduct?.id === p.id && <span className="text-[#1a5c38] font-bold text-lg">✓</span>}
                   </div>
@@ -257,7 +257,7 @@ export default function AddonOrder() {
                   onClick={() => setDeliverySlot(s.value)}
                   className={`border-2 rounded-xl p-3 text-left transition ${deliverySlot === s.value ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0]'}`}>
                   <p className="font-semibold text-sm">{s.label}</p>
-                  <p className="text-xs text-gray-400">{s.desc}</p>
+                  <p className="text-xs text-gray-600">{s.desc}</p>
                 </button>
               ))}
             </div>
@@ -350,7 +350,7 @@ export default function AddonOrder() {
                     {new Date(d).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
                   </span>
                 ))}
-                {dates.length > 8 && <span className="text-xs text-gray-400 py-1.5">+{dates.length - 8} more</span>}
+                {dates.length > 8 && <span className="text-xs text-gray-600 py-1.5">+{dates.length - 8} more</span>}
               </div>
             </div>
           )}
@@ -368,7 +368,7 @@ export default function AddonOrder() {
       {/* My Addon Orders */}
       {myAddonOrders.length > 0 && (
         <div className="max-w-lg mx-auto px-6 pb-8">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">My Addon Orders</p>
+          <p className="text-xs font-bold text-gray-600 uppercase tracking-widest mb-3">My Addon Orders</p>
           <div className="flex flex-col gap-3">
             {myAddonOrders.map(o => {
               const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
@@ -389,7 +389,7 @@ export default function AddonOrder() {
                     <p className="text-sm font-semibold text-[#1c1c1c]">
                       {o.products?.size} × {o.quantity}
                     </p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-600">
                       {new Date(o.delivery_date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })} · ₹{o.total_price}
                     </p>
                   </div>

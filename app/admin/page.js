@@ -1289,7 +1289,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                         </button>
                       )}
                       <button onClick={() => { loadNotifications(); setNotifLoaded(false) }}
-                        className="text-xs text-gray-400 hover:text-[#1a5c38] transition">↻</button>
+                        className="text-xs text-gray-600 hover:text-[#1a5c38] transition">↻</button>
                     </div>
                   </div>
                   {/* Type filters */}
@@ -1305,7 +1305,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                     {filteredNotifs.length === 0 ? (
                       <div className="px-4 py-8 text-center">
                         <div className="text-3xl mb-2">🔔</div>
-                        <p className="text-gray-400 text-sm">No notifications yet</p>
+                        <p className="text-gray-600 text-sm">No notifications yet</p>
                       </div>
                     ) : filteredNotifs.map((n, idx) => {
                       const meta = NOTIF_META[n.type] || { icon: '🔔', label: n.type, color: 'bg-gray-100 text-gray-600' }
@@ -1328,7 +1328,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${meta.color}`}>{meta.label}</span>
                             </div>
                             <p className={`text-sm ${!n.is_read ? 'font-semibold text-[#1c1c1c]' : 'text-gray-600'}`}>{n.title}</p>
-                            {n.body && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{n.body}</p>}
+                            {n.body && <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{n.body}</p>}
                             <p className="text-xs text-gray-300 mt-0.5">
                               {new Date(n.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                             </p>
@@ -1355,7 +1355,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
         {/* Page Title */}
         <div className="mb-8">
           <h2 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#1c1c1c]">Admin Dashboard</h2>
-          <p className="text-gray-400 text-sm mt-1">
+          <p className="text-gray-600 text-sm mt-1">
             {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
@@ -1373,7 +1373,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               style={{background: color, borderColor: border}}>
               <div className="text-2xl mb-2">{icon}</div>
               <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1c1c1c]">{value}</p>
-              <p className="text-xs text-gray-400 mt-1">{label}</p>
+              <p className="text-xs text-gray-600 mt-1">{label}</p>
             </div>
           ))}
         </div>
@@ -1464,7 +1464,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">
                   Today's Deliveries
                 </h3>
-                <p className="text-xs text-gray-400 mt-0.5">{todayOrders.length + todayAddons.length + todaySubscriptions.length} deliveries today ({todaySubscriptions.length} subscriptions, {todayOrders.length + todayAddons.length} one-time)</p>
+                <p className="text-xs text-gray-600 mt-0.5">{todayOrders.length + todayAddons.length + todaySubscriptions.length} deliveries today ({todaySubscriptions.length} subscriptions, {todayOrders.length + todayAddons.length} one-time)</p>
                 {(() => {
                   const counts = {}
                   todaySubscriptions.forEach(item => {
@@ -1505,7 +1505,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
             {todayOrders.length === 0 && todaySubscriptions.length === 0 && todayAddons.length === 0 ? (
               <div className="px-6 py-12 text-center">
                 <div className="text-5xl mb-3">📭</div>
-                <p className="text-gray-400">No deliveries scheduled for today</p>
+                <p className="text-gray-600">No deliveries scheduled for today</p>
               </div>
             ) : (
               <div>
@@ -1530,12 +1530,12 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#fdf6e3] text-[#d4a017] border border-[#f0dfa0]">{getSubDayLabel(sub)}</span>
                         <AddressBadge profile={sub.profiles} />
                       </div>
-                      <p className="text-sm text-gray-400">{sub.profiles?.apartment_name}, Flat {sub.profiles?.flat_number}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{sub.profiles?.area} • 📞 {sub.profiles?.phone}</p>
+                      <p className="text-sm text-gray-600">{sub.profiles?.apartment_name}, Flat {sub.profiles?.flat_number}</p>
+                      <p className="text-xs text-gray-600 mt-0.5">{sub.profiles?.area} • 📞 {sub.profiles?.phone}</p>
                       <p className="text-xs text-[#1a5c38] font-medium mt-1">
                         {sub.products?.size} x {sub.quantity} • {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
                       </p>
-                      <p className="text-xs text-gray-400 mt-0.5">{formatSubDateRange(sub)}</p>
+                      <p className="text-xs text-gray-600 mt-0.5">{formatSubDateRange(sub)}</p>
                     </div>
                     <div className="text-right flex-shrink-0 flex flex-col gap-1">
                       <p className="font-bold text-[#1a5c38] mb-0.5">₹{(sub.products?.price || 0) * sub.quantity}</p>
@@ -1590,8 +1590,8 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                           <span className="text-xs font-semibold px-2 py-0.5 rounded-full border bg-blue-50 text-blue-600 border-blue-200">➕ Extra</span>
                           <AddressBadge profile={addon.profiles} />
                         </div>
-                        <p className="text-sm text-gray-400">{addon.profiles?.apartment_name}, Flat {addon.profiles?.flat_number}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{addon.profiles?.area} • 📞 {addon.profiles?.phone}</p>
+                        <p className="text-sm text-gray-600">{addon.profiles?.apartment_name}, Flat {addon.profiles?.flat_number}</p>
+                        <p className="text-xs text-gray-600 mt-0.5">{addon.profiles?.area} • 📞 {addon.profiles?.phone}</p>
                         <p className="text-xs text-[#1a5c38] font-medium mt-1">
                           {addon.products?.size} x {addon.quantity} • {addon.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
                         </p>
@@ -1678,8 +1678,8 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                         </span>
                         <AddressBadge profile={order.profiles} />
                       </div>
-                      <p className="text-sm text-gray-400">{order.profiles?.apartment_name}, Flat {order.profiles?.flat_number}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{order.profiles?.area} • 📞 {order.profiles?.phone}</p>
+                      <p className="text-sm text-gray-600">{order.profiles?.apartment_name}, Flat {order.profiles?.flat_number}</p>
+                      <p className="text-xs text-gray-600 mt-0.5">{order.profiles?.area} • 📞 {order.profiles?.phone}</p>
                       <p className="text-xs text-[#1a5c38] font-medium mt-1">
                         {order.products?.size} x {order.quantity} • {order.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
                       </p>
@@ -1754,10 +1754,10 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       Tomorrow's Deliveries
                     </h3>
                     {!upcomingLoaded ? (
-                      <p className="text-xs text-gray-400 mt-0.5">Loading...</p>
+                      <p className="text-xs text-gray-600 mt-0.5">Loading...</p>
                     ) : (
                       <>
-                        <p className="text-xs text-gray-400 mt-0.5">
+                        <p className="text-xs text-gray-600 mt-0.5">
                           {total} deliveries ({tSubs.length} subscriptions, {tOrders.length + tAddons.length} one-time)
                         </p>
                         {Object.entries(sizeCounts).length > 0 && (
@@ -1784,11 +1784,11 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                   nameFilter={tomorrowNameFilter} setNameFilter={setTomorrowNameFilter}
                 />
                 {!upcomingLoaded ? (
-                  <div className="px-6 py-12 text-center text-gray-400">Loading...</div>
+                  <div className="px-6 py-12 text-center text-gray-600">Loading...</div>
                 ) : total === 0 ? (
                   <div className="px-6 py-12 text-center">
                     <div className="text-5xl mb-3">📭</div>
-                    <p className="text-gray-400">No deliveries scheduled for tomorrow</p>
+                    <p className="text-gray-600">No deliveries scheduled for tomorrow</p>
                   </div>
                 ) : (
                   <div>
@@ -1804,9 +1804,9 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                             {sub.start_date === tomorrowStr && <span className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full font-semibold">🆕 First delivery</span>}
                             <AddressBadge profile={sub.profiles} />
                           </div>
-                          <p className="text-xs text-gray-400">{sub.profiles?.phone} · {sub.profiles?.area}</p>
+                          <p className="text-xs text-gray-600">{sub.profiles?.phone} · {sub.profiles?.area}</p>
                           <p className="text-xs text-[#1a5c38] font-medium mt-0.5">{sub.products?.size} × {getScheduledQuantity(sub, tomorrowStr)} · {sub.delivery_slot === 'morning' ? '🌅 7–9AM' : '🌆 5–7PM'}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{formatSubDateRange(sub)}</p>
+                          <p className="text-xs text-gray-600 mt-0.5">{formatSubDateRange(sub)}</p>
                         </div>
                       </div>
                     ))}
@@ -1823,7 +1823,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                             </span>
                             <AddressBadge profile={order.profiles} />
                           </div>
-                          <p className="text-xs text-gray-400">{order.profiles?.phone} · {order.profiles?.area}</p>
+                          <p className="text-xs text-gray-600">{order.profiles?.phone} · {order.profiles?.area}</p>
                           <p className="text-xs text-[#1a5c38] font-medium mt-0.5">{order.products?.size} × {order.quantity} · {order.delivery_slot === 'morning' ? '🌅 7–9AM' : '🌆 5–7PM'}</p>
                         </div>
                       </div>
@@ -1837,7 +1837,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                             <span className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full font-semibold">➕ Extra</span>
                             <AddressBadge profile={addon.profiles} />
                           </div>
-                          <p className="text-xs text-gray-400">{addon.profiles?.phone} · {addon.profiles?.area}</p>
+                          <p className="text-xs text-gray-600">{addon.profiles?.phone} · {addon.profiles?.area}</p>
                           <p className="text-xs text-[#1a5c38] font-medium mt-0.5">{addon.products?.size} × {addon.quantity} · {addon.delivery_slot === 'morning' ? '🌅 7–9AM' : '🌆 5–7PM'}</p>
                         </div>
                       </div>
@@ -1861,7 +1861,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 />
               </div>
               {!upcomingLoaded ? (
-                <div className="text-center py-12 text-gray-400">Loading...</div>
+                <div className="text-center py-12 text-gray-600">Loading...</div>
               ) : Object.entries(upcomingDeliveries).map(([date, { subscriptions, orders }]) => {
                 const dateAddons = addonOrders.filter(a => a.delivery_date === date && a.status !== 'cancelled')
                 subscriptions = subscriptions.filter(item => matchesTodayFilters(item, upcomingApartmentFilter, upcomingTowerFilter, upcomingNameFilter))
@@ -1888,9 +1888,9 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                               <span className="text-xs bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4] px-2 py-0.5 rounded-full font-semibold">📅 Subscription</span>
                               {sub.start_date === date && <span className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full font-semibold">🆕 First delivery</span>}
                             </div>
-                            <p className="text-xs text-gray-400">{sub.profiles?.phone} · {sub.profiles?.area}</p>
+                            <p className="text-xs text-gray-600">{sub.profiles?.phone} · {sub.profiles?.area}</p>
                             <p className="text-xs text-[#1a5c38] font-medium mt-0.5">{sub.products?.size} × {getScheduledQuantity(sub, date)} · {sub.delivery_slot === 'morning' ? '🌅 7–9AM' : '🌆 5–7PM'}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">{formatSubDateRange(sub)}</p>
+                            <p className="text-xs text-gray-600 mt-0.5">{formatSubDateRange(sub)}</p>
                           </div>
                         </div>
                       ))}
@@ -1901,7 +1901,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                               <p className="font-semibold text-[#1c1c1c] text-sm">{order.profiles?.full_name}</p>
                               <span className="text-xs bg-orange-50 text-orange-600 border border-orange-200 px-2 py-0.5 rounded-full font-semibold">🎁 {['COD', 'wallet', 'razorpay'].includes(order.payment_method) ? 'Trial' : 'Order'}</span>
                             </div>
-                            <p className="text-xs text-gray-400">{order.profiles?.phone} · {order.profiles?.area}</p>
+                            <p className="text-xs text-gray-600">{order.profiles?.phone} · {order.profiles?.area}</p>
                             <p className="text-xs text-[#1a5c38] font-medium mt-0.5">{order.products?.size} × {order.quantity} · {order.delivery_slot === 'morning' ? '🌅 7–9AM' : '🌆 5–7PM'}</p>
                           </div>
                         </div>
@@ -1913,7 +1913,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                               <p className="font-semibold text-[#1c1c1c] text-sm">{addon.profiles?.full_name}</p>
                               <span className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full font-semibold">➕ Extra</span>
                             </div>
-                            <p className="text-xs text-gray-400">{addon.profiles?.phone} · {addon.profiles?.area}</p>
+                            <p className="text-xs text-gray-600">{addon.profiles?.phone} · {addon.profiles?.area}</p>
                             <p className="text-xs text-[#1a5c38] font-medium mt-0.5">{addon.products?.size} × {addon.quantity} · {addon.delivery_slot === 'morning' ? '🌅 7–9AM' : '🌆 5–7PM'}</p>
                           </div>
                         </div>
@@ -1926,7 +1926,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
                 return a.delivery_date > today && a.status !== 'cancelled'
               }).length === 0 && (
-                <div className="text-center py-12 text-gray-400">No upcoming deliveries in the next 7 days.</div>
+                <div className="text-center py-12 text-gray-600">No upcoming deliveries in the next 7 days.</div>
               )}
             </div>
           )}
@@ -1949,12 +1949,12 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 {sortedDates.length === 0 ? (
                   <div className="bg-white rounded-2xl border border-[#e8e0d0] shadow-sm px-6 py-12 text-center">
                     <div className="text-5xl mb-3">✅</div>
-                    <p className="text-gray-400">No paused deliveries for today or upcoming days</p>
+                    <p className="text-gray-600">No paused deliveries for today or upcoming days</p>
                   </div>
                 ) : (
                   <>
                     <div className="flex items-center justify-between px-1">
-                      <p className="text-xs text-gray-400">{totalPaused} paused delivery{totalPaused !== 1 ? 's' : ''} across {sortedDates.length} day{sortedDates.length !== 1 ? 's' : ''}</p>
+                      <p className="text-xs text-gray-600">{totalPaused} paused delivery{totalPaused !== 1 ? 's' : ''} across {sortedDates.length} day{sortedDates.length !== 1 ? 's' : ''}</p>
                     </div>
                     {sortedDates.map(date => {
                       const subs = pausedByDate[date]
@@ -1984,7 +1984,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                                     <p className="font-semibold text-[#1c1c1c] text-sm">{sub.profiles?.full_name}</p>
                                     <AddressBadge profile={sub.profiles} />
                                   </div>
-                                  <p className="text-xs text-gray-400">{sub.profiles?.phone} · {sub.profiles?.area}</p>
+                                  <p className="text-xs text-gray-600">{sub.profiles?.phone} · {sub.profiles?.area}</p>
                                   <p className="text-xs text-orange-500 font-medium mt-0.5">
                                     {sub.products?.size} × {sub.quantity} · {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'} · paused
                                   </p>
@@ -2007,16 +2007,16 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               <div className="px-6 py-5 border-b border-[#f5f0e8] flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">📋 Delivery History</h3>
-                  <p className="text-xs text-gray-400 mt-0.5">Past 7 days — subscriptions and one-time orders</p>
+                  <p className="text-xs text-gray-600 mt-0.5">Past 7 days — subscriptions and one-time orders</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <div className="flex items-center gap-1">
-                    <label className="text-xs text-gray-400">From</label>
+                    <label className="text-xs text-gray-600">From</label>
                     <input type="date" value={historyStartDate} onChange={e => setHistoryStartDate(e.target.value)}
                       className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38]" />
                   </div>
                   <div className="flex items-center gap-1">
-                    <label className="text-xs text-gray-400">To</label>
+                    <label className="text-xs text-gray-600">To</label>
                     <input type="date" value={historyEndDate} onChange={e => setHistoryEndDate(e.target.value)}
                       className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38]" />
                   </div>
@@ -2051,7 +2051,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 </div>
               </div>
               {historyLoading ? (
-                <div className="px-6 py-12 text-center text-gray-400 text-sm">Loading delivery history...</div>
+                <div className="px-6 py-12 text-center text-gray-600 text-sm">Loading delivery history...</div>
               ) : (() => {
                 const filtered = deliveryHistory.filter(d => {
                   if (historyStartDate && d.date < historyStartDate) return false
@@ -2063,7 +2063,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                   return (
                     <div className="px-6 py-12 text-center">
                       <div className="text-5xl mb-3">📋</div>
-                      <p className="text-gray-400 text-sm">No delivery records found.</p>
+                      <p className="text-gray-600 text-sm">No delivery records found.</p>
                     </div>
                   )
                 }
@@ -2086,7 +2086,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                         </div>
                         <div className="overflow-x-auto">
                           <table className="w-full text-sm">
-                            <thead className="bg-[#fdfbf7] text-xs text-gray-400 uppercase tracking-widest">
+                            <thead className="bg-[#fdfbf7] text-xs text-gray-600 uppercase tracking-widest">
                               <tr>
                                 <th className="px-5 py-2 text-left">Customer</th>
                                 <th className="px-5 py-2 text-left">Product</th>
@@ -2100,9 +2100,9 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                                 <tr key={d.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#fdfbf7]'}>
                                   <td className="px-5 py-3">
                                     <p className="font-semibold text-[#1c1c1c]">{d.customerName}</p>
-                                    <p className="text-xs text-gray-400">{d.phone}</p>
+                                    <p className="text-xs text-gray-600">{d.phone}</p>
                                   </td>
-                                  <td className="px-5 py-3 text-[#1c1c1c]">{d.product} <span className="text-gray-400 text-xs">x{d.quantity}</span>{d.quantitySource && ['backfilled_flagged', 'unresolved_no_transaction'].includes(d.quantitySource) && (
+                                  <td className="px-5 py-3 text-[#1c1c1c]">{d.product} <span className="text-gray-600 text-xs">x{d.quantity}</span>{d.quantitySource && ['backfilled_flagged', 'unresolved_no_transaction'].includes(d.quantitySource) && (
                                     <span title={d.quantitySource === 'unresolved_no_transaction' ? 'No matching wallet transaction found — quantity is a best-effort guess' : 'Backfilled from historical data — please verify'} className="text-amber-500 cursor-help ml-1">≈</span>
                                   )}</td>
                                   <td className="px-5 py-3">
@@ -2111,7 +2111,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                                     </span>
                                   </td>
                                   <td className="px-5 py-3 text-gray-500 text-xs">{d.deliveredBy || '-'}</td>
-                                  <td className="px-5 py-3 text-gray-400 text-xs">
+                                  <td className="px-5 py-3 text-gray-600 text-xs">
                                     {d.deliveredAt ? new Date(d.deliveredAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '-'}
                                   </td>
                                 </tr>
@@ -2245,12 +2245,12 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
 
             <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
               <div className="px-6 py-4 border-b border-[#f5f0e8]">
-                <p className="text-xs text-gray-400">{visibleRows.filter(i => matchesAddressFilter(i, ordersAddressFilter)).length} {ordersSubTab.replace('_', ' ')} · orders + all active subscriptions combined</p>
+                <p className="text-xs text-gray-600">{visibleRows.filter(i => matchesAddressFilter(i, ordersAddressFilter)).length} {ordersSubTab.replace('_', ' ')} · orders + all active subscriptions combined</p>
               </div>
               {visibleRows.filter(i => matchesAddressFilter(i, ordersAddressFilter)).length === 0 ? (
                 <div className="px-6 py-12 text-center">
                   <div className="text-4xl mb-3">📭</div>
-                  <p className="text-gray-400 text-sm">No {ordersSubTab.replace('_', ' ')} items{ordersAddressFilter ? ' matching filter' : ''}</p>
+                  <p className="text-gray-600 text-sm">No {ordersSubTab.replace('_', ' ')} items{ordersAddressFilter ? ' matching filter' : ''}</p>
                 </div>
               ) : visibleRows.filter(i => matchesAddressFilter(i, ordersAddressFilter)).map((item, index) => {
                 const isSub = item._itemType === 'subscription'
@@ -2291,11 +2291,11 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                         )}
                         <AddressBadge profile={item.profiles} />
                       </div>
-                      <p className="text-xs text-gray-400">📞 {item.profiles?.phone}</p>
+                      <p className="text-xs text-gray-600">📞 {item.profiles?.phone}</p>
                       <p className="text-xs text-[#1a5c38] font-medium mt-0.5">
                         {item.products?.size} × {item.quantity} · {item.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
                         {item.delivery_date && (
-                          <span className="text-gray-400 ml-1">
+                          <span className="text-gray-600 ml-1">
                             · {new Date(item.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                           </span>
                         )}
@@ -2410,7 +2410,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               {subscriptions.filter(s => s.is_active).length === 0 ? (
                 <div className="px-6 py-10 text-center">
                   <div className="text-4xl mb-3">📅</div>
-                  <p className="text-gray-400 text-sm">No active subscriptions</p>
+                  <p className="text-gray-600 text-sm">No active subscriptions</p>
                 </div>
               ) : (
                 <div>
@@ -2422,8 +2422,8 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-[#1c1c1c]">{sub.profiles?.full_name}</p>
-                        <p className="text-sm text-gray-400">{sub.profiles?.area}, {sub.profiles?.apartment_name}</p>
-                        <p className="text-xs text-gray-400">📞 {sub.profiles?.phone}</p>
+                        <p className="text-sm text-gray-600">{sub.profiles?.area}, {sub.profiles?.apartment_name}</p>
+                        <p className="text-xs text-gray-600">📞 {sub.profiles?.phone}</p>
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           <span className="bg-[#f0faf4] text-[#1a5c38] text-xs font-medium px-2 py-0.5 rounded-full border border-[#c8e6d4]">
                             {sub.products?.size} × {sub.quantity}/day
@@ -2463,7 +2463,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-gray-400 mt-1.5">
+                        <p className="text-xs text-gray-600 mt-1.5">
                           Since {new Date(sub.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                           {' · '}{sub.end_date ? `Ends ${new Date(sub.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'Ongoing'}
                         </p>
@@ -2548,7 +2548,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                     <div className="w-2 h-6 rounded-full bg-gray-400" />
                     <div className="text-left">
                       <h3 className="font-[family-name:var(--font-playfair)] text-base font-bold text-gray-500">Cancelled / Inactive</h3>
-                      <p className="text-xs text-gray-400">{subscriptions.filter(s => !s.is_active).length} cancelled subscriptions</p>
+                      <p className="text-xs text-gray-600">{subscriptions.filter(s => !s.is_active).length} cancelled subscriptions</p>
                     </div>
                   </div>
                   <span className={`text-xs font-bold px-3 py-1.5 rounded-full border transition ${
@@ -2566,21 +2566,21 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                           <img src="/bottle.png" alt="Milk" className="w-full h-full object-contain grayscale" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-gray-400 line-through">{sub.profiles?.full_name}</p>
-                          <p className="text-sm text-gray-400">{sub.profiles?.area}, {sub.profiles?.apartment_name}</p>
-                          <p className="text-xs text-gray-400">📞 {sub.profiles?.phone}</p>
+                          <p className="font-semibold text-gray-600 line-through">{sub.profiles?.full_name}</p>
+                          <p className="text-sm text-gray-600">{sub.profiles?.area}, {sub.profiles?.apartment_name}</p>
+                          <p className="text-xs text-gray-600">📞 {sub.profiles?.phone}</p>
                           <div className="flex flex-wrap gap-1.5 mt-2">
-                            <span className="bg-gray-100 text-gray-400 text-xs font-medium px-2 py-0.5 rounded-full border border-gray-200 line-through">
+                            <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full border border-gray-200 line-through">
                               {sub.products?.size} × {sub.quantity}/day
                             </span>
-                            <span className="bg-gray-100 text-gray-400 text-xs font-medium px-2 py-0.5 rounded-full border border-gray-200">
+                            <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full border border-gray-200">
                               {sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
                             </span>
                             <span className="bg-red-50 text-red-500 text-xs font-bold px-2 py-0.5 rounded-full border border-red-200">
                               Cancelled
                             </span>
                             {getSubPlanLabel(sub) !== 'Ongoing' && (
-                              <span className="bg-gray-100 text-gray-400 text-xs font-medium px-2 py-0.5 rounded-full border border-gray-200">
+                              <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full border border-gray-200">
                                 {getSubPlanLabel(sub)}
                               </span>
                             )}
@@ -2590,12 +2590,12 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-gray-400 mt-1.5">
+                          <p className="text-xs text-gray-600 mt-1.5">
                             {new Date(sub.start_date).toLocaleDateString('en-IN')}
                             {' → '}{sub.end_date ? new Date(sub.end_date).toLocaleDateString('en-IN') : 'Ongoing'}
                           </p>
                           {sub.cancelled_by && (
-                            <p className="text-xs text-gray-400 mt-1">
+                            <p className="text-xs text-gray-600 mt-1">
                               {sub.cancelled_by === 'admin' ? 'Cancelled by Admin'
                                 : sub.cancelled_by === 'customer' ? 'Cancelled by Customer'
                                 : 'Cancelled by Delivery Agent'}
@@ -2633,7 +2633,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               <div className="px-6 py-5 flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Daily Auto-Deduction</h3>
-                  <p className="text-xs text-gray-400 mt-0.5">Deduct today&apos;s subscription charges from customer wallets</p>
+                  <p className="text-xs text-gray-600 mt-0.5">Deduct today&apos;s subscription charges from customer wallets</p>
                 </div>
                 <button onClick={runDailyDeductions} disabled={deductionLoading}
                   className="text-white px-5 py-2.5 rounded-xl font-bold hover:opacity-90 transition shadow text-sm disabled:opacity-60"
@@ -2649,11 +2649,11 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       <p className="text-xs text-gray-500 mt-0.5">Deducted</p>
                     </div>
                     <div className="bg-[#fdfbf7] rounded-xl p-3">
-                      <p className="text-2xl font-bold text-gray-400">{deductionResult.skipped}</p>
+                      <p className="text-2xl font-bold text-gray-600">{deductionResult.skipped}</p>
                       <p className="text-xs text-gray-500 mt-0.5">Already done</p>
                     </div>
                     <div className={`rounded-xl p-3 ${deductionResult.failed > 0 ? 'bg-red-50' : 'bg-[#fdfbf7]'}`}>
-                      <p className={`text-2xl font-bold ${deductionResult.failed > 0 ? 'text-red-500' : 'text-gray-400'}`}>{deductionResult.failed}</p>
+                      <p className={`text-2xl font-bold ${deductionResult.failed > 0 ? 'text-red-500' : 'text-gray-600'}`}>{deductionResult.failed}</p>
                       <p className="text-xs text-gray-500 mt-0.5">Low balance</p>
                     </div>
                   </div>
@@ -2662,7 +2662,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       {deductionResult.failed} customer{deductionResult.failed > 1 ? 's' : ''} have insufficient wallet balance.
                     </p>
                   )}
-                  <p className="text-xs text-gray-400 text-center">
+                  <p className="text-xs text-gray-600 text-center">
                     {deductionResult.date} &middot; {deductionResult.total} active subscription{deductionResult.total !== 1 ? 's' : ''}
                   </p>
                 </div>
@@ -2676,7 +2676,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
                 <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between">
                   <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Add New Customer</h3>
-                  <button onClick={() => setShowAddCustomer(false)} className="text-gray-400 hover:text-gray-600 text-xl font-bold">×</button>
+                  <button onClick={() => setShowAddCustomer(false)} className="text-gray-600 hover:text-gray-600 text-xl font-bold">×</button>
                 </div>
                 <form onSubmit={async e => {
                   e.preventDefault()
@@ -2781,7 +2781,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
             <div className="px-6 py-5 border-b border-[#f5f0e8] flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Customers</h3>
-                <p className="text-xs text-gray-400 mt-0.5">{customers.length} registered customers</p>
+                <p className="text-xs text-gray-600 mt-0.5">{customers.length} registered customers</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <input
@@ -2843,7 +2843,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               walletRequests.length === 0 ? (
                 <div className="px-6 py-12 text-center">
                   <div className="text-4xl mb-3">💳</div>
-                  <p className="text-gray-400 text-sm">No wallet requests</p>
+                  <p className="text-gray-600 text-sm">No wallet requests</p>
                 </div>
               ) : (
                 <div>
@@ -2852,7 +2852,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
                           <p className="font-semibold text-[#1c1c1c] text-sm">{req.target?.full_name || req.requester?.full_name}</p>
-                          <span className="text-xs text-gray-400">({req.target?.phone || req.requester?.phone})</span>
+                          <span className="text-xs text-gray-600">({req.target?.phone || req.requester?.phone})</span>
                           {req.payment_method === 'pluxee' ? (
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-200">💳 Pluxee</span>
                           ) : (
@@ -2871,12 +2871,12 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                         </p>
                         {req.txn_ref && (
                           <p className="text-xs mt-0.5">
-                            <span className="text-gray-400">Txn Ref: </span>
+                            <span className="text-gray-600">Txn Ref: </span>
                             <span className="font-mono font-semibold text-blue-700">{req.txn_ref}</span>
                           </p>
                         )}
-                        {req.note && <p className="text-xs text-gray-400 mt-0.5">{req.note}</p>}
-                        <p className="text-xs text-gray-400 mt-0.5">{new Date(req.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                        {req.note && <p className="text-xs text-gray-600 mt-0.5">{req.note}</p>}
+                        <p className="text-xs text-gray-600 mt-0.5">{new Date(req.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                       </div>
                       {req.status === 'pending' && (
                         <div className="flex flex-col gap-1.5 flex-shrink-0">
@@ -2914,7 +2914,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 </div>
 
                 {leadsLoading ? (
-                  <div className="text-center py-10 text-gray-400 text-sm">Loading leads…</div>
+                  <div className="text-center py-10 text-gray-600 text-sm">Loading leads…</div>
                 ) : (
                   <div className="bg-white rounded-xl border border-[#e8e0d0] overflow-hidden">
                     <table className="w-full text-sm">
@@ -2936,7 +2936,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                               <td className="px-4 py-3 font-medium text-[#1c1c1c]">{lead.name || '—'}</td>
                               <td className="px-4 py-3 text-gray-600">{lead.phone || '—'}</td>
                               <td className="px-4 py-3 text-gray-600 text-xs">{lead.email}</td>
-                              <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">
+                              <td className="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">
                                 {lead.created_at ? new Date(lead.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                               </td>
                               <td className="px-4 py-3">
@@ -2962,7 +2962,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                           ))}
                         {leads.filter(l => leadsFilter === 'all' || !l.converted).length === 0 && (
                           <tr>
-                            <td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-sm">No leads found</td>
+                            <td colSpan={6} className="px-4 py-10 text-center text-gray-600 text-sm">No leads found</td>
                           </tr>
                         )}
                       </tbody>
@@ -2991,7 +2991,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               if (filteredCustomers.length === 0) return (
                 <div className="px-6 py-12 text-center">
                   <div className="text-5xl mb-3">👥</div>
-                  <p className="text-gray-400 text-sm">No customers match this filter</p>
+                  <p className="text-gray-600 text-sm">No customers match this filter</p>
                 </div>
               )
               return (
@@ -3026,8 +3026,8 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-gray-400">📞 {customer.phone}</p>
-                            <p className="text-xs text-gray-400">{customer.area} • {customer.apartment_name}{customer.flat_number ? `, Flat ${customer.flat_number}` : ''}</p>
+                            <p className="text-xs text-gray-600">📞 {customer.phone}</p>
+                            <p className="text-xs text-gray-600">{customer.area} • {customer.apartment_name}{customer.flat_number ? `, Flat ${customer.flat_number}` : ''}</p>
                             {activeSub && (
                               <p className="text-xs text-[#1a5c38] font-medium mt-0.5">
                                 {activeSub.products?.size} × {activeSub.quantity} · {getSubDayLabel(activeSub)}
@@ -3064,7 +3064,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                                   Confirm
                                 </button>
                                 <button onClick={() => setInlineWallet(prev => ({ ...prev, [customer.id]: { open: null, amount: '', note: '' } }))}
-                                  className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5">✕</button>
+                                  className="text-xs text-gray-600 hover:text-gray-600 px-2 py-1.5">✕</button>
                               </div>
                             )}
                           </div>
@@ -3134,7 +3134,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       {expandedCustomer === customer.id && (
                         <div className="mt-3 border-t border-[#e8e0d0] pt-3 space-y-4">
                           {customerDetailsLoading[customer.id] ? (
-                            <p className="text-xs text-gray-400 text-center py-4">Loading...</p>
+                            <p className="text-xs text-gray-600 text-center py-4">Loading...</p>
                           ) : (() => {
                             const d = customerDetails[customer.id]
                             if (!d) return null
@@ -3185,14 +3185,14 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                                 <div>
                                   <p className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2">💳 Recent Transactions</p>
                                   {d.transactions.length === 0 ? (
-                                    <p className="text-xs text-gray-400">No transactions yet</p>
+                                    <p className="text-xs text-gray-600">No transactions yet</p>
                                   ) : (
                                     <div className="space-y-1.5 max-h-48 overflow-y-auto">
                                       {d.transactions.map(tx => (
                                         <div key={tx.id} className="flex items-center justify-between bg-white border border-[#e8e0d0] rounded-lg px-3 py-2">
                                           <div>
                                             <p className="text-xs font-medium text-[#1c1c1c] truncate max-w-[180px]">{tx.description}</p>
-                                            <p className="text-[10px] text-gray-400">{new Date(tx.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                                            <p className="text-[10px] text-gray-600">{new Date(tx.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                                           </div>
                                           <span className={`text-xs font-bold ${tx.type === 'credit' ? 'text-[#1a5c38]' : 'text-red-500'}`}>
                                             {tx.type === 'credit' ? '+' : '-'}₹{tx.amount}
@@ -3207,14 +3207,14 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                                 <div>
                                   <p className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2">🚚 Recent Deliveries</p>
                                   {d.deliveries.length === 0 ? (
-                                    <p className="text-xs text-gray-400">No deliveries yet</p>
+                                    <p className="text-xs text-gray-600">No deliveries yet</p>
                                   ) : (
                                     <div className="space-y-1.5 max-h-36 overflow-y-auto">
                                       {d.deliveries.map(del => (
                                         <div key={del.id} className="flex items-center justify-between bg-white border border-[#e8e0d0] rounded-lg px-3 py-2">
                                           <div>
                                             <p className="text-xs font-medium text-[#1c1c1c]">{del.delivery_date}</p>
-                                            <p className="text-[10px] text-gray-400">{del.subscriptions?.products?.size || 'Milk'}</p>
+                                            <p className="text-[10px] text-gray-600">{del.subscriptions?.products?.size || 'Milk'}</p>
                                           </div>
                                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${del.not_delivered ? 'bg-red-100 text-red-600' : 'bg-[#f0faf4] text-[#1a5c38]'}`}>
                                             {del.not_delivered ? 'Missed' : 'Delivered'}
@@ -3229,14 +3229,14 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                                 <div>
                                   <p className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-2">📦 Recent Orders</p>
                                   {d.orders.length === 0 ? (
-                                    <p className="text-xs text-gray-400">No orders yet</p>
+                                    <p className="text-xs text-gray-600">No orders yet</p>
                                   ) : (
                                     <div className="space-y-1.5 max-h-36 overflow-y-auto">
                                       {d.orders.map(order => (
                                         <div key={order.id} className="flex items-center justify-between bg-white border border-[#e8e0d0] rounded-lg px-3 py-2">
                                           <div>
                                             <p className="text-xs font-medium text-[#1c1c1c]">{order.products?.size} × {order.quantity}</p>
-                                            <p className="text-[10px] text-gray-400">{order.delivery_date}</p>
+                                            <p className="text-[10px] text-gray-600">{order.delivery_date}</p>
                                           </div>
                                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                             order.status === 'delivered' ? 'bg-[#f0faf4] text-[#1a5c38]' :
@@ -3284,16 +3284,16 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                           )
                         })()}
                       </div>
-                      <p className="text-sm text-gray-400">📞 {customer.phone}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="text-sm text-gray-600">📞 {customer.phone}</p>
+                      <p className="text-xs text-gray-600 mt-0.5">
                         {customer.area} • {customer.apartment_name}, Flat {customer.flat_number}
                       </p>
                       {customer.landmark && (
-                        <p className="text-xs text-gray-400">Near: {customer.landmark}</p>
+                        <p className="text-xs text-gray-600">Near: {customer.landmark}</p>
                       )}
                     </div>
                     <div className="text-right flex-shrink-0 flex flex-col items-end gap-1">
-                      <p className="text-xs text-gray-400">Joined {new Date(customer.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                      <p className="text-xs text-gray-600">Joined {new Date(customer.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                       {(() => {
                         const w = wallets.find(w => w.user_id === customer.id)
                         if (!w?.deposit_balance || w.deposit_balance <= 0) return null
@@ -3342,7 +3342,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
     <div className="px-6 py-5 flex flex-wrap items-center justify-between gap-4">
       <div>
         <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Daily Auto-Deduction</h3>
-        <p className="text-xs text-gray-400 mt-0.5">Deduct today&apos;s subscription charges from customer wallets</p>
+        <p className="text-xs text-gray-600 mt-0.5">Deduct today&apos;s subscription charges from customer wallets</p>
       </div>
       <button
         onClick={runDailyDeductions}
@@ -3360,11 +3360,11 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
             <p className="text-xs text-gray-500 mt-0.5">Deducted</p>
           </div>
           <div className="bg-[#fdfbf7] rounded-xl p-3">
-            <p className="text-2xl font-bold text-gray-400">{deductionResult.skipped}</p>
+            <p className="text-2xl font-bold text-gray-600">{deductionResult.skipped}</p>
             <p className="text-xs text-gray-500 mt-0.5">Already done</p>
           </div>
           <div className={`rounded-xl p-3 ${deductionResult.failed > 0 ? 'bg-red-50' : 'bg-[#fdfbf7]'}`}>
-            <p className={`text-2xl font-bold ${deductionResult.failed > 0 ? 'text-red-500' : 'text-gray-400'}`}>{deductionResult.failed}</p>
+            <p className={`text-2xl font-bold ${deductionResult.failed > 0 ? 'text-red-500' : 'text-gray-600'}`}>{deductionResult.failed}</p>
             <p className="text-xs text-gray-500 mt-0.5">Low balance</p>
           </div>
         </div>
@@ -3373,7 +3373,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
             {deductionResult.failed} customer{deductionResult.failed > 1 ? 's' : ''} have insufficient wallet balance — please top up their wallets.
           </p>
         )}
-        <p className="text-xs text-gray-400 text-center">
+        <p className="text-xs text-gray-600 text-center">
           {deductionResult.date} &middot; {deductionResult.total} active subscription{deductionResult.total !== 1 ? 's' : ''}
         </p>
       </div>
@@ -3387,7 +3387,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
       <div className="px-6 py-5 border-b border-[#f5f0e8] flex items-center justify-between gap-3">
         <div>
           <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Customer Wallets</h3>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-xs text-gray-600 mt-0.5">
             {walletsLastUpdated
               ? `Updated ${walletsLastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
               : 'Click customer to add balance'}
@@ -3402,7 +3402,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
       </div>
       {walletsWithProfiles.filter(w => w.profile).length === 0 ? (
         <div className="px-6 py-12 text-center">
-          <p className="text-gray-400">No wallet data yet</p>
+          <p className="text-gray-600">No wallet data yet</p>
         </div>
       ) : (
         walletsWithProfiles.filter(w => w.profile).map((w, index, arr) => {
@@ -3421,13 +3421,13 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 </div>
                 <div>
                   <p className="font-semibold text-[#1c1c1c] text-sm">{customer.full_name}</p>
-                  <p className="text-xs text-gray-400">{customer.phone}</p>
-                  <p className="text-xs text-gray-400">{customer.area}</p>
+                  <p className="text-xs text-gray-600">{customer.phone}</p>
+                  <p className="text-xs text-gray-600">{customer.area}</p>
                 </div>
               </div>
               <div className="text-right">
                 <p className="font-bold text-[#1a5c38]">₹{w.balance ?? 0}</p>
-                <p className="text-xs text-gray-400">available</p>
+                <p className="text-xs text-gray-600">available</p>
                 {w.deposit_balance > 0 && (
                   <p className="text-xs text-[#d4a017] font-semibold">🍼 Deposit: ₹{w.deposit_balance}</p>
                 )}
@@ -3447,7 +3447,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
         {!selectedCustomer ? (
           <div className="text-center py-8">
             <div className="text-4xl mb-3">👆</div>
-            <p className="text-gray-400 text-sm">Select a customer from the left to manage their wallet</p>
+            <p className="text-gray-600 text-sm">Select a customer from the left to manage their wallet</p>
           </div>
         ) : (
           <div className="flex flex-col gap-4">
@@ -3457,7 +3457,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               </div>
               <div>
                 <p className="font-semibold text-[#1c1c1c]">{selectedCustomer.full_name}</p>
-                <p className="text-sm text-gray-400">{selectedCustomer.phone}</p>
+                <p className="text-sm text-gray-600">{selectedCustomer.phone}</p>
                 <p className="text-sm font-bold text-[#1a5c38]">
                   Balance: ₹{wallets.find(w => w.user_id === selectedCustomer.id)?.balance ?? 0}
                 </p>
@@ -3571,19 +3571,19 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
         <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-3">📋 Delivery History</h3>
         <div className="flex flex-wrap items-end gap-2">
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Start Date</label>
+            <label className="block text-xs text-gray-600 mb-1">Start Date</label>
             <input type="date" value={historyStartDate}
               onChange={e => setHistoryStartDate(e.target.value)}
               className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38]" />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">End Date</label>
+            <label className="block text-xs text-gray-600 mb-1">End Date</label>
             <input type="date" value={historyEndDate}
               onChange={e => setHistoryEndDate(e.target.value)}
               className="text-xs border border-[#e8e0d0] rounded-lg px-3 py-2 focus:outline-none focus:border-[#1a5c38]" />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Agent</label>
+            <label className="block text-xs text-gray-600 mb-1">Agent</label>
             <input type="text" placeholder="Filter by agent..."
               value={historyAgentFilter}
               onChange={e => setHistoryAgentFilter(e.target.value)}
@@ -3617,7 +3617,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
         </div>
       </div>
       {historyLoading ? (
-        <div className="px-6 py-12 text-center text-gray-400 text-sm">Loading delivery history...</div>
+        <div className="px-6 py-12 text-center text-gray-600 text-sm">Loading delivery history...</div>
       ) : (() => {
         const filtered = deliveryHistory.filter(d =>
           !historyAgentFilter || d.deliveredBy?.toLowerCase().includes(historyAgentFilter.toLowerCase())
@@ -3626,7 +3626,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           return (
             <div className="px-6 py-12 text-center">
               <div className="text-5xl mb-3">📋</div>
-              <p className="text-gray-400 text-sm">No delivery records found. Click Load History to fetch data.</p>
+              <p className="text-gray-600 text-sm">No delivery records found. Click Load History to fetch data.</p>
             </div>
           )
         }
@@ -3657,7 +3657,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-[#fdfbf7] text-xs text-gray-400 uppercase tracking-widest">
+                      <thead className="bg-[#fdfbf7] text-xs text-gray-600 uppercase tracking-widest">
                         <tr>
                           <th className="px-5 py-2 text-left">Customer</th>
                           <th className="px-5 py-2 text-left">Product</th>
@@ -3672,10 +3672,10 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                           <tr key={d.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#fdfbf7]'}>
                             <td className="px-5 py-3">
                               <p className="font-semibold text-[#1c1c1c]">{d.customerName}</p>
-                              <p className="text-xs text-gray-400">{d.phone}</p>
+                              <p className="text-xs text-gray-600">{d.phone}</p>
                             </td>
                             <td className="px-5 py-3 text-[#1c1c1c]">
-                              {d.product} <span className="text-gray-400 text-xs">x{d.quantity}</span>{d.quantitySource && ['backfilled_flagged', 'unresolved_no_transaction'].includes(d.quantitySource) && (
+                              {d.product} <span className="text-gray-600 text-xs">x{d.quantity}</span>{d.quantitySource && ['backfilled_flagged', 'unresolved_no_transaction'].includes(d.quantitySource) && (
                                 <span title={d.quantitySource === 'unresolved_no_transaction' ? 'No matching wallet transaction found — quantity is a best-effort guess' : 'Backfilled from historical data — please verify'} className="text-amber-500 cursor-help ml-1">≈</span>
                               )}
                             </td>
@@ -3685,7 +3685,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                               </span>
                             </td>
                             <td className="px-5 py-3 text-gray-500 text-xs">{d.deliveredBy || '-'}</td>
-                            <td className="px-5 py-3 text-gray-400 text-xs">
+                            <td className="px-5 py-3 text-gray-600 text-xs">
                               {d.deliveredAt ? new Date(d.deliveredAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '-'}
                             </td>
                             <td className="px-5 py-3">
@@ -3735,12 +3735,12 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
       <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
         <div className="px-6 py-5 border-b border-[#f5f0e8]">
           <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Delivery Agents</h3>
-          <p className="text-xs text-gray-400 mt-0.5">{deliveryAgents.length} agents</p>
+          <p className="text-xs text-gray-600 mt-0.5">{deliveryAgents.length} agents</p>
         </div>
         {deliveryAgents.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <div className="text-4xl mb-3">🚴</div>
-            <p className="text-gray-400 text-sm">No delivery agents yet</p>
+            <p className="text-gray-600 text-sm">No delivery agents yet</p>
           </div>
         ) : (
           <div>
@@ -3762,10 +3762,10 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                         <span className="text-xs font-bold px-2 py-0.5 rounded-full border bg-[#f0faf4] text-[#1a5c38] border-[#c8e6d4]">Active</span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-400">📞 {agent.phone}</p>
-                    {agent.area && <p className="text-xs text-gray-400">{agent.area}</p>}
-                    {rec?.dl_number && <p className="text-xs text-gray-400 mt-0.5">DL: {rec.dl_number}</p>}
-                    {rec?.bike_number && <p className="text-xs text-gray-400">Bike: {rec.bike_number}</p>}
+                    <p className="text-xs text-gray-600">📞 {agent.phone}</p>
+                    {agent.area && <p className="text-xs text-gray-600">{agent.area}</p>}
+                    {rec?.dl_number && <p className="text-xs text-gray-600 mt-0.5">DL: {rec.dl_number}</p>}
+                    {rec?.bike_number && <p className="text-xs text-gray-600">Bike: {rec.bike_number}</p>}
                   </div>
                   <button
                     onClick={async () => {
@@ -3791,7 +3791,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
       <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
         <div className="px-6 py-5 border-b border-[#f5f0e8]">
           <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Add New Delivery Agent</h3>
-          <p className="text-xs text-gray-400 mt-0.5">Creates a login account and sends WhatsApp welcome</p>
+          <p className="text-xs text-gray-600 mt-0.5">Creates a login account and sends WhatsApp welcome</p>
         </div>
         <div className="px-6 py-5 flex flex-col gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -3955,12 +3955,12 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
           {/* Order list */}
           <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
             <div className="px-6 py-4 border-b border-[#f5f0e8]">
-              <p className="text-xs text-gray-400">{filtered.length} items · orders + subscriptions</p>
+              <p className="text-xs text-gray-600">{filtered.length} items · orders + subscriptions</p>
             </div>
             {filtered.length === 0 ? (
               <div className="px-6 py-12 text-center">
                 <div className="text-4xl mb-3">📭</div>
-                <p className="text-gray-400 text-sm">No orders match filters</p>
+                <p className="text-gray-600 text-sm">No orders match filters</p>
               </div>
             ) : (
               <div>
@@ -3981,15 +3981,15 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                           {item._type === 'subscription' ? '📅 Sub' : item._type === 'trial' ? '🎁 Trial' : '🛒 Order'}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-400">📞 {item._profile?.phone}</p>
-                      <p className="text-xs text-gray-400">{item._profile?.area} · {item._profile?.apartment_name}{item._profile?.flat_number ? `, Flat ${item._profile.flat_number}` : ''}</p>
+                      <p className="text-xs text-gray-600">📞 {item._profile?.phone}</p>
+                      <p className="text-xs text-gray-600">{item._profile?.area} · {item._profile?.apartment_name}{item._profile?.flat_number ? `, Flat ${item._profile.flat_number}` : ''}</p>
                       <p className="text-xs text-[#1a5c38] font-medium mt-0.5">
                         {item.products?.size} × {item.quantity} · {item.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'} · {item._date}
                       </p>
                     </div>
                     <div className="flex-shrink-0">
                       {deliveryAgents.length === 0 ? (
-                        <span className="text-xs text-gray-400 border border-[#e8e0d0] px-3 py-1.5 rounded-lg">No agents</span>
+                        <span className="text-xs text-gray-600 border border-[#e8e0d0] px-3 py-1.5 rounded-lg">No agents</span>
                       ) : (
                         <select
                           value={item.assigned_to || ''}
@@ -4024,16 +4024,16 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
 )}
 
 {activeTab === 'reviews' && !reviewsDataLoaded && (
-  <div className="text-center py-12 text-gray-400 text-sm">Loading reviews...</div>
+  <div className="text-center py-12 text-gray-600 text-sm">Loading reviews...</div>
 )}
 {activeTab === 'reviews' && reviewsDataLoaded && (
   <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
     <div className="px-6 py-5 border-b border-[#f5f0e8]">
       <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Customer Reviews</h3>
-      <p className="text-xs text-gray-400 mt-0.5">{reviews.length} total · {reviews.filter(r => r.is_approved).length} approved</p>
+      <p className="text-xs text-gray-600 mt-0.5">{reviews.length} total · {reviews.filter(r => r.is_approved).length} approved</p>
     </div>
     {reviews.length === 0 ? (
-      <div className="px-6 py-12 text-center text-gray-400 text-sm">No reviews yet.</div>
+      <div className="px-6 py-12 text-center text-gray-600 text-sm">No reviews yet.</div>
     ) : (
       <div className="divide-y divide-[#f5f0e8]">
         {reviews.map((r) => (
@@ -4045,7 +4045,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               <div className="flex items-center gap-2 mb-1">
                 <span className="font-semibold text-sm text-[#1c1c1c]">{r.profiles?.full_name || 'Customer'}</span>
                 <span className="text-[#d4a017] text-sm">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
-                <span className="text-xs text-gray-400">{new Date(r.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                <span className="text-xs text-gray-600">{new Date(r.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
               </div>
               {r.review && <p className="text-sm text-gray-600">{r.review}</p>}
               <span className={`inline-block mt-1 text-xs font-semibold px-2 py-0.5 rounded-full ${r.is_approved ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-[#fdf6e3] text-[#92400e] border border-[#f0dfa0]'}`}>
@@ -4090,7 +4090,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
 
 {/* Issue Reports Tab */}
 {activeTab === 'reports' && !reportsDataLoaded && (
-  <div className="text-center py-12 text-gray-400 text-sm">Loading reports...</div>
+  <div className="text-center py-12 text-gray-600 text-sm">Loading reports...</div>
 )}
 {activeTab === 'reports' && reportsDataLoaded && (
   <div className="flex flex-col gap-5">
@@ -4118,10 +4118,10 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
       <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
         <div className="px-6 py-5 border-b border-[#f5f0e8]">
           <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">⚠️ Missed Delivery Reports</h3>
-          <p className="text-xs text-gray-400 mt-0.5">{missedReports.length} reports total</p>
+          <p className="text-xs text-gray-600 mt-0.5">{missedReports.length} reports total</p>
         </div>
         {missedReports.length === 0 ? (
-          <div className="px-6 py-12 text-center text-gray-400 text-sm">No missed delivery reports. Great!</div>
+          <div className="px-6 py-12 text-center text-gray-600 text-sm">No missed delivery reports. Great!</div>
         ) : (
           <div className="divide-y divide-[#f5f0e8]">
             {missedReports.map((r) => {
@@ -4140,7 +4140,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                     </div>
                     <div className="text-right flex-shrink-0">
                       <span className="text-xs bg-red-50 text-red-600 border border-red-200 font-semibold px-2 py-0.5 rounded-full">Reported</span>
-                      <p className="text-xs text-gray-400 mt-1">{new Date(r.reported_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                      <p className="text-xs text-gray-600 mt-1">{new Date(r.reported_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                     </div>
                   </div>
                 </div>
@@ -4156,10 +4156,10 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
       <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
         <div className="px-6 py-5 border-b border-[#f5f0e8]">
           <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">👎 Quality Feedback</h3>
-          <p className="text-xs text-gray-400 mt-0.5">{qualityReports.length} reports</p>
+          <p className="text-xs text-gray-600 mt-0.5">{qualityReports.length} reports</p>
         </div>
         {qualityReports.length === 0 ? (
-          <div className="px-6 py-12 text-center text-gray-400 text-sm">No quality complaints. Excellent!</div>
+          <div className="px-6 py-12 text-center text-gray-600 text-sm">No quality complaints. Excellent!</div>
         ) : (
           <div className="divide-y divide-[#f5f0e8]">
             {qualityReports.map((r) => {
@@ -4174,7 +4174,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       <p className="text-xs text-gray-500 mt-0.5">📞 {r.profiles?.phone || 'N/A'} · 🥛 {r.orders?.products?.size || 'Milk'} · {dateStr}</p>
                       <p className="text-sm text-orange-700 mt-1 italic">"{r.issue}"</p>
                     </div>
-                    <p className="text-xs text-gray-400 flex-shrink-0">{new Date(r.reported_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                    <p className="text-xs text-gray-600 flex-shrink-0">{new Date(r.reported_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
                   </div>
                 </div>
               )
@@ -4189,10 +4189,10 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
       <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
         <div className="px-6 py-5 border-b border-[#f5f0e8]">
           <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">💬 Customer Suggestions</h3>
-          <p className="text-xs text-gray-400 mt-0.5">{suggestions.length} total</p>
+          <p className="text-xs text-gray-600 mt-0.5">{suggestions.length} total</p>
         </div>
         {suggestions.length === 0 ? (
-          <div className="px-6 py-12 text-center text-gray-400 text-sm">No customer suggestions yet.</div>
+          <div className="px-6 py-12 text-center text-gray-600 text-sm">No customer suggestions yet.</div>
         ) : (
           <div className="divide-y divide-[#f5f0e8]">
             {suggestions.map((s) => (
@@ -4213,7 +4213,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                     <p className="text-sm text-[#1c1c1c]">{s.message}</p>
                   </div>
                   <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                    <p className="text-xs text-gray-400">{new Date(s.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                    <p className="text-xs text-gray-600">{new Date(s.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.status === 'resolved' ? 'bg-[#f0faf4] text-[#1a5c38]' : 'bg-yellow-50 text-yellow-600'}`}>
                       {s.status === 'resolved' ? '✅ Resolved' : '⏳ Open'}
                     </span>
@@ -4247,10 +4247,10 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
       <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
         <div className="px-6 py-5 border-b border-[#f5f0e8]">
           <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">🚴 Delivery Agent Reports</h3>
-          <p className="text-xs text-gray-400 mt-0.5">{deliveryIssues.length} total</p>
+          <p className="text-xs text-gray-600 mt-0.5">{deliveryIssues.length} total</p>
         </div>
         {deliveryIssues.length === 0 ? (
-          <div className="px-6 py-12 text-center text-gray-400 text-sm">No agent reports yet.</div>
+          <div className="px-6 py-12 text-center text-gray-600 text-sm">No agent reports yet.</div>
         ) : (
           <div className="divide-y divide-[#f5f0e8]">
             {deliveryIssues.map((issue) => {
@@ -4274,7 +4274,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       <p className="text-sm text-[#1c1c1c]">{issue.message}</p>
                     </div>
                     <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                      <p className="text-xs text-gray-400">{new Date(issue.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                      <p className="text-xs text-gray-600">{new Date(issue.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${issue.status === 'resolved' ? 'bg-[#f0faf4] text-[#1a5c38]' : 'bg-yellow-50 text-yellow-600'}`}>
                         {issue.status === 'resolved' ? '✅ Resolved' : '⏳ Open'}
                       </span>
@@ -4309,10 +4309,10 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
       <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
         <div className="px-6 py-5 border-b border-[#f5f0e8]">
           <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">❌ Failed Subscription Deductions</h3>
-          <p className="text-xs text-gray-400 mt-0.5">{failedDeductions.length} total failures</p>
+          <p className="text-xs text-gray-600 mt-0.5">{failedDeductions.length} total failures</p>
         </div>
         {failedDeductions.length === 0 ? (
-          <div className="px-6 py-12 text-center text-gray-400 text-sm">No failed deductions. All subscriptions are healthy!</div>
+          <div className="px-6 py-12 text-center text-gray-600 text-sm">No failed deductions. All subscriptions are healthy!</div>
         ) : (
           <div className="divide-y divide-[#f5f0e8]">
             {failedDeductions.map((d) => (
@@ -4322,9 +4322,9 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                     <p className="font-semibold text-sm text-[#1c1c1c]">{customers.find(c => c.id === d.user_id)?.full_name || 'Customer'}</p>
                     <p className="text-xs text-gray-500 mt-0.5">📞 {customers.find(c => c.id === d.user_id)?.phone || 'N/A'} · Sub #{d.subscription_id}</p>
                     <p className="text-xs text-red-500 mt-0.5 font-medium">{d.reason}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Amount due: ₹{d.amount}</p>
+                    <p className="text-xs text-gray-600 mt-0.5">Amount due: ₹{d.amount}</p>
                   </div>
-                  <p className="text-xs text-gray-400 flex-shrink-0">{new Date(d.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                  <p className="text-xs text-gray-600 flex-shrink-0">{new Date(d.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                 </div>
               </div>
             ))}
@@ -4339,7 +4339,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
     {activeTab === 'settings' && (
       <div className="flex flex-col gap-6">
         {!settingsLoaded && (
-          <div className="text-center py-12 text-gray-400 text-sm">Loading settings...</div>
+          <div className="text-center py-12 text-gray-600 text-sm">Loading settings...</div>
         )}
         <div className={settingsLoaded ? 'flex flex-col gap-6' : 'hidden'}>
 
@@ -4362,11 +4362,11 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
               ].map(([old, replacement]) => (
                 <li key={old} className="flex items-start gap-2">
                   <span className="text-amber-500 mt-0.5">•</span>
-                  <span><span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">{old}</span> <span className="text-gray-400">→ replaced by</span> <span className="font-mono text-xs bg-[#f0faf4] text-[#1a5c38] px-1.5 py-0.5 rounded">{replacement}</span></span>
+                  <span><span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">{old}</span> <span className="text-gray-600">→ replaced by</span> <span className="font-mono text-xs bg-[#f0faf4] text-[#1a5c38] px-1.5 py-0.5 rounded">{replacement}</span></span>
                 </li>
               ))}
             </ul>
-            <p className="text-xs text-gray-400">Once deleted, set <span className="font-mono bg-gray-100 px-1 py-0.5 rounded">NEXT_PUBLIC_WHATSAPP_CLEANUP_DONE=true</span> in your Vercel environment variables to dismiss this card.</p>
+            <p className="text-xs text-gray-600">Once deleted, set <span className="font-mono bg-gray-100 px-1 py-0.5 rounded">NEXT_PUBLIC_WHATSAPP_CLEANUP_DONE=true</span> in your Vercel environment variables to dismiss this card.</p>
           </div>
         )}
 
@@ -4429,14 +4429,14 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       { field: 'price', label: 'Price (₹)', type: 'number' },
                     ].map(({ field, label, type }) => (
                       <div key={field}>
-                        <label className="block text-xs text-gray-400 mb-1">{label}</label>
+                        <label className="block text-xs text-gray-600 mb-1">{label}</label>
                         <input type={type} value={edit[field] || ''}
                           onChange={e => setEditProducts(p => ({ ...p, [product.id]: { ...edit, [field]: e.target.value } }))}
                           className="w-full border border-[#e8e0d0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#1a5c38] bg-white" />
                       </div>
                     ))}
                     <div>
-                      <label className="block text-xs text-gray-400 mb-1">Available</label>
+                      <label className="block text-xs text-gray-600 mb-1">Available</label>
                       <button
                         onClick={() => setEditProducts(p => ({ ...p, [product.id]: { ...edit, is_available: !edit.is_available } }))}
                         className={`w-full py-2 rounded-lg text-xs font-bold transition ${edit.is_available ? 'bg-[#1a5c38] text-white' : 'bg-gray-200 text-gray-500'}`}>
@@ -4461,7 +4461,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 { field: 'price', label: 'Price (₹)', placeholder: '50', type: 'number' },
               ].map(({ field, label, placeholder, type }) => (
                 <div key={field}>
-                  <label className="block text-xs text-gray-400 mb-1">{label}</label>
+                  <label className="block text-xs text-gray-600 mb-1">{label}</label>
                   <input type={type} value={newProduct[field]}
                     onChange={e => setNewProduct(p => ({ ...p, [field]: e.target.value }))}
                     placeholder={placeholder}
@@ -4469,7 +4469,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 </div>
               ))}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Available</label>
+                <label className="block text-xs text-gray-600 mb-1">Available</label>
                 <button onClick={() => setNewProduct(p => ({ ...p, is_available: !p.is_available }))}
                   className={`w-full py-2 rounded-lg text-xs font-bold transition ${newProduct.is_available ? 'bg-[#1a5c38] text-white' : 'bg-gray-200 text-gray-500'}`}>
                   {newProduct.is_available ? '✅ Available' : '❌ Disabled'}
@@ -4533,7 +4533,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 const today = new Date().toISOString().split('T')[0]
                 const upcoming = JSON.parse(appSettings.holidays || '[]').filter(d => d >= today)
                 return upcoming.length === 0
-                  ? <p className="text-xs text-gray-400 italic">No upcoming holidays scheduled</p>
+                  ? <p className="text-xs text-gray-600 italic">No upcoming holidays scheduled</p>
                   : upcoming.map(date => (
                     <div key={date} className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
                       <span className="text-sm font-semibold text-red-700">
@@ -4551,7 +4551,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
         {/* D. Pluxee Settings */}
         <div className="bg-white rounded-2xl border border-[#e8e0d0] p-6 shadow-sm">
           <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c] mb-2">💳 Pluxee (Sodexo) Settings</h3>
-          <p className="text-xs text-gray-400 mb-1">Configure your Pluxee merchant details. Customers will see the QR, Store Name, and Store ID on their Wallet page.</p>
+          <p className="text-xs text-gray-600 mb-1">Configure your Pluxee merchant details. Customers will see the QR, Store Name, and Store ID on their Wallet page.</p>
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-5">
             <p className="text-xs font-bold text-blue-700 mb-1">📡 PayU Webhook Setup (one-time)</p>
             <p className="text-xs text-blue-600 mb-1">In your PayU / Pluxee merchant portal, set the webhook callback URL to:</p>
@@ -4606,8 +4606,8 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                 <img src={appSettings.pluxee_qr_url} alt="Pluxee QR preview" className="w-24 h-24 rounded-xl border border-[#e8e0d0] object-contain bg-white p-1" />
                 <div>
                   <p className="text-xs font-semibold text-[#1c1c1c]">{appSettings.pluxee_store_name || 'Store name not set'}</p>
-                  <p className="text-xs text-gray-400">ID: {appSettings.pluxee_store_id || 'Not set'}</p>
-                  <p className="text-xs text-gray-400 mt-1">QR preview — this is what customers see.</p>
+                  <p className="text-xs text-gray-600">ID: {appSettings.pluxee_store_id || 'Not set'}</p>
+                  <p className="text-xs text-gray-600 mt-1">QR preview — this is what customers see.</p>
                 </div>
               </div>
             )}
@@ -4668,10 +4668,10 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
             </div>
           ))}
           {customerSearch && settingsCustomers.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-4">No customers found</p>
+            <p className="text-sm text-gray-600 text-center py-4">No customers found</p>
           )}
           {!customerSearch && (
-            <p className="text-sm text-gray-400 text-center py-4">Type a name or phone number to search</p>
+            <p className="text-sm text-gray-600 text-center py-4">Type a name or phone number to search</p>
           )}
         </div>
 
@@ -4722,7 +4722,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
             </div>
           </div>
           {waitlistEntries.length === 0 ? (
-            <p className="text-gray-400 text-sm text-center py-8">No waitlist entries yet</p>
+            <p className="text-gray-600 text-sm text-center py-8">No waitlist entries yet</p>
           ) : (
             Object.entries(
               waitlistEntries.reduce((groups, entry) => {
@@ -4742,7 +4742,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                     <div key={entry.id} className={`flex items-center justify-between gap-4 px-4 py-3 rounded-xl border ${entry.invited ? 'bg-[#f0faf4] border-[#c8e6d4]' : 'bg-[#f5f0e8] border-[#e8e0d0]'}`}>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm text-[#1c1c1c] truncate">{entry.name}</p>
-                        <p className="text-xs text-gray-400">📞 {entry.phone} · {new Date(entry.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                        <p className="text-xs text-gray-600">📞 {entry.phone} · {new Date(entry.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                         {entry.invited && <span className="text-xs text-[#1a5c38] font-semibold">✅ Invited</span>}
                       </div>
                       <div className="flex gap-2 flex-shrink-0">
@@ -4831,7 +4831,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
             {discountSaving ? 'Saving...' : '+ Add Code'}
           </button>
           {discountCodes.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">No discount codes yet.</p>
+            <p className="text-sm text-gray-600 text-center py-4">No discount codes yet.</p>
           ) : (
             <div className="flex flex-col gap-2">
               {discountCodes.map((dc) => (
@@ -4839,7 +4839,7 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono font-bold text-[#1a5c38]">{dc.code}</span>
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${dc.is_active ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-gray-100 text-gray-400'}`}>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${dc.is_active ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-gray-100 text-gray-600'}`}>
                         {dc.is_active ? 'Active' : 'Inactive'}
                       </span>
                       {dc.one_time_per_customer && (
@@ -4915,14 +4915,14 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
             </button>
           </div>
           {apartments.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">No apartments yet.</p>
+            <p className="text-sm text-gray-600 text-center py-4">No apartments yet.</p>
           ) : (
             <div className="flex flex-col gap-2">
               {apartments.map((apt) => (
                 <div key={apt.id} className="flex items-center gap-4 bg-[#f5f0e8] rounded-xl px-4 py-3">
                   <div className="flex-1 flex items-center gap-2">
                     <span className="font-semibold text-[#1c1c1c]">{apt.name}</span>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${apt.is_active ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-gray-100 text-gray-400'}`}>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${apt.is_active ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' : 'bg-gray-100 text-gray-600'}`}>
                       {apt.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
@@ -4975,10 +4975,10 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
         <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
           <div className="px-6 py-5 border-b border-[#f5f0e8]">
             <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">📦 Bulk Enquiries</h3>
-            <p className="text-xs text-gray-400 mt-0.5">{bulkEnquiries.length} enquiries total</p>
+            <p className="text-xs text-gray-600 mt-0.5">{bulkEnquiries.length} enquiries total</p>
           </div>
           {bulkEnquiries.length === 0 ? (
-            <div className="px-6 py-12 text-center text-gray-400 text-sm">No bulk enquiries yet.</div>
+            <div className="px-6 py-12 text-center text-gray-600 text-sm">No bulk enquiries yet.</div>
           ) : (
             <div className="divide-y divide-[#f5f0e8]">
               {bulkEnquiries.map((e) => (
@@ -4988,9 +4988,9 @@ supabase.from('subscriptions').select('*, products(size, price)').eq('user_id', 
                       <p className="font-semibold text-sm text-[#1c1c1c]">{e.name}</p>
                       {e.institution && <p className="text-xs text-gray-500 mt-0.5">🏢 {e.institution}</p>}
                       <p className="text-xs text-gray-500 mt-0.5">📞 {e.phone}{e.quantity ? ` · 🥛 ${e.quantity}` : ''}</p>
-                      {e.message && <p className="text-xs text-gray-400 mt-1 italic">"{e.message}"</p>}
+                      {e.message && <p className="text-xs text-gray-600 mt-1 italic">"{e.message}"</p>}
                     </div>
-                    <p className="text-xs text-gray-400 flex-shrink-0">{new Date(e.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                    <p className="text-xs text-gray-600 flex-shrink-0">{new Date(e.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                   </div>
                 </div>
               ))}
@@ -5115,7 +5115,7 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
                     )}
                   </div>
                   <button onClick={() => { setAddOrderCustomer(null); setAddOrderSearch('') }}
-                    className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+                    className="text-gray-600 hover:text-gray-600 text-xl leading-none">×</button>
                 </div>
               ) : (
                 <div className="relative">
@@ -5132,7 +5132,7 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
                         <button key={c.id} onClick={() => { setAddOrderCustomer(c); setAddOrderSearch(''); setAddOrderSearchResults([]) }}
                           className="w-full text-left px-4 py-3 hover:bg-[#f0faf4] transition border-b border-[#f5f0e8] last:border-0">
                           <p className="text-sm font-semibold text-[#1c1c1c]">{c.full_name}</p>
-                          <p className="text-xs text-gray-400">{c.phone} · {c.area}</p>
+                          <p className="text-xs text-gray-600">{c.phone} · {c.area}</p>
                         </button>
                       ))}
                     </div>
@@ -5230,7 +5230,7 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
               {addOrderType === 'extra' && (
                 <div>
                   <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">
-                    Delivery Dates <span className="text-gray-400 normal-case font-normal ml-1">({addOrderExtraDates.length} selected)</span>
+                    Delivery Dates <span className="text-gray-600 normal-case font-normal ml-1">({addOrderExtraDates.length} selected)</span>
                   </label>
                   <div className="flex gap-2 mb-2">
                     <input
@@ -5275,7 +5275,7 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
                         <span key={d} className="inline-flex items-center gap-1 bg-white border border-[#e8e0d0] text-xs px-2.5 py-1 rounded-full font-medium text-[#1c1c1c]">
                           {new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                           <button onClick={() => setAddOrderExtraDates(prev => prev.filter(x => x !== d))}
-                            className="text-gray-400 hover:text-red-500 transition leading-none ml-0.5">×</button>
+                            className="text-gray-600 hover:text-red-500 transition leading-none ml-0.5">×</button>
                         </span>
                       ))}
                       <button onClick={() => setAddOrderExtraDates([])}
@@ -5342,7 +5342,7 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
                               </div>
                             ))}
                           </div>
-                          <p className="text-xs text-gray-400">Enter 0 for days with no delivery.</p>
+                          <p className="text-xs text-gray-600">Enter 0 for days with no delivery.</p>
                           {addOrderProduct && (() => {
                             const p = products.find(pr => String(pr.id) === String(addOrderProduct))
                             if (!p) return null
@@ -5575,12 +5575,12 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
           <div className="bg-white rounded-2xl border border-[#e8e0d0] shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-[#f5f0e8] flex items-center justify-between">
               <h3 className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c]">Transactions</h3>
-              <span className="text-xs text-gray-400">{filtered.length} records</span>
+              <span className="text-xs text-gray-600">{filtered.length} records</span>
             </div>
             {transactionsLoading ? (
-              <div className="px-6 py-12 text-center text-gray-400 text-sm">Loading...</div>
+              <div className="px-6 py-12 text-center text-gray-600 text-sm">Loading...</div>
             ) : filtered.length === 0 ? (
-              <div className="px-6 py-12 text-center text-gray-400 text-sm">No transactions found for this period.</div>
+              <div className="px-6 py-12 text-center text-gray-600 text-sm">No transactions found for this period.</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -5599,11 +5599,11 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
                         <td className="px-4 py-3 whitespace-nowrap text-gray-500 text-xs">
                           {new Date(tx.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                           <br />
-                          <span className="text-gray-400">{new Date(tx.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span className="text-gray-600">{new Date(tx.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
                         </td>
                         <td className="px-4 py-3">
                           <p className="font-semibold text-[#1c1c1c] text-sm">{tx.profiles?.full_name || '—'}</p>
-                          <p className="text-xs text-gray-400">{tx.profiles?.phone || ''}</p>
+                          <p className="text-xs text-gray-600">{tx.profiles?.phone || ''}</p>
                         </td>
                         <td className="px-4 py-3">
                           <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
@@ -5706,7 +5706,7 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
                   onClick={() => toggleDate(str)}
                   className={`py-2 rounded-lg text-xs font-semibold border transition ${
                     pauseSubDates.includes(str) ? 'bg-amber-500 text-white border-amber-500' :
-                    alreadyPaused.includes(str) ? 'bg-gray-100 text-gray-400 border-gray-200 line-through cursor-default' :
+                    alreadyPaused.includes(str) ? 'bg-gray-100 text-gray-600 border-gray-200 line-through cursor-default' :
                     'bg-white text-gray-600 border-[#e8e0d0] hover:border-amber-400'
                   }`}>
                   {label}
@@ -5782,7 +5782,7 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
             Are you sure you want to stop this subscription for{' '}
             <strong>{stopSubPopup.profiles?.full_name}</strong>?
             <br />
-            <span className="text-xs text-gray-400">This will send an email and WhatsApp notification to the customer.</span>
+            <span className="text-xs text-gray-600">This will send an email and WhatsApp notification to the customer.</span>
           </p>
           <div className="mb-3">
             <label className="text-xs font-bold text-[#1c1c1c] uppercase tracking-widest mb-1.5 block">Cancelled by</label>
@@ -5853,7 +5853,7 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-lg text-[#1c1c1c]">Send WhatsApp</h3>
-            <button onClick={() => setCustomWaModal(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+            <button onClick={() => setCustomWaModal(null)} className="text-gray-600 hover:text-gray-600 text-2xl leading-none">×</button>
           </div>
           <p className="text-sm text-gray-500 mb-4">To: <strong className="text-[#1c1c1c]">{customWaModal.full_name}</strong> ({customWaModal.phone})</p>
           <div className="mb-4">
@@ -5985,7 +5985,7 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-bold text-lg text-[#1c1c1c]">Process Deposit Refund</h3>
-              <button onClick={() => setRefundModal(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+              <button onClick={() => setRefundModal(null)} className="text-gray-600 hover:text-gray-600 text-2xl leading-none">×</button>
             </div>
 
             <div className="bg-[#f5f0e8] rounded-xl p-4 mb-5">
@@ -6018,7 +6018,7 @@ const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkat
             </div>
 
             <div className={`rounded-xl p-4 mb-5 ${refundAmt > 0 ? 'bg-[#f0faf4] border border-[#c8e6d4]' : 'bg-[#f5f0e8]'}`}>
-              <p className="text-sm text-gray-600">{good} bottle(s) × ₹100 = <strong className={refundAmt > 0 ? 'text-[#1a5c38]' : 'text-gray-400'}>₹{refundAmt} refund</strong></p>
+              <p className="text-sm text-gray-600">{good} bottle(s) × ₹100 = <strong className={refundAmt > 0 ? 'text-[#1a5c38]' : 'text-gray-600'}>₹{refundAmt} refund</strong></p>
               {damaged > 0 && <p className="text-xs text-red-500 mt-1">{damaged} damaged bottle(s) — no refund for these</p>}
               {refundAmt > refundModal.depositBalance && <p className="text-xs text-red-500 mt-1">Refund exceeds deposit balance of ₹{refundModal.depositBalance}</p>}
             </div>

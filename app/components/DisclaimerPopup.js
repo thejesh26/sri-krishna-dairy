@@ -135,7 +135,7 @@ export default function DisclaimerPopup() {
             style={{background: checked ? 'linear-gradient(135deg, #1a5c38, #2d7a50)' : '#9ca3af'}}>
             {checked ? 'Accept & Continue' : 'Check the box above to continue'}
           </button>
-          <div className="flex justify-center gap-4 mt-3 text-xs text-gray-400">
+          <div className="flex justify-center gap-4 mt-3 text-xs text-gray-600">
             <a href="/terms-of-service" target="_blank" className="hover:text-[#1a5c38] transition">Terms</a>
             <a href="/privacy-policy" target="_blank" className="hover:text-[#1a5c38] transition">Privacy</a>
             <a href="/refund-policy" target="_blank" className="hover:text-[#1a5c38] transition">Refund Policy</a>

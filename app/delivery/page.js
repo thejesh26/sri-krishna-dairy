@@ -593,14 +593,14 @@ export default function DeliveryDashboard() {
                       <p className="font-semibold text-[#1c1c1c] text-sm">{sub.profiles?.full_name}</p>
                       <AddressBadge profile={sub.profiles} />
                     </div>
-                    <p className="text-xs text-gray-400">{sub.profiles?.apartment_name}, Flat {sub.profiles?.flat_number}</p>
-                    <p className="text-xs text-gray-400">{sub.profiles?.area}{sub.profiles?.pincode ? ` - ${sub.profiles.pincode}` : ''}</p>
+                    <p className="text-xs text-gray-600">{sub.profiles?.apartment_name}, Flat {sub.profiles?.flat_number}</p>
+                    <p className="text-xs text-gray-600">{sub.profiles?.area}{sub.profiles?.pincode ? ` - ${sub.profiles.pincode}` : ''}</p>
                     {sub.profiles?.landmark && <p className="text-xs text-[#d4a017]">📍 Near: {sub.profiles?.landmark}</p>}
                     <div className="flex items-center gap-2 mt-1">
                       <span className="bg-[#f0faf4] text-[#1a5c38] text-xs px-2 py-0.5 rounded-full">{sub.products?.size} x {sub.quantity}</span>
                       <span className="bg-[#fdf6e3] text-[#d4a017] text-xs px-2 py-0.5 rounded-full">{sub.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}</span>
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">{formatSubDateRange(sub)}</p>
+                    <p className="text-xs text-gray-600 mt-1">{formatSubDateRange(sub)}</p>
                   </div>
                   <div className="flex flex-col gap-2 flex-shrink-0">
                     <a href={`tel:${sub.profiles?.phone}`}
@@ -614,7 +614,7 @@ export default function DeliveryDashboard() {
                     {deliveredSubs.has(sub.id) ? (
                       <span className="bg-[#f0faf4] text-[#1a5c38] text-xs font-bold px-3 py-1.5 rounded-lg border border-[#c8e6d4] text-center">✅ Done</span>
                     ) : deliveringId === sub.id ? (
-                      <span className="text-xs text-gray-400 px-3 py-1.5">...</span>
+                      <span className="text-xs text-gray-600 px-3 py-1.5">...</span>
                     ) : (
                       <div className="flex flex-col gap-1.5">
                         <button
@@ -655,11 +655,11 @@ export default function DeliveryDashboard() {
                       <span className="bg-[#fdf6e3] text-[#d4a017] text-[10px] font-bold px-2 py-0.5 rounded-full border border-[#f0dfa0]">EXTRA</span>
                       <AddressBadge profile={addon.profiles} />
                     </div>
-                    <p className="text-xs text-gray-400">{addon.profiles?.apartment_name}, Flat {addon.profiles?.flat_number}</p>
-                    <p className="text-xs text-gray-400">{addon.profiles?.area}</p>
+                    <p className="text-xs text-gray-600">{addon.profiles?.apartment_name}, Flat {addon.profiles?.flat_number}</p>
+                    <p className="text-xs text-gray-600">{addon.profiles?.area}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="bg-[#fdf6e3] text-[#d4a017] text-xs px-2 py-0.5 rounded-full border border-[#f0dfa0]">{addon.products?.size} × {addon.quantity}</span>
-                      <span className="text-xs text-gray-400">{addon.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}</span>
+                      <span className="text-xs text-gray-600">{addon.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}</span>
                     </div>
                   </div>
                   <div className="flex flex-col gap-2 flex-shrink-0">
@@ -761,7 +761,7 @@ export default function DeliveryDashboard() {
               <>
                 {tomorrowSubs.length > 0 && (
                   <div>
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Subscriptions ({tomorrowSubs.length})</p>
+                    <p className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Subscriptions ({tomorrowSubs.length})</p>
                     <div className="flex flex-col gap-2">
                       {tomorrowSubs.filter(s => matchesApartmentFilter(s, apartmentFilter)).map(sub => (
                         <div key={sub.id} className="bg-white border border-[#e8e0d0] rounded-xl p-4 shadow-sm">
@@ -769,12 +769,12 @@ export default function DeliveryDashboard() {
                             <div>
                               <p className="font-semibold text-sm text-[#1c1c1c]">{sub.profiles?.full_name || 'Customer'}</p>
                               <p className="text-xs text-gray-500">{sub.profiles?.phone}</p>
-                              <p className="text-xs text-gray-400">{[sub.profiles?.flat_number, sub.profiles?.apartment_name, sub.profiles?.area].filter(Boolean).join(', ')}</p>
-                              <p className="text-xs text-gray-400 mt-0.5">{formatSubDateRange(sub)}</p>
+                              <p className="text-xs text-gray-600">{[sub.profiles?.flat_number, sub.profiles?.apartment_name, sub.profiles?.area].filter(Boolean).join(', ')}</p>
+                              <p className="text-xs text-gray-600 mt-0.5">{formatSubDateRange(sub)}</p>
                             </div>
                             <div className="text-right">
                               <span className="text-sm font-bold text-[#1a5c38]">{sub.products?.size} × {getScheduledQuantity(sub, tomorrowDate)}</span>
-                              <p className="text-xs text-gray-400 capitalize">{sub.delivery_slot}</p>
+                              <p className="text-xs text-gray-600 capitalize">{sub.delivery_slot}</p>
                             </div>
                           </div>
                         </div>
@@ -784,7 +784,7 @@ export default function DeliveryDashboard() {
                 )}
                 {tomorrowAddons.length > 0 && (
                   <div>
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Addon Orders ({tomorrowAddons.length})</p>
+                    <p className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Addon Orders ({tomorrowAddons.length})</p>
                     <div className="flex flex-col gap-2">
                       {tomorrowAddons.filter(a => matchesApartmentFilter(a, apartmentFilter)).map(ao => (
                         <div key={ao.id} className="bg-white border border-cyan-200 rounded-xl p-4 shadow-sm">
@@ -792,7 +792,7 @@ export default function DeliveryDashboard() {
                             <div>
                               <p className="font-semibold text-sm text-[#1c1c1c]">{ao.profiles?.full_name || 'Customer'}</p>
                               <p className="text-xs text-gray-500">{ao.profiles?.phone}</p>
-                              <p className="text-xs text-gray-400">{[ao.profiles?.flat_number, ao.profiles?.apartment_name, ao.profiles?.area].filter(Boolean).join(', ')}</p>
+                              <p className="text-xs text-gray-600">{[ao.profiles?.flat_number, ao.profiles?.apartment_name, ao.profiles?.area].filter(Boolean).join(', ')}</p>
                             </div>
                             <div className="text-right">
                               <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-700 font-semibold mb-1">ADDON</span>
@@ -840,7 +840,7 @@ export default function DeliveryDashboard() {
               if (allItems.length === 0) return (
                 <div className="bg-white rounded-2xl border border-[#e8e0d0] px-5 py-12 text-center shadow-sm">
                   <div className="text-5xl mb-3">📋</div>
-                  <p className="text-gray-400 text-sm">No delivery history yet.</p>
+                  <p className="text-gray-600 text-sm">No delivery history yet.</p>
                 </div>
               )
 
@@ -872,7 +872,7 @@ export default function DeliveryDashboard() {
                             {item.type === 'sub' ? '📅 Sub' : item.type === 'addon' ? '➕ Addon' : '🛒 Order'}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-400">{item.area}</p>
+                        <p className="text-xs text-gray-600">{item.area}</p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {item.photo_url && (
@@ -880,7 +880,7 @@ export default function DeliveryDashboard() {
                         )}
                         <div className="text-right">
                           <p className="text-xs font-semibold text-[#1a5c38]">{item.product}</p>
-                          <p className="text-xs text-gray-400">{item.slot === 'morning' ? '🌅' : '🌆'}</p>
+                          <p className="text-xs text-gray-600">{item.slot === 'morning' ? '🌅' : '🌆'}</p>
                         </div>
                       </div>
                     </div>
@@ -896,7 +896,7 @@ export default function DeliveryDashboard() {
           <div className="flex flex-col gap-4">
             <div className="bg-white rounded-2xl border border-[#e8e0d0] p-5 shadow-sm">
               <p className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c] mb-1">Raise Wallet Request</p>
-              <p className="text-xs text-gray-400 mb-4">Requests go to admin for approval. You cannot directly modify customer wallets.</p>
+              <p className="text-xs text-gray-600 mb-4">Requests go to admin for approval. You cannot directly modify customer wallets.</p>
               <div className="flex gap-2 mb-4">
                 <input type="text" placeholder="Search customer by name or phone..."
                   value={walletReqSearch}
@@ -950,7 +950,7 @@ export default function DeliveryDashboard() {
                   <div key={req.id} className={`px-5 py-3 flex items-center justify-between gap-3 ${idx !== walletRequests.length - 1 ? 'border-b border-[#f5f0e8]' : ''}`}>
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-[#1c1c1c]">{req.profiles?.full_name || req.target_user_id}</p>
-                      <p className="text-xs text-gray-400">{req.action === 'add' ? '+ Add' : '- Deduct'} Rs.{req.amount}{req.note ? ` · ${req.note}` : ''}</p>
+                      <p className="text-xs text-gray-600">{req.action === 'add' ? '+ Add' : '- Deduct'} Rs.{req.amount}{req.note ? ` · ${req.note}` : ''}</p>
                       <p className="text-xs text-gray-300">{new Date(req.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
                     </div>
                     <span className={`text-xs font-bold px-3 py-1 rounded-full flex-shrink-0 ${
@@ -1015,7 +1015,7 @@ export default function DeliveryDashboard() {
                         <p className="text-sm text-[#1c1c1c]">{r.message}</p>
                       </div>
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
-                        r.status === 'resolved' ? 'bg-[#f0faf4] text-[#1a5c38]' : 'bg-gray-50 text-gray-400'
+                        r.status === 'resolved' ? 'bg-[#f0faf4] text-[#1a5c38]' : 'bg-gray-50 text-gray-600'
                       }`}>
                         {r.status === 'resolved' ? '✅' : '⏳'}
                       </span>
@@ -1033,7 +1033,7 @@ export default function DeliveryDashboard() {
             {filteredOrders.length === 0 ? (
               <div className="px-5 py-12 text-center">
                 <div className="text-5xl mb-3">{activeTab === 'delivered' ? '🎉' : '📭'}</div>
-                <p className="text-gray-400 text-sm">
+                <p className="text-gray-600 text-sm">
                   {activeTab === 'delivered' ? 'No deliveries completed yet'
                    : activeTab === 'pending' ? 'No pending deliveries!'
                    : activeTab === 'out' ? 'No deliveries out yet'
@@ -1052,8 +1052,8 @@ export default function DeliveryDashboard() {
                         <p className="font-semibold text-[#1c1c1c] text-sm">{order.profiles?.full_name}</p>
                         <AddressBadge profile={order.profiles} />
                       </div>
-                      <p className="text-xs text-gray-400">{order.profiles?.apartment_name}, Flat {order.profiles?.flat_number}</p>
-                      <p className="text-xs text-gray-400">{order.profiles?.area}{order.profiles?.pincode ? ` - ${order.profiles.pincode}` : ''}</p>
+                      <p className="text-xs text-gray-600">{order.profiles?.apartment_name}, Flat {order.profiles?.flat_number}</p>
+                      <p className="text-xs text-gray-600">{order.profiles?.area}{order.profiles?.pincode ? ` - ${order.profiles.pincode}` : ''}</p>
                       {order.profiles?.landmark && <p className="text-xs text-[#d4a017]">📍 Near: {order.profiles?.landmark}</p>}
                       <div className="flex items-center gap-2 mt-1">
                         <span className="bg-[#f0faf4] text-[#1a5c38] text-xs px-2 py-0.5 rounded-full">{order.products?.size} x {order.quantity}</span>

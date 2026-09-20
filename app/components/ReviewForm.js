@@ -45,7 +45,7 @@ export default function ReviewForm({ userId, onSubmit }) {
   return (
     <div className="bg-white border border-[#e8e0d0] rounded-2xl p-6 shadow-sm">
       <p className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c] text-base mb-1">How was your experience?</p>
-      <p className="text-xs text-gray-400 mb-4">Your feedback helps us serve you better.</p>
+      <p className="text-xs text-gray-600 mb-4">Your feedback helps us serve you better.</p>
 
       {/* Star Rating */}
       <div className="flex gap-2 mb-4">
@@ -62,7 +62,7 @@ export default function ReviewForm({ userId, onSubmit }) {
           </button>
         ))}
         {rating > 0 && (
-          <span className="text-sm text-gray-400 self-center ml-1">
+          <span className="text-sm text-gray-600 self-center ml-1">
             {['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'][rating]}
           </span>
         )}

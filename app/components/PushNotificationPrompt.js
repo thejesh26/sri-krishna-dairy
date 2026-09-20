@@ -80,7 +80,7 @@ export default function PushNotificationPrompt() {
             {loading ? 'Enabling...' : 'Enable Notifications'}
           </button>
           <button onClick={handleDismiss}
-            className="px-4 py-2.5 text-gray-400 hover:text-gray-600 text-sm transition rounded-xl hover:bg-gray-50">
+            className="px-4 py-2.5 text-gray-600 hover:text-gray-800 text-sm transition rounded-xl hover:bg-gray-50">
             No thanks
           </button>
         </div>

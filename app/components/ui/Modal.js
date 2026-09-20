@@ -157,7 +157,7 @@ export default function Modal({
           </div>
           <button
             onClick={onClose}
-            className="flex-shrink-0 text-gray-400 hover:text-gray-700 transition p-1 rounded-lg hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a5c38]"
+            className="flex-shrink-0 text-gray-600 hover:text-gray-700 transition p-1 rounded-lg hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a5c38]"
             aria-label="Close"
           >
             <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16">

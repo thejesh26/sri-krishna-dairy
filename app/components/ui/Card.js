@@ -82,7 +82,7 @@ export function CardSection({ title, description, action, children, className = 
               </h3>
             )}
             {description && (
-              <p className="text-xs text-gray-400 mt-0.5">{description}</p>
+              <p className="text-xs text-gray-600 mt-0.5">{description}</p>
             )}
           </div>
           {action && <div className="flex-shrink-0">{action}</div>}

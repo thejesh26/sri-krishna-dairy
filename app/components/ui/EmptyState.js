@@ -53,7 +53,7 @@ export default function EmptyState({
         </p>
       )}
       {description && (
-        <p className={`text-gray-400 leading-relaxed ${compact ? 'text-xs' : 'text-sm'} max-w-xs`}>
+        <p className={`text-gray-600 leading-relaxed ${compact ? 'text-xs' : 'text-sm'} max-w-xs`}>
           {description}
         </p>
       )}

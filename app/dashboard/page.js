@@ -316,14 +316,14 @@ export default function Dashboard() {
           >
             <Avatar name={profile?.full_name || firstName} size="xs" />
             <span className="text-sm font-medium text-[#1c1c1c]">{firstName}</span>
-            <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            <svg className={`w-3.5 h-3.5 text-gray-600 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
           </button>
 
           {profileDropdownOpen && (
             <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-[#e8e0d0] rounded-2xl shadow-xl z-50 overflow-hidden">
               <div className="px-4 py-3 border-b border-[#f5f0e8]">
                 <p className="text-xs font-semibold text-[#1c1c1c] truncate">{profile?.full_name || firstName}</p>
-                <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+                <p className="text-xs text-gray-600 truncate">{user?.email}</p>
               </div>
               {[
                 { href: '/profile?tab=transactions', icon: '💰', label: 'My Transactions' },
@@ -455,7 +455,7 @@ export default function Dashboard() {
                   </div>
                   <div className="flex-1">
                     <p className="font-semibold text-[#1c1c1c] text-base">{nextDelivery.products?.size} Fresh Cow Milk</p>
-                    <p className="text-gray-400 text-sm mt-1">{nextDelivery.quantity} bottle(s) per day</p>
+                    <p className="text-gray-600 text-sm mt-1">{nextDelivery.quantity} bottle(s) per day</p>
                     <div className="flex items-center gap-3 mt-2">
                       <span className="bg-[#fdf6e3] text-[#d4a017] text-xs font-semibold px-3 py-1 rounded-full">
                         {nextDelivery.delivery_slot === 'morning' ? '🌅 7AM - 9AM' : '🌆 5PM - 7PM'}
@@ -466,7 +466,7 @@ export default function Dashboard() {
                     <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">
                       ₹{nextDelivery.products?.price * nextDelivery.quantity}
                     </p>
-                    <p className="text-xs text-gray-400">per day</p>
+                    <p className="text-xs text-gray-600">per day</p>
                   </div>
                 </div>
               </div>
@@ -487,7 +487,7 @@ export default function Dashboard() {
                   style={{background: color, borderColor: border}}>
                   <div className="text-3xl mb-2">{icon}</div>
                   <p className="font-semibold text-[#1c1c1c] text-sm group-hover:text-[#1a5c38] transition">{label}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+                  <p className="text-xs text-gray-600 mt-0.5">{desc}</p>
                 </a>
               ))}
             </div>
@@ -562,26 +562,26 @@ export default function Dashboard() {
                           </div>
                           <div className="text-right flex-shrink-0">
                             <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">₹{dailyAmount}</p>
-                            <p className="text-xs text-gray-400">/delivery</p>
+                            <p className="text-xs text-gray-600">/delivery</p>
                           </div>
                         </div>
 
                         {/* Stats grid */}
                         <div className="grid grid-cols-2 gap-3 mb-4">
                           <div className="bg-[#f5f0e8] rounded-xl px-4 py-3">
-                            <p className="text-xs text-gray-400 mb-0.5">Days Completed</p>
+                            <p className="text-xs text-gray-600 mb-0.5">Days Completed</p>
                             <p className="font-bold text-[#1c1c1c] text-lg">{daysCompleted}</p>
                           </div>
                           <div className="bg-[#f5f0e8] rounded-xl px-4 py-3">
-                            <p className="text-xs text-gray-400 mb-0.5">Days Remaining</p>
+                            <p className="text-xs text-gray-600 mb-0.5">Days Remaining</p>
                             <p className="font-bold text-[#1c1c1c] text-lg">{daysLeft !== null ? daysLeft : <span className="text-sm font-semibold text-[#1a5c38]">Ongoing</span>}</p>
                           </div>
                           <div className="bg-[#f0faf4] rounded-xl px-4 py-3">
-                            <p className="text-xs text-gray-400 mb-0.5">Next Delivery</p>
+                            <p className="text-xs text-gray-600 mb-0.5">Next Delivery</p>
                             <p className="font-semibold text-[#1a5c38] text-sm">{isUpcoming ? new Date(sub.start_date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }) : getNextDeliveryDate(sub)}</p>
                           </div>
                           <div className="bg-[#f0faf4] rounded-xl px-4 py-3">
-                            <p className="text-xs text-gray-400 mb-0.5">Wallet Runway</p>
+                            <p className="text-xs text-gray-600 mb-0.5">Wallet Runway</p>
                             <p className="font-semibold text-[#1a5c38] text-sm">~{walletDaysLeft} days</p>
                           </div>
                         </div>
@@ -589,7 +589,7 @@ export default function Dashboard() {
                         {/* Wallet balance + top up */}
                         <div className="flex items-center justify-between bg-[#f5f0e8] rounded-xl px-4 py-3 mb-4">
                           <div>
-                            <p className="text-xs text-gray-400">Wallet Balance</p>
+                            <p className="text-xs text-gray-600">Wallet Balance</p>
                             <p className="font-bold text-[#1c1c1c] text-base">₹{walletBalance.toFixed(2)}</p>
                           </div>
                           <a href="/wallet" className="text-xs font-bold text-white bg-[#1a5c38] px-4 py-2 rounded-lg hover:bg-[#0d3320] transition">
@@ -642,7 +642,7 @@ export default function Dashboard() {
               <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
                 <div className="px-6 py-5 border-b border-[#f5f0e8]">
                   <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">Inactive Subscriptions</h3>
-                  <p className="text-xs text-gray-400 mt-0.5">Deactivated due to low wallet balance — top up and reactivate</p>
+                  <p className="text-xs text-gray-600 mt-0.5">Deactivated due to low wallet balance — top up and reactivate</p>
                 </div>
                 {reactivateMsg && (
                   <div className={`mx-6 mt-4 px-4 py-2 rounded-lg text-sm font-medium ${reactivateMsg.startsWith('✅') ? 'bg-[#f0faf4] text-[#1a5c38]' : 'bg-red-50 text-red-700'}`}>
@@ -661,7 +661,7 @@ export default function Dashboard() {
                       </div>
                       <div className="flex-1">
                         <p className="font-semibold text-[#1c1c1c]">{sub.products?.size} Fresh Cow Milk</p>
-                        <p className="text-sm text-gray-400 mt-1">{sub.quantity} bottle/day • ₹{dailyCost}/day</p>
+                        <p className="text-sm text-gray-600 mt-1">{sub.quantity} bottle/day • ₹{dailyCost}/day</p>
                         <span className="inline-block mt-2 bg-red-50 text-red-600 text-xs font-medium px-3 py-1 rounded-full border border-red-200">Inactive</span>
                       </div>
                       <div className="text-right flex-shrink-0">
@@ -772,7 +772,7 @@ export default function Dashboard() {
                         </div>
                         <div className="flex-1">
                           <p className="font-semibold text-[#1c1c1c] text-sm">{order.products?.size} Fresh Cow Milk</p>
-                          <p className="text-xs text-gray-400 mt-1">{new Date(order.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                          <p className="text-xs text-gray-600 mt-1">{new Date(order.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
                         </div>
                         <div className="text-right flex flex-col items-end gap-1">
                           <StatusBadge status={order.status} size="sm" />
@@ -795,7 +795,7 @@ export default function Dashboard() {
                             </button>
                           )}
                           {reportedOrders.has(order.id) && (
-                            <span className="text-[10px] text-gray-400">Reported ✓</span>
+                            <span className="text-[10px] text-gray-600">Reported ✓</span>
                           )}
                           {order.status === 'delivered' && !qualitySubmitted.has(order.id) && (
                             <button onClick={() => setQualityFeedbackOpen(qualityFeedbackOpen === order.id ? null : order.id)}
@@ -804,7 +804,7 @@ export default function Dashboard() {
                             </button>
                           )}
                           {qualitySubmitted.has(order.id) && (
-                            <span className="text-[10px] text-gray-400">Feedback sent ✓</span>
+                            <span className="text-[10px] text-gray-600">Feedback sent ✓</span>
                           )}
                         </div>
                         </div>
@@ -817,7 +817,7 @@ export default function Dashboard() {
                             className="w-full border border-orange-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-orange-400 resize-none bg-white" />
                           <div className="flex gap-2 justify-end">
                             <button onClick={() => { setQualityFeedbackOpen(null); setQualityIssue('') }}
-                              className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1">Cancel</button>
+                              className="text-xs text-gray-600 hover:text-gray-600 px-2 py-1">Cancel</button>
                             <button onClick={async () => {
                               if (!qualityIssue.trim()) return
                               const { data: { session } } = await supabase.auth.getSession()
@@ -881,7 +881,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <a href="tel:8105054473" className="flex items-center gap-4 border border-[#e8e0d0] rounded-xl p-4 hover:border-[#1a5c38] transition">
                   <div className="w-12 h-12 rounded-xl bg-[#f0faf4] flex items-center justify-center text-2xl">📞</div>
-                  <div><p className="font-semibold text-[#1c1c1c]">Call Us</p><p className="text-sm text-gray-400">8105054473</p></div>
+                  <div><p className="font-semibold text-[#1c1c1c]">Call Us</p><p className="text-sm text-gray-600">8105054473</p></div>
                 </a>
                 <a href="https://wa.me/918105054473" target="_blank" className="flex items-center gap-4 border border-[#e8e0d0] rounded-xl p-4 hover:border-[#25D366] transition">
                   <div className="w-12 h-12 rounded-xl bg-[#f0faf4] flex items-center justify-center">
@@ -889,7 +889,7 @@ export default function Dashboard() {
                       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
                     </svg>
                   </div>
-                  <div><p className="font-semibold text-[#1c1c1c]">WhatsApp</p><p className="text-sm text-gray-400">Chat with us</p></div>
+                  <div><p className="font-semibold text-[#1c1c1c]">WhatsApp</p><p className="text-sm text-gray-600">Chat with us</p></div>
                 </a>
               </div>
             </div>
@@ -907,10 +907,10 @@ export default function Dashboard() {
                         {[1,2,3,4,5].map(s => (
                           <span key={s} style={{ color: s <= myReview.rating ? '#d4a017' : '#e8e0d0', fontSize: 16 }}>★</span>
                         ))}
-                        <span className="text-xs text-gray-400 ml-1">Your current rating</span>
+                        <span className="text-xs text-gray-600 ml-1">Your current rating</span>
                       </div>
                     ) : (
-                      <p className="text-xs text-gray-400 mt-1">Share your experience with our service</p>
+                      <p className="text-xs text-gray-600 mt-1">Share your experience with our service</p>
                     )}
                   </div>
                   <span className="text-[#1a5c38] font-bold text-sm">→</span>
@@ -965,7 +965,7 @@ export default function Dashboard() {
             <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
               <div className="px-6 py-5 border-b border-[#f5f0e8]">
                 <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">🔥 Delivery Streak</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Keep your streak going to unlock badges!</p>
+                <p className="text-xs text-gray-600 mt-0.5">Keep your streak going to unlock badges!</p>
               </div>
               <div className="px-6 py-5">
                 <div className="flex items-center gap-5 mb-6">
@@ -975,7 +975,7 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1c1c1c]">{profile?.streak_count || 0} Day Streak</p>
-                    <p className="text-gray-400 text-sm">consecutive delivery days</p>
+                    <p className="text-gray-600 text-sm">consecutive delivery days</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -1063,7 +1063,7 @@ export default function Dashboard() {
                           <div className="flex items-center justify-between mb-2">
                             <div>
                               <p className="text-sm font-semibold text-[#1c1c1c]">{ref.profiles?.full_name || 'Friend'}</p>
-                              <p className="text-xs text-gray-400">{new Date(ref.created_at).toLocaleDateString('en-IN')}</p>
+                              <p className="text-xs text-gray-600">{new Date(ref.created_at).toLocaleDateString('en-IN')}</p>
                             </div>
                             <span className={`text-xs font-bold px-3 py-1 rounded-full ${
                               isComplete ? 'bg-[#f0faf4] text-[#1a5c38] border border-[#c8e6d4]' :
@@ -1121,7 +1121,7 @@ export default function Dashboard() {
                       </div>
                       <div>
                         <p className="font-semibold text-[#1c1c1c] text-sm">{txn.description}</p>
-                        <p className="text-xs text-gray-400">{new Date(txn.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                        <p className="text-xs text-gray-600">{new Date(txn.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                       </div>
                     </div>
                     <p className={`font-bold ${txn.type === 'credit' ? 'text-[#1a5c38]' : 'text-red-500'}`}>
@@ -1136,7 +1136,7 @@ export default function Dashboard() {
             <div className="bg-white rounded-2xl border border-[#e8e0d0] overflow-hidden shadow-sm">
               <div className="px-6 py-5 border-b border-[#f5f0e8]">
                 <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1c1c1c]">📦 Order History</h3>
-                <p className="text-xs text-gray-400 mt-0.5">{allOrders.length} total orders</p>
+                <p className="text-xs text-gray-600 mt-0.5">{allOrders.length} total orders</p>
               </div>
               {allOrders.length === 0 ? (
                 <EmptyState icon="📦" title="No orders placed yet" compact />
@@ -1154,7 +1154,7 @@ export default function Dashboard() {
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700">TRIAL</span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="text-xs text-gray-600 mt-0.5">
                         {new Date(order.delivery_date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })} •
                         {order.delivery_slot === 'morning' ? ' 🌅 Morning' : ' 🌆 Evening'}
                       </p>
@@ -1178,7 +1178,7 @@ export default function Dashboard() {
                         </button>
                       )}
                       {reportedOrders.has(order.id) && (
-                        <span className="text-[10px] text-gray-400">Reported ✓</span>
+                        <span className="text-[10px] text-gray-600">Reported ✓</span>
                       )}
                     </div>
                   </div>
@@ -1211,7 +1211,7 @@ export default function Dashboard() {
                     <div className="text-2xl mb-2">{icon}</div>
                     <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1c1c1c]">{value}</p>
                     <p className="text-gray-500 text-xs mt-0.5">{label}</p>
-                    <p className="text-gray-400 text-xs">{unit}</p>
+                    <p className="text-gray-600 text-xs">{unit}</p>
                   </div>
                 ))}
               </div>
@@ -1224,21 +1224,21 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between py-3 border-b border-[#f5f0e8]">
                   <div>
                     <p className="font-semibold text-[#1c1c1c] text-sm">Milk from Us</p>
-                    <p className="text-xs text-gray-400">Farm-fresh, direct delivery</p>
+                    <p className="text-xs text-gray-600">Farm-fresh, direct delivery</p>
                   </div>
                   <p className="font-bold text-[#1a5c38]">₹{report.totalSpent}</p>
                 </div>
                 <div className="flex items-center justify-between py-3 border-b border-[#f5f0e8]">
                   <div>
                     <p className="font-semibold text-[#1c1c1c] text-sm">Market Price Equivalent</p>
-                    <p className="text-xs text-gray-400">Approx. retail / packaged milk cost</p>
+                    <p className="text-xs text-gray-600">Approx. retail / packaged milk cost</p>
                   </div>
                   <p className="font-bold text-gray-500">₹{report.totalSpent + report.moneySaved}</p>
                 </div>
                 <div className="flex items-center justify-between py-3">
                   <div>
                     <p className="font-semibold text-[#d4a017] text-sm">You Saved!</p>
-                    <p className="text-xs text-gray-400">This month with Sri Krishnaa Dairy</p>
+                    <p className="text-xs text-gray-600">This month with Sri Krishnaa Dairy</p>
                   </div>
                   <p className="font-bold text-[#d4a017] text-lg">₹{report.moneySaved}</p>
                 </div>
@@ -1258,7 +1258,7 @@ export default function Dashboard() {
                 const monthPrefix = `${istDate.getFullYear()}-${String(istDate.getMonth() + 1).padStart(2, '0')}`
                 const thisMonthOrders = allOrders.filter(o => o.delivery_date?.startsWith(monthPrefix) && o.status !== 'cancelled')
                 return thisMonthOrders.length === 0 ? (
-                <p className="text-gray-400 text-sm">No orders this month yet.</p>
+                <p className="text-gray-600 text-sm">No orders this month yet.</p>
               ) : (
                 <div className="flex flex-col gap-2">
                   {thisMonthOrders.map((order) => (
@@ -1326,7 +1326,7 @@ export default function Dashboard() {
           </select>
         </div>
         <div>
-          <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Tell us more <span className="text-gray-400 font-normal">(optional)</span></label>
+          <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Tell us more <span className="text-gray-600 font-normal">(optional)</span></label>
           <textarea value={subCancelDetails} onChange={e => setSubCancelDetails(e.target.value)}
             placeholder="Any feedback helps us improve..."
             rows={2} maxLength={300}
