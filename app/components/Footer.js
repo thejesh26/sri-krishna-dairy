@@ -99,9 +99,9 @@
         <div className="pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-gray-500">
           <div className="text-center sm:text-left">
             <p>© 2026 Sri Krishnaa Dairy Farms. All rights reserved.</p>
-            <p className="text-gray-600 mt-0.5">FSSAI Lic. No: <span className="text-gray-400">21225008004544</span></p>
+            <p className="text-gray-400 mt-0.5">FSSAI Lic. No: <span className="text-gray-300">21225008004544</span></p>
           </div>
-          <p className="text-gray-600">Made with ❤️ in Bangalore</p>
+          <p className="text-gray-400">Made with ❤️ in Bangalore</p>
           <div className="flex flex-wrap justify-center gap-4">
             <a href="/privacy-policy" className="hover:text-gray-300 transition">Privacy Policy</a>
             <a href="/terms-of-service" className="hover:text-gray-300 transition">Terms of Service</a>

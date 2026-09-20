@@ -21,7 +21,6 @@ function ResetPasswordContent() {
     upper:   /[A-Z]/.test(password),
     lower:   /[a-z]/.test(password),
     number:  /[0-9]/.test(password),
-    special: /[!@#$%^&*(),.?":{}|<>_\-+=[\]\\\/;'`~]/.test(password),
   }
   const isPasswordStrong = Object.values(pwdChecks).every(Boolean)
 
@@ -199,9 +198,8 @@ function ResetPasswordContent() {
                         { key: 'upper',   label: 'Uppercase letter' },
                         { key: 'lower',   label: 'Lowercase letter' },
                         { key: 'number',  label: 'Number' },
-                        { key: 'special', label: 'Special character' },
                       ].map(({ key, label }) => (
-                        <span key={key} className={`text-xs flex items-center gap-1 ${pwdChecks[key] ? 'text-[#1a5c38]' : 'text-gray-400'}`}>
+                        <span key={key} className={`text-xs flex items-center gap-1 ${pwdChecks[key] ? 'text-[#1a5c38]' : 'text-gray-500'}`}>
                           {pwdChecks[key] ? '✓' : '○'} {label}
                         </span>
                       ))}

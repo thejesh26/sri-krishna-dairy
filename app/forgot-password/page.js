@@ -48,7 +48,7 @@ export default function ForgotPassword() {
                 <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1a5c38]">
                   Forgot Password?
                 </h2>
-                <p className="text-sm text-gray-400 mt-2">
+                <p className="text-sm text-gray-600 mt-2">
                   Enter your email and we'll send you a reset link
                 </p>
               </div>
@@ -77,7 +77,7 @@ export default function ForgotPassword() {
                 </button>
               </form>
 
-              <p className="text-center text-sm text-gray-400 mt-5">
+              <p className="text-center text-sm text-gray-600 mt-5">
                 Remember your password?{' '}
                 <a href="/login" className="text-[#1a5c38] font-semibold hover:underline">Login</a>
               </p>
@@ -92,7 +92,7 @@ export default function ForgotPassword() {
                 We've sent a password reset link to:
               </p>
               <p className="font-bold text-[#1c1c1c] mb-6">{email}</p>
-              <p className="text-gray-400 text-xs mb-6">
+              <p className="text-gray-600 text-xs mb-6">
                 Click the link in the email to reset your password. Check your spam folder if you don't see it.
               </p>
               <a href="/login"
@@ -105,7 +105,7 @@ export default function ForgotPassword() {
         </div>
       </div>
 
-      <div className="text-center py-4 text-xs text-gray-400 border-t border-[#e8e0d0]">
+      <div className="text-center py-4 text-xs text-gray-600 border-t border-[#e8e0d0]">
         2025 Sri Krishnaa Dairy Farms. All rights reserved.
       </div>
 

@@ -236,7 +236,7 @@ export default function Order() {
       <div className="max-w-lg mx-auto px-6 py-8">
         <p className="text-[#d4a017] font-semibold text-sm tracking-widest uppercase text-center mb-2">3-Day Free Trial</p>
         <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1c1c1c] mb-2 text-center">Try Before You Subscribe 🥛</h2>
-        <p className="text-center text-gray-400 text-sm mb-4">Fresh milk delivered for 3 days — no subscription, no deposit</p>
+        <p className="text-center text-gray-600 text-sm mb-4">Fresh milk delivered for 3 days — no subscription, no deposit</p>
 
         {/* Raw milk safety disclaimer */}
         <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 mb-6">
@@ -295,7 +295,7 @@ export default function Order() {
         {/* Delivery Address */}
         {profile && (
           <div className="bg-white rounded-lg p-4 shadow-sm mb-6 border border-[#e8e0d0]">
-            <p className="text-xs text-gray-400 mb-1">📍 Delivering to</p>
+            <p className="text-xs text-gray-600 mb-1">📍 Delivering to</p>
             <p className="font-semibold text-[#1a5c38]">{profile.apartment_name}, Flat {profile.flat_number}</p>
             <p className="text-sm text-gray-500">{profile.address}</p>
           </div>
@@ -313,7 +313,7 @@ export default function Order() {
           {/* Product Selection */}
           <div className="bg-white rounded-lg p-5 shadow-sm border border-[#e8e0d0]">
             <p className="text-sm font-bold text-[#1c1c1c] mb-1">Select Products & Quantities</p>
-            <p className="text-xs text-gray-400 mb-4">Trial price applies — 3 days of delivery per product</p>
+            <p className="text-xs text-gray-600 mb-4">Trial price applies — 3 days of delivery per product</p>
             <div className="grid grid-cols-2 gap-3">
               {products.length === 0 && [1,2].map(i => <SkeletonProductCard key={i} />)}
               {products.map(product => {
@@ -323,7 +323,7 @@ export default function Order() {
                   <div key={product.id} className={`border-2 rounded-lg p-4 text-center transition ${qty > 0 ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0]'}`}>
                     <div className="flex justify-center mb-1"><img src="/bottle.png" alt="Milk" className="h-14 object-contain drop-shadow-md" /></div>
                     <p className="font-bold text-[#1c1c1c] text-sm">{product.size}</p>
-                    <p className="text-[#1a5c38] font-extrabold">₹{unitPrice}<span className="text-xs font-normal text-gray-400">/day</span></p>
+                    <p className="text-[#1a5c38] font-extrabold">₹{unitPrice}<span className="text-xs font-normal text-gray-600">/day</span></p>
                     <p className="text-xs text-[#d4a017] font-semibold">₹{unitPrice * 3} for 3 days</p>
                     <span className="inline-block mt-1 mb-3 text-[10px] bg-[#d4a017] text-white font-bold px-2 py-0.5 rounded-full">3-Day Trial · No Deposit</span>
                     <div className="flex items-center justify-center gap-2">
@@ -351,7 +351,7 @@ export default function Order() {
                   className={`border-2 rounded-lg p-4 text-center transition ${deliverySlot === 'morning' ? 'border-[#d4a017] bg-[#fdf6e3]' : 'border-[#e8e0d0] hover:border-[#d4a017]'}`}>
                   <div className="text-3xl mb-1">🌅</div>
                   <p className="font-bold text-[#1c1c1c] text-sm">Morning</p>
-                  <p className="text-xs text-gray-400">7AM – 9AM</p>
+                  <p className="text-xs text-gray-600">7AM – 9AM</p>
                 </button>
               )}
               {eveningEnabled && (
@@ -359,11 +359,11 @@ export default function Order() {
                   className={`border-2 rounded-lg p-4 text-center transition ${deliverySlot === 'evening' ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#1a5c38]'}`}>
                   <div className="text-3xl mb-1">🌆</div>
                   <p className="font-bold text-[#1c1c1c] text-sm">Evening</p>
-                  <p className="text-xs text-gray-400">5PM – 7PM</p>
+                  <p className="text-xs text-gray-600">5PM – 7PM</p>
                 </button>
               )}
               {!morningEnabled && !eveningEnabled && (
-                <div className="col-span-2 text-center py-4 text-gray-400 text-sm">No delivery slots available at the moment.</div>
+                <div className="col-span-2 text-center py-4 text-gray-600 text-sm">No delivery slots available at the moment.</div>
               )}
             </div>
           </div>
@@ -380,7 +380,7 @@ export default function Order() {
           {/* Trial Start Date */}
           <div className="bg-white rounded-lg p-5 shadow-sm border border-[#e8e0d0]">
             <p className="text-sm font-bold text-[#1c1c1c] mb-1">Trial Start Date</p>
-            <p className="text-xs text-gray-400 mb-3">Milk will be delivered on 3 consecutive days</p>
+            <p className="text-xs text-gray-600 mb-3">Milk will be delivered on 3 consecutive days</p>
             <input type="date" value={deliveryDate}
               onChange={(e) => setDeliveryDate(e.target.value)}
               min={getMinDate()}
@@ -388,7 +388,7 @@ export default function Order() {
             {(() => {
               const { primary, secondary } = getDateHelperText()
               return (
-                <p className="text-xs text-gray-500 mb-3">⏰ {primary}{secondary && <><br /><span className="text-gray-400">{secondary}</span></>}</p>
+                <p className="text-xs text-gray-500 mb-3">⏰ {primary}{secondary && <><br /><span className="text-gray-600">{secondary}</span></>}</p>
               )
             })()}
             {trialDates.length > 0 && (
@@ -444,7 +444,7 @@ export default function Order() {
                 <span className="text-2xl">💵</span>
                 <div>
                   <p className="font-semibold text-[#1c1c1c] text-sm">Cash on Delivery</p>
-                  <p className="text-xs text-gray-400">Pay ₹{totalPerDay}/day on each delivery</p>
+                  <p className="text-xs text-gray-600">Pay ₹{totalPerDay}/day on each delivery</p>
                 </div>
                 {paymentMethod === 'cod' && <span className="ml-auto text-[#1a5c38] font-bold text-sm">✓</span>}
               </button>
@@ -455,7 +455,7 @@ export default function Order() {
                 <span className="text-2xl">👛</span>
                 <div className="flex-1">
                   <p className="font-semibold text-[#1c1c1c] text-sm">Wallet Balance</p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-600">
                     Available: ₹{walletBalance}
                     {!canPayWallet && totalPrice > 0 && <span className="text-red-400 ml-1">· Need ₹{totalPrice - walletBalance} more</span>}
                   </p>
@@ -469,7 +469,7 @@ export default function Order() {
                 <span className="text-2xl">💳</span>
                 <div>
                   <p className="font-semibold text-[#1c1c1c] text-sm">Pay Online</p>
-                  <p className="text-xs text-gray-400">UPI / Card / Net Banking via Razorpay — ₹{totalPrice} upfront</p>
+                  <p className="text-xs text-gray-600">UPI / Card / Net Banking via Razorpay — ₹{totalPrice} upfront</p>
                 </div>
                 {paymentMethod === 'razorpay' && <span className="ml-auto text-[#1a5c38] font-bold text-sm">✓</span>}
               </button>
@@ -496,7 +496,7 @@ export default function Order() {
             </label>
           </div>
 
-          <p className="text-xs text-center text-gray-400">📱 Order confirmation will be sent to your WhatsApp number</p>
+          <p className="text-xs text-center text-gray-600">📱 Order confirmation will be sent to your WhatsApp number</p>
 
           <button type="submit"
             disabled={loading || paymentLoading || !hasItems || !agreedToTerms}

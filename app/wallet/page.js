@@ -172,7 +172,7 @@ export default function Wallet() {
         <div className="mb-6">
           <p className="text-[#d4a017] font-semibold text-xs tracking-widest uppercase mb-1">Prepaid Balance</p>
           <h2 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#1c1c1c]">My Wallet</h2>
-          <p className="text-gray-400 text-sm mt-1">Manage your prepaid balance</p>
+          <p className="text-gray-600 text-sm mt-1">Manage your prepaid balance</p>
         </div>
 
         {/* Low Balance Warnings */}
@@ -318,7 +318,7 @@ export default function Wallet() {
               <div className="flex gap-4 items-start mb-4">
                 <div className="flex-shrink-0 flex flex-col items-center gap-1.5">
                   <img src={pluxeeQrUrl} alt="Pluxee QR Code" className="w-36 h-36 rounded-xl border-2 border-[#1a5c38] object-contain bg-white p-1 shadow-sm" />
-                  <p className="text-[10px] text-gray-400 text-center">Scan with Pluxee app</p>
+                  <p className="text-[10px] text-gray-600 text-center">Scan with Pluxee app</p>
                 </div>
                 <div className="flex-1 pt-1">
                   {pluxeeStoreName && (
@@ -355,7 +355,7 @@ export default function Wallet() {
                   Wallet not credited after 10 minutes? Submit reference manually
                 </summary>
                 <div className="px-4 pb-4 pt-3 flex flex-col gap-3 border-t border-[#e8e0d0]">
-                  <p className="text-xs text-gray-400">Enter the amount you paid and the transaction reference from your Pluxee app. Admin will verify and credit your wallet.</p>
+                  <p className="text-xs text-gray-600">Enter the amount you paid and the transaction reference from your Pluxee app. Admin will verify and credit your wallet.</p>
                   <div className="grid grid-cols-3 gap-2">
                     {[200, 500, 1000].map(amt => (
                       <button key={amt}
@@ -408,7 +408,7 @@ export default function Wallet() {
                   <span className="text-xl">{icon}</span>
                   <div>
                     <p className="font-semibold text-[#1c1c1c] text-xs">{title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+                    <p className="text-xs text-gray-600 mt-0.5">{desc}</p>
                   </div>
                 </div>
               ))}
@@ -440,7 +440,7 @@ export default function Wallet() {
                       </div>
                       <div>
                         <p className="font-semibold text-[#1c1c1c] text-sm">{txn.description}</p>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs text-gray-600">
                           {new Date(txn.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </p>
                       </div>

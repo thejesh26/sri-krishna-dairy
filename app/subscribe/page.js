@@ -350,7 +350,7 @@ export default function Subscribe() {
         <div className="mb-4">
           <p className="text-[#d4a017] font-semibold text-xs tracking-widest uppercase mb-1">Daily Milk</p>
           <h2 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#1c1c1c]">Subscribe Now</h2>
-          <p className="text-gray-400 text-sm mt-1">Fresh milk delivered to your doorstep every day</p>
+          <p className="text-gray-600 text-sm mt-1">Fresh milk delivered to your doorstep every day</p>
         </div>
 
         {/* Raw milk safety disclaimer */}
@@ -421,7 +421,7 @@ export default function Subscribe() {
           <div className="bg-white rounded-xl p-4 mb-6 border border-[#e8e0d0] shadow-sm flex items-center gap-3">
             <span className="text-2xl">📍</span>
             <div>
-              <p className="text-xs text-gray-400 mb-0.5">Delivering to</p>
+              <p className="text-xs text-gray-600 mb-0.5">Delivering to</p>
               <p className="font-semibold text-[#1a5c38]">{profile.apartment_name}, Flat {profile.flat_number}</p>
               <p className="text-sm text-gray-500">{profile.area}, Bangalore</p>
             </div>
@@ -445,7 +445,7 @@ export default function Subscribe() {
                   }`}>
                   <div className="text-2xl mb-1">{icon}</div>
                   <p className="font-bold text-[#1c1c1c] text-xs">{label}</p>
-                  <p className="text-xs text-gray-400">{sub}</p>
+                  <p className="text-xs text-gray-600">{sub}</p>
                 </button>
               ))}
             </div>
@@ -501,7 +501,7 @@ export default function Subscribe() {
                   }`}>
                   <div className="text-3xl mb-1">🌅</div>
                   <p className="font-bold text-[#1c1c1c] text-sm">Morning</p>
-                  <p className="text-xs text-gray-400">7AM - 9AM</p>
+                  <p className="text-xs text-gray-600">7AM - 9AM</p>
                 </button>
               )}
               {eveningEnabled && (
@@ -511,11 +511,11 @@ export default function Subscribe() {
                   }`}>
                   <div className="text-3xl mb-1">🌆</div>
                   <p className="font-bold text-[#1c1c1c] text-sm">Evening</p>
-                  <p className="text-xs text-gray-400">5PM - 7PM</p>
+                  <p className="text-xs text-gray-600">5PM - 7PM</p>
                 </button>
               )}
               {!morningEnabled && !eveningEnabled && (
-                <div className="col-span-2 text-center py-4 text-gray-400 text-sm">
+                <div className="col-span-2 text-center py-4 text-gray-600 text-sm">
                   No delivery slots available at the moment. Please check back later.
                 </div>
               )}
@@ -538,7 +538,7 @@ export default function Subscribe() {
                   }`}>
                   <div className="text-2xl mb-1">{icon}</div>
                   <p className="font-bold text-[#1c1c1c] text-xs">{label}</p>
-                  <p className="text-xs text-gray-400">{sub}</p>
+                  <p className="text-xs text-gray-600">{sub}</p>
                 </button>
               ))}
             </div>
@@ -560,7 +560,7 @@ export default function Subscribe() {
                     </span>
                   ))}
                 </div>
-                <p className="text-xs text-gray-400">...and continuing {suffix}</p>
+                <p className="text-xs text-gray-600">...and continuing {suffix}</p>
               </div>
             )
           })()}
@@ -568,7 +568,7 @@ export default function Subscribe() {
           {/* Bottle Delivery Mode */}
           <div className="bg-white rounded-xl p-5 shadow-sm border border-[#e8e0d0]">
             <p className="text-sm font-bold text-[#1c1c1c] mb-1 font-[family-name:var(--font-playfair)]">Bottle Delivery Mode</p>
-            <p className="text-xs text-gray-400 mb-4">Choose how you want to receive your milk</p>
+            <p className="text-xs text-gray-600 mb-4">Choose how you want to receive your milk</p>
             <>
                 <div className="grid grid-cols-2 gap-3">
                   <button type="button" onClick={() => setDeliveryMode('keep_bottle')}
@@ -577,7 +577,7 @@ export default function Subscribe() {
                     }`}>
                     <div className="text-3xl mb-1">🏺</div>
                     <p className="font-bold text-[#1c1c1c] text-sm">Keep Bottle</p>
-                    <p className="text-xs text-gray-400 mt-1">₹200/bottle deposit</p>
+                    <p className="text-xs text-gray-600 mt-1">₹200/bottle deposit</p>
                     <p className="text-xs text-[#1a5c38] font-semibold">Refundable</p>
                   </button>
                   <button type="button" onClick={() => setDeliveryMode('direct')}
@@ -586,7 +586,7 @@ export default function Subscribe() {
                     }`}>
                     <div className="text-3xl mb-1">🔄</div>
                     <p className="font-bold text-[#1c1c1c] text-sm">Direct Delivery</p>
-                    <p className="text-xs text-gray-400 mt-1">Bottle taken back</p>
+                    <p className="text-xs text-gray-600 mt-1">Bottle taken back</p>
                     <p className="text-xs text-[#d4a017] font-semibold">No deposit</p>
                   </button>
                 </div>
@@ -638,7 +638,7 @@ export default function Subscribe() {
                           fixedPreset === days ? 'border-[#1a5c38] bg-[#f0faf4]' : 'border-[#e8e0d0] hover:border-[#1a5c38]'
                         }`}>
                         <p className="font-bold text-[#1c1c1c] text-xs">{label}</p>
-                        <p className="text-xs text-gray-400">{days}d</p>
+                        <p className="text-xs text-gray-600">{days}d</p>
                       </button>
                     )
                   })}
@@ -649,7 +649,7 @@ export default function Subscribe() {
                   </p>
                 )}
                 {!fixedPreset && (
-                  <p className="text-xs text-gray-400 mt-2">Select a duration preset above</p>
+                  <p className="text-xs text-gray-600 mt-2">Select a duration preset above</p>
                 )}
               </>
             )}
@@ -687,7 +687,7 @@ export default function Subscribe() {
               </div>
               <div className="flex justify-between items-center py-2 border-b border-[#f5f0e8]">
                 <span className="text-sm text-gray-600">Your wallet</span>
-                <span className={`font-bold text-sm ${walletBalance > 0 ? 'text-[#1a5c38]' : 'text-gray-400'}`}>₹{walletBalance}</span>
+                <span className={`font-bold text-sm ${walletBalance > 0 ? 'text-[#1a5c38]' : 'text-gray-600'}`}>₹{walletBalance}</span>
               </div>
               {shortfall > 0 && (
                 <div className="flex justify-between items-center mt-2">

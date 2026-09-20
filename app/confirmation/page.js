@@ -79,7 +79,7 @@ function ConfirmationContent() {
 
           {type === 'subscription' && startDate && (
             <div className="bg-[#f0faf4] border border-[#c8e6d4] rounded-xl px-5 py-4 mb-8 text-center">
-              <p className="text-xs text-gray-400 mb-1">First delivery</p>
+              <p className="text-xs text-gray-600 mb-1">First delivery</p>
               <p className="text-lg font-bold text-[#1a5c38]">
                 🥛 {new Date(startDate).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
@@ -130,7 +130,7 @@ function ConfirmationContent() {
           </p>
 
           {/* Auto redirect */}
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-600">
             Redirecting to dashboard in <span className="font-bold text-[#1a5c38]">{countdown}</span> seconds...
           </p>
 

@@ -51,7 +51,7 @@ function ReviewCard({ review, userId, sessionToken, onLikeToggle }) {
           <Avatar name={review.author} size="sm" />
           <div>
             <p className="font-semibold text-sm text-[#1c1c1c]">{review.author}</p>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-600">
               {new Date(review.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
             </p>
           </div>
@@ -89,12 +89,12 @@ function ReviewCard({ review, userId, sessionToken, onLikeToggle }) {
             {liked ? 'Helpful ✓' : 'Helpful?'}
           </Button>
         ) : (
-          <span className="text-xs text-gray-400 flex items-center gap-1" style={{ opacity: 0.45 }}>
+          <span className="text-xs text-gray-600 flex items-center gap-1" style={{ opacity: 0.45 }}>
             👍
           </span>
         )}
         {count > 0 && (
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-gray-600">
             {count} {count === 1 ? 'person found this helpful' : 'people found this helpful'}
           </span>
         )}
@@ -268,7 +268,7 @@ export default function Reviews() {
                 />
               ))}
               {!user && (
-                <p className="text-center text-xs text-gray-400">
+                <p className="text-center text-xs text-gray-600">
                   <a href="/login" className="text-[#1a5c38] font-semibold hover:underline">Login</a> to mark reviews as helpful
                 </p>
               )}
@@ -335,7 +335,7 @@ export default function Reviews() {
 
                 {/* Review Text */}
                 <p className="font-semibold text-[#1c1c1c] text-sm mb-2">
-                  Your Experience <span className="text-gray-400 font-normal">(optional)</span>
+                  Your Experience <span className="text-gray-600 font-normal">(optional)</span>
                 </p>
                 <textarea
                   value={reviewText}
@@ -345,11 +345,11 @@ export default function Reviews() {
                   rows={4}
                   className="w-full border border-[#e8e0d0] rounded-xl px-4 py-3 text-sm text-[#1c1c1c] focus:outline-none focus:border-[#1a5c38] resize-none mb-1"
                 />
-                <p className="text-xs text-gray-400 text-right mb-5">{reviewText.length}/500</p>
+                <p className="text-xs text-gray-600 text-right mb-5">{reviewText.length}/500</p>
 
                 {/* Photo Upload */}
                 <p className="font-semibold text-[#1c1c1c] text-sm mb-2">
-                  Add Photo <span className="text-gray-400 font-normal">(optional)</span>
+                  Add Photo <span className="text-gray-600 font-normal">(optional)</span>
                 </p>
                 <div className="flex items-center gap-4">
                   {(photoPreview || existingPhotoUrl) && (

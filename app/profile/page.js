@@ -183,7 +183,7 @@ function ProfileInner() {
           <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-[#1c1c1c]">
             {form.full_name || 'My Account'}
           </h2>
-          <p className="text-sm text-gray-400 mt-1">{user?.email}</p>
+          <p className="text-sm text-gray-600 mt-1">{user?.email}</p>
         </div>
 
         {/* Tabs */}
@@ -225,8 +225,8 @@ function ProfileInner() {
               <div>
                 <label className="text-xs font-semibold text-[#1c1c1c] uppercase tracking-widest mb-1 block">Email Address</label>
                 <input value={user?.email} disabled
-                  className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm bg-gray-50 text-gray-400 cursor-not-allowed" />
-                <p className="text-xs text-gray-400 mt-1">Email cannot be changed</p>
+                  className="w-full border border-[#e8e0d0] rounded-lg px-4 py-3 text-sm bg-gray-50 text-gray-600 cursor-not-allowed" />
+                <p className="text-xs text-gray-600 mt-1">Email cannot be changed</p>
               </div>
 
               {/* Delivery Address */}
@@ -328,7 +328,7 @@ function ProfileInner() {
           <div className="bg-white rounded-2xl shadow-sm border border-[#e8e0d0] overflow-hidden">
             <div className="px-6 py-4 border-b border-[#f5f0e8]">
               <h3 className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c]">My Orders</h3>
-              <p className="text-xs text-gray-400 mt-0.5">{orders.length} total orders</p>
+              <p className="text-xs text-gray-600 mt-0.5">{orders.length} total orders</p>
             </div>
 
             {ordersLoading ? (
@@ -351,7 +351,7 @@ function ProfileInner() {
                       <p className="font-semibold text-[#1c1c1c] text-sm">
                         {order.products?.size} × {order.quantity}
                       </p>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="text-xs text-gray-600 mt-0.5">
                         {new Date(order.delivery_date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
                         {' · '}
                         {order.delivery_slot === 'morning' ? '🌅 Morning' : '🌆 Evening'}
@@ -374,7 +374,7 @@ function ProfileInner() {
             <div className="px-6 py-4 border-b border-[#f5f0e8] flex items-center justify-between">
               <div>
                 <h3 className="font-[family-name:var(--font-playfair)] font-bold text-[#1c1c1c]">Transactions</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Last 50 transactions</p>
+                <p className="text-xs text-gray-600 mt-0.5">Last 50 transactions</p>
               </div>
               <a href="/wallet" className="text-xs text-[#1a5c38] font-semibold border border-[#c8e6d4] bg-[#f0faf4] px-3 py-1.5 rounded-full hover:bg-[#d4eddf] transition">
                 View Wallet →
@@ -401,7 +401,7 @@ function ProfileInner() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-[#1c1c1c] truncate">{txn.description}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="text-xs text-gray-600 mt-0.5">
                         {new Date(txn.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </p>
                     </div>

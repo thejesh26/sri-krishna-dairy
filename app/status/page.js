@@ -45,7 +45,7 @@ export default function StatusPage() {
             <span className="text-sm font-bold text-[#1a5c38]">All Systems Operational</span>
           </div>
           <h1 className="text-2xl font-bold text-[#1c1c1c] font-[family-name:var(--font-playfair)]">System Status</h1>
-          <p className="text-xs text-gray-400 mt-2">Last updated: {now} IST</p>
+          <p className="text-xs text-gray-600 mt-2">Last updated: {now} IST</p>
         </div>
 
         {/* Services */}
@@ -79,7 +79,7 @@ export default function StatusPage() {
 
       </main>
 
-      <footer className="border-t border-[#e8e0d0] px-6 py-4 text-center text-xs text-gray-400">
+      <footer className="border-t border-[#e8e0d0] px-6 py-4 text-center text-xs text-gray-600">
         © {new Date().getFullYear()} Sri Krishnaa Dairy · <a href="/" className="hover:text-[#1a5c38] transition">Back to Home</a>
       </footer>
 

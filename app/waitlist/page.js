@@ -167,7 +167,7 @@ export default function Waitlist() {
 
               {/* Email (optional) */}
               <div className="bg-white rounded-xl p-5 shadow-sm border border-[#e8e0d0]">
-                <label className="block text-sm font-bold text-[#1c1c1c] mb-2">Email <span className="text-gray-400 font-normal text-xs">(optional)</span></label>
+                <label className="block text-sm font-bold text-[#1c1c1c] mb-2">Email <span className="text-gray-600 font-normal text-xs">(optional)</span></label>
                 <input
                   type="email"
                   name="email"
@@ -186,7 +186,7 @@ export default function Waitlist() {
                 {submitting ? 'Joining...' : 'Join Priority List 🎉'}
               </button>
 
-              <p className="text-center text-xs text-gray-400">
+              <p className="text-center text-xs text-gray-600">
                 We'll WhatsApp you when slots open. No spam, ever.
               </p>
             </form>
